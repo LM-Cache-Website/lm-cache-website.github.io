@@ -15,7 +15,7 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="../examples/launching.html" rel="next" title="Launching"/>
+<link href="../examples/launching.html" rel="next" title="Basic usage"/>
 <link href="quickstart.html" rel="prev" title="Quickstart"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
@@ -82,7 +82,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../examples/launching.html">Launching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/launching.html">Basic usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/kv_blending.html">KV blending</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/backend.html">Selecting a backend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/measuring_improvements.html">Measuring improvements</a></li>
 </ul>
@@ -103,7 +105,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.html">LMCache Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.blend.html">LMCache Blend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.server.html">LMCache Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
 </ul>
 </nav>
 </div>
@@ -128,17 +132,112 @@
 <div id="content" role="main">
 <section id="lmcache-with-docker">
 <span id="docker"></span><h1>LMCache with Docker<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-with-docker"><span>#</span></a></h1>
-<p>LMCache can be used with prebuilt Docker images.</p>
-<section id="pre-requisites">
-<h2>Pre-requisites:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#pre-requisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#pre-requisites'"><span>#</span></a></h2>
+<p>LMCache offers an official Docker image for deployment.
+The image is available on Docker Hub at <a class="reference external" href="https://hub.docker.com/r/lmcache/lmcache_vllm">lmcache/lmcache_vllm</a> .</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Make sure you have Docker installed on your machine. You can install Docker from <a class="reference external" href="https://docs.docker.com/get-docker/">here</a>.</p>
 </div>
-<p>Using the Docker image:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="gp"># </span>Write<span class="w"> </span>code<span class="w"> </span>here
+<section id="pulling-the-docker-image">
+<h2>Pulling the Docker Image:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#pulling-the-docker-image" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#pulling-the-docker-image'"><span>#</span></a></h2>
+<p>To get started, pull the official Docker image with the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/lmcache_vllm:lmcache-0.1.3
 </span></code></pre></div>
 </div>
+</section>
+<section id="running-the-docker-container">
+<h2>Running the Docker Container<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-the-docker-container" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-the-docker-container'"><span>#</span></a></h2>
+<p>To run the Docker container with your specified model, follow these steps:</p>
+<ol class="arabic simple">
+<li><p>Define the Model:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># define the model here</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">model</span><span class="o">=</span>meta-llama/Llama-3.2-1B
+</span></code></pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Create Configuration and Chat Template Files</p></li>
+</ol>
+<p>Save the following YAML code to a file, such as <code class="docutils literal notranslate"><span class="pre">example.yaml</span></code>, in the LMCache repository:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">local_device</span><span class="p">:</span><span class="w"> </span><span class="s">"cpu"</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Whether retrieve() is pipelined or not</span>
+</span><span id="line-5"><span class="nt">pipelined_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span></code></pre></div>
+</div>
+<p>Save the chat template code below to a file, such as <code class="docutils literal notranslate"><span class="pre">chat-template.txt</span></code>, in the LMCache repository:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">{%- if messages[0]['role'] == 'system' -%}
+</span><span id="line-2">    {%- set system_message = messages[0]['content'] -%}
+</span><span id="line-3">    {%- set messages = messages[1:] -%}
+</span><span id="line-4">{%- else -%}
+</span><span id="line-5">    {% set system_message = '' -%}{%- endif -%}
+</span><span id="line-6">{{ bos_token + system_message }}
+</span><span id="line-7">{%- for message in messages -%}
+</span><span id="line-8">    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%}
+</span><span id="line-9">        {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
+</span><span id="line-10">    {%- endif -%}
+</span><span id="line-11">    {%- if message['role'] == 'user' -%}
+</span><span id="line-12">        {{ 'USER: ' + message['content'] + '\n' }}
+</span><span id="line-13">    {%- elif message['role'] == 'assistant' -%}
+</span><span id="line-14">        {{ 'ASSISTANT: ' + message['content'] + eos_token + '\n' }}
+</span><span id="line-15">    {%- endif -%}
+</span><span id="line-16">{%- endfor -%}
+</span><span id="line-17">{%- if add_generation_prompt -%}
+</span><span id="line-18">    {{ 'ASSISTANT:' }}
+</span><span id="line-19">{% endif %}
+</span></code></pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Run the Docker Command:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">-v<span class="w"> </span>~/.cache/huggingface:/root/.cache/huggingface<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">-v<span class="w"> </span>&lt;Path<span class="w"> </span>to<span class="w"> </span>LMCache&gt;:/etc/lmcache<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">-p<span class="w"> </span><span class="m">8000</span>:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">--env<span class="w"> </span><span class="s2">"HUGGING_FACE_HUB_TOKEN=&lt;Your Huggingface Token&gt;"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">--env<span class="w"> </span><span class="s2">"LMCACHE_CONFIG_FILE=/etc/lmcache/example.yaml"</span><span class="se">\</span>
+</span><span id="line-7">--env<span class="w"> </span><span class="s2">"VLLM_WORKER_MULTIPROC_METHOD=spawn"</span><span class="se">\</span>
+</span><span id="line-8">--ipc<span class="o">=</span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9">--network<span class="o">=</span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10">lmcache/lmcache_vllm:lmcache-0.1.3<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="nv">$model</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.7<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-12">--chat_template<span class="w"> </span>/etc/lmcache/chat-template.txt
+</span></code></pre></div>
+</div>
+</section>
+<section id="testing-the-docker-container">
+<h2>Testing the Docker Container<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#testing-the-docker-container" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#testing-the-docker-container'"><span>#</span></a></h2>
+<p>To verify the setup, you can test it using the following <code class="docutils literal notranslate"><span class="pre">curl</span></code> command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span><span class="s1">'POST'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="s1">'http://127.0.0.1:8000/v1/chat/completions'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">-H<span class="w"> </span><span class="s1">'accept: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-6"><span class="s1">    "model": "meta-llama/Llama-3.2-1B",</span>
+</span><span id="line-7"><span class="s1">    "messages": [</span>
+</span><span id="line-8"><span class="s1">    {"role": "system", "content": "You are a helpful AI coding assistant."},</span>
+</span><span id="line-9"><span class="s1">    {"role": "user", "content": "Write a segment tree implementation in python"}</span>
+</span><span id="line-10"><span class="s1">    ],</span>
+</span><span id="line-11"><span class="s1">    "max_tokens": 150</span>
+</span><span id="line-12"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="building-docker-from-source">
+<h2>Building Docker from Source<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#building-docker-from-source" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#building-docker-from-source'"><span>#</span></a></h2>
+<p>To build and run LMCache from source, use the provided Dockerfile. First, clone the LMCache repository and build the Docker image with the following commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">lmcache_version_id</span><span class="o">=</span><span class="k">$(</span>pip<span class="w"> </span>index<span class="w"> </span>versions<span class="w"> </span>lmcache<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"Available"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'{print $3}'</span><span class="k">)</span>
+</span><span id="line-2"><span class="nv">DOCKER_BUILDKIT</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>docker<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--build-arg<span class="w"> </span><span class="nv">LMCACHE_VERSION</span><span class="o">=</span><span class="nv">$lmcache_version</span><span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--target<span class="w"> </span>vllm-lmcache<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--tag<span class="w"> </span>vllm-lmcache:test<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--build-arg<span class="w"> </span><span class="nv">max_jobs</span><span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--build-arg<span class="w"> </span><span class="nv">nvcc_threads</span><span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--platform<span class="w"> </span>linux/amd64
+</span></code></pre></div>
+</div>
+<p>To run the Docker container, follow the steps in the <strong>Running the Docker Container</strong> section, but replace the image tag <code class="docutils literal notranslate"><span class="pre">lmcache/lmcache_vllm:lmcache-0.1.3</span></code> with <code class="docutils literal notranslate"><span class="pre">vllm-lmcache:test</span></code>.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -152,7 +251,7 @@
 </div>
 <div class="ml-auto">
 <a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../examples/launching.html">
-        Launching
+        Basic usage
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -161,7 +260,10 @@
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#pre-requisites'" class="reference internal" href="#pre-requisites">Pre-requisites:</a></li>
+<li><a :data-current="activeSection === '#pulling-the-docker-image'" class="reference internal" href="#pulling-the-docker-image">Pulling the Docker Image:</a></li>
+<li><a :data-current="activeSection === '#running-the-docker-container'" class="reference internal" href="#running-the-docker-container">Running the Docker Container</a></li>
+<li><a :data-current="activeSection === '#testing-the-docker-container'" class="reference internal" href="#testing-the-docker-container">Testing the Docker Container</a></li>
+<li><a :data-current="activeSection === '#building-docker-from-source'" class="reference internal" href="#building-docker-from-source">Building Docker from Source</a></li>
 </ul>
 </div>
 </aside>

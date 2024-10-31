@@ -115,7 +115,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/launching.html">Launching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/launching.html">Basic usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/kv_blending.html">KV blending</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/backend.html">Selecting a backend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/measuring_improvements.html">Measuring improvements</a></li>
 </ul>
@@ -136,7 +138,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/lmcache.html">LMCache Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/lmcache.blend.html">LMCache Blend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/lmcache.server.html">LMCache Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
 </ul>
 
 </nav>
@@ -185,180 +189,235 @@
 </span><span id="line-4"><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
 </span><span id="line-5">
 </span><span id="line-6"><span class="kn">import</span> <span class="nn">torch</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="kn">from</span> <span class="nn">lmcache.logging</span> <span class="kn">import</span> <span class="n">init_logger</span>
-</span><span id="line-9"><span class="kn">from</span> <span class="nn">lmcache.utils</span> <span class="kn">import</span> <span class="n">_lmcache_nvtx_annotate</span>
-</span><span id="line-10">
-</span><span id="line-11"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span id="line-12">
-</span><span id="line-13"><span class="n">CACHEGEN_GPU_MAX_TOKENS_PER_CHUNK</span> <span class="o">=</span> <span class="mi">256</span>
-</span><span id="line-14">
+</span><span id="line-7"><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoConfig</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="kn">from</span> <span class="nn">lmcache.logging</span> <span class="kn">import</span> <span class="n">init_logger</span>
+</span><span id="line-10"><span class="kn">from</span> <span class="nn">lmcache.utils</span> <span class="kn">import</span> <span class="n">_lmcache_nvtx_annotate</span>
+</span><span id="line-11">
+</span><span id="line-12"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="line-13">
+</span><span id="line-14"><span class="n">CACHEGEN_GPU_MAX_TOKENS_PER_CHUNK</span> <span class="o">=</span> <span class="mi">256</span>
 </span><span id="line-15">
+</span><span id="line-16">
+<div class="viewcode-block" id="QuantizationSpec">
+<a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.QuantizationSpec">[docs]</a>
+</span><span id="line-17"><span class="nd">@dataclass</span>
+</span><span id="line-18"><span class="k">class</span> <span class="nc">QuantizationSpec</span><span class="p">:</span>
+</span><span id="line-19">    <span class="n">start_layer</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-20">    <span class="n">end_layer</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-21">    <span class="n">bins</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-22">
+</span><span id="line-23">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-24">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span></div>
+
+</span><span id="line-25">
+</span><span id="line-26">
 <div class="viewcode-block" id="CacheGenConfig">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenConfig">[docs]</a>
-</span><span id="line-16"><span class="nd">@dataclass</span>
-</span><span id="line-17"><span class="k">class</span> <span class="nc">CacheGenConfig</span><span class="p">:</span>
-</span><span id="line-18">    <span class="c1"># TODO: move this class to another file like &quot;cachegen_basics.py&quot;</span>
-</span><span id="line-19">    <span class="n">key_first_layers</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-20">    <span class="n">key_second_layers</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-21">    <span class="n">key_third_layers</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-22">    <span class="n">key_first_bins</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-23">    <span class="n">key_second_bins</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-24">    <span class="n">key_third_bins</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-25">    <span class="n">value_first_layers</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-26">    <span class="n">value_first_bins</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-27">    <span class="n">value_second_bins</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-28">
-</span><span id="line-29">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-30">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-</span><span id="line-31">
+</span><span id="line-27"><span class="nd">@dataclass</span>
+</span><span id="line-28"><span class="k">class</span> <span class="nc">CacheGenConfig</span><span class="p">:</span>
+</span><span id="line-29">    <span class="c1"># TODO: move this class to another file like &quot;cachegen_basics.py&quot;</span>
+</span><span id="line-30">    <span class="n">nlayers</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-31">    <span class="n">kspecs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">QuantizationSpec</span><span class="p">]</span>
+</span><span id="line-32">    <span class="n">vspecs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">QuantizationSpec</span><span class="p">]</span>
+</span><span id="line-33">
+</span><span id="line-34">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-35">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+</span><span id="line-36">
 <div class="viewcode-block" id="CacheGenConfig.from_model_name">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenConfig.from_model_name">[docs]</a>
-</span><span id="line-32">    <span class="nd">@staticmethod</span>
-</span><span id="line-33">    <span class="k">def</span> <span class="nf">from_model_name</span><span class="p">(</span><span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenConfig&quot;</span><span class="p">:</span>
-</span><span id="line-34">        <span class="n">family_7b</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="line-35">            <span class="s2">&quot;mistralai/Mistral-7B-Instruct-v0.2&quot;</span><span class="p">,</span> <span class="s2">&quot;lmsys/longchat-7b-16k&quot;</span><span class="p">,</span>
-</span><span id="line-36">            <span class="s2">&quot;Qwen/Qwen-7B&quot;</span>
-</span><span id="line-37">        <span class="p">]</span>
-</span><span id="line-38">        <span class="n">family_8b</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">]</span>
-</span><span id="line-39">        <span class="n">family_9b</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;THUDM/glm-4-9b-chat&quot;</span><span class="p">]</span>
-</span><span id="line-40">        <span class="k">if</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_7b</span><span class="p">:</span>
-</span><span id="line-41">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
-</span><span id="line-42">                <span class="n">key_first_layers</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="line-43">                <span class="n">key_second_layers</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-</span><span id="line-44">                <span class="n">key_third_layers</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>  <span class="c1"># total layers</span>
-</span><span id="line-45">                <span class="n">key_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-46">                <span class="n">key_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-47">                <span class="n">key_third_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-48">                <span class="n">value_first_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span id="line-49">                <span class="n">value_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-50">                <span class="n">value_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-51">            <span class="p">)</span>
-</span><span id="line-52">        <span class="k">elif</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_8b</span><span class="p">:</span>
-</span><span id="line-53">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
-</span><span id="line-54">                <span class="n">key_first_layers</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="line-55">                <span class="n">key_second_layers</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-</span><span id="line-56">                <span class="n">key_third_layers</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>  <span class="c1"># total layers</span>
-</span><span id="line-57">                <span class="n">key_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-58">                <span class="n">key_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-59">                <span class="n">key_third_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-60">                <span class="n">value_first_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span id="line-61">                <span class="n">value_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-62">                <span class="n">value_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-63">            <span class="p">)</span>
-</span><span id="line-64">        <span class="c1"># TODO(Jiayi): needs tuning for better quality</span>
-</span><span id="line-65">        <span class="k">elif</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_9b</span><span class="p">:</span>
-</span><span id="line-66">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
-</span><span id="line-67">                <span class="n">key_first_layers</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="line-68">                <span class="n">key_second_layers</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-</span><span id="line-69">                <span class="n">key_third_layers</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
-</span><span id="line-70">                <span class="n">key_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-71">                <span class="n">key_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-72">                <span class="n">key_third_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-73">                <span class="n">value_first_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span id="line-74">                <span class="n">value_first_bins</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-</span><span id="line-75">                <span class="n">value_second_bins</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-</span><span id="line-76">            <span class="p">)</span>
-</span><span id="line-77">        <span class="k">else</span><span class="p">:</span>
-</span><span id="line-78">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model </span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> is not supported&quot;</span><span class="p">)</span></div>
+</span><span id="line-37">    <span class="nd">@staticmethod</span>
+</span><span id="line-38">    <span class="k">def</span> <span class="nf">from_model_name</span><span class="p">(</span><span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenConfig&quot;</span><span class="p">:</span>
+</span><span id="line-39">        <span class="n">family_7b</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-40">            <span class="s2">&quot;mistralai/Mistral-7B-Instruct-v0.2&quot;</span><span class="p">,</span> <span class="s2">&quot;lmsys/longchat-7b-16k&quot;</span><span class="p">,</span>
+</span><span id="line-41">            <span class="s2">&quot;Qwen/Qwen-7B&quot;</span>
+</span><span id="line-42">        <span class="p">]</span>
+</span><span id="line-43">        <span class="n">family_8b</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">]</span>
+</span><span id="line-44">        <span class="n">family_9b</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;THUDM/glm-4-9b-chat&quot;</span><span class="p">]</span>
+</span><span id="line-45">        <span class="k">if</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_7b</span><span class="p">:</span>
+</span><span id="line-46">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
+</span><span id="line-47">                <span class="n">nlayers</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+</span><span id="line-48">                <span class="n">kspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-49">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-50">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-51">                <span class="p">],</span>
+</span><span id="line-52">                <span class="n">vspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-53">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-54">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-55">                <span class="p">],</span>
+</span><span id="line-56">            <span class="p">)</span>
+</span><span id="line-57">        <span class="k">elif</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_8b</span><span class="p">:</span>
+</span><span id="line-58">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
+</span><span id="line-59">                <span class="n">nlayers</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+</span><span id="line-60">                <span class="n">kspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-61">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-62">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-63">                <span class="p">],</span>
+</span><span id="line-64">                <span class="n">vspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-65">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-66">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-67">                <span class="p">],</span>
+</span><span id="line-68">            <span class="p">)</span>
+</span><span id="line-69">        <span class="c1"># TODO(Jiayi): needs tuning for better quality</span>
+</span><span id="line-70">        <span class="k">elif</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">family_9b</span><span class="p">:</span>
+</span><span id="line-71">            <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
+</span><span id="line-72">                <span class="n">nlayers</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+</span><span id="line-73">                <span class="n">kspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-74">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-75">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-76">                <span class="p">],</span>
+</span><span id="line-77">                <span class="n">vspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-78">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-79">                    <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">end_layer</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-80">                <span class="p">],</span>
+</span><span id="line-81">            <span class="p">)</span>
+</span><span id="line-82">        <span class="k">else</span><span class="p">:</span>
+</span><span id="line-83">            <span class="k">try</span><span class="p">:</span>
+</span><span id="line-84">                <span class="n">config</span> <span class="o">=</span> <span class="n">AutoConfig</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+</span><span id="line-85">                <span class="c1"># Default name caught by num_hidden_layers</span>
+</span><span id="line-86">                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-87">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="line-88">                        <span class="sa">f</span><span class="s2">&quot;num_hidden_layers is None for model </span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-89">                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+</span><span id="line-90">                    <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
+</span><span id="line-91">                        <span class="n">nlayers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-92">                        <span class="n">kspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-93">                            <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span id="line-94">                                <span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-95">                                <span class="n">end_layer</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-96">                                <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-97">                        <span class="p">],</span>
+</span><span id="line-98">                        <span class="n">vspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-99">                            <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span id="line-100">                                <span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-101">                                <span class="n">end_layer</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-102">                                <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-103">                        <span class="p">],</span>
+</span><span id="line-104">                    <span class="p">)</span>
+</span><span id="line-105">                <span class="k">else</span><span class="p">:</span>
+</span><span id="line-106">                    <span class="k">return</span> <span class="n">CacheGenConfig</span><span class="p">(</span>
+</span><span id="line-107">                        <span class="n">nlayers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-108">                        <span class="n">kspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-109">                            <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-110">                                             <span class="n">end_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="line-111">                                             <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-112">                            <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span id="line-113">                                <span class="n">start_layer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="line-114">                                <span class="n">end_layer</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-115">                                <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-116">                        <span class="p">],</span>
+</span><span id="line-117">                        <span class="n">vspecs</span><span class="o">=</span><span class="p">[</span>
+</span><span id="line-118">                            <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">start_layer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-119">                                             <span class="n">end_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span id="line-120">                                             <span class="n">bins</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span id="line-121">                            <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span id="line-122">                                <span class="n">start_layer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span id="line-123">                                <span class="n">end_layer</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="p">,</span>
+</span><span id="line-124">                                <span class="n">bins</span><span class="o">=</span><span class="mi">16</span><span class="p">),</span>
+</span><span id="line-125">                        <span class="p">],</span>
+</span><span id="line-126">                    <span class="p">)</span>
+</span><span id="line-127">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="line-128">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="line-129">                    <span class="sa">f</span><span class="s2">&quot;Model </span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> not supported by CacheGenConfig&quot;</span>
+</span><span id="line-130">                <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span></div>
 </div>
 
-</span><span id="line-79">
-</span><span id="line-80">
+</span><span id="line-131">
+</span><span id="line-132">
 <div class="viewcode-block" id="CacheGenEncoderOutput">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenEncoderOutput">[docs]</a>
-</span><span id="line-81"><span class="nd">@dataclass</span>
-</span><span id="line-82"><span class="k">class</span> <span class="nc">CacheGenEncoderOutput</span><span class="p">:</span>
-</span><span id="line-83">    <span class="c1"># TODO: maybe use numpy array so that we can directly tobytes() and</span>
-</span><span id="line-84">    <span class="c1"># frombuffer() to have a better performance</span>
-</span><span id="line-85">    <span class="n">bytestream</span><span class="p">:</span> <span class="nb">bytes</span>
-</span><span id="line-86">    <span class="n">start_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-87">    <span class="n">cdf</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-88">    <span class="n">max_tensors_key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-89">    <span class="n">max_tensors_value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-90">    <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-91">    <span class="n">head_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-92">
-</span><span id="line-93">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-94">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-</span><span id="line-95">
+</span><span id="line-133"><span class="nd">@dataclass</span>
+</span><span id="line-134"><span class="k">class</span> <span class="nc">CacheGenEncoderOutput</span><span class="p">:</span>
+</span><span id="line-135">    <span class="c1"># TODO: maybe use numpy array so that we can directly tobytes() and</span>
+</span><span id="line-136">    <span class="c1"># frombuffer() to have a better performance</span>
+</span><span id="line-137">    <span class="n">bytestream</span><span class="p">:</span> <span class="nb">bytes</span>
+</span><span id="line-138">    <span class="n">start_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-139">    <span class="n">cdf</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-140">    <span class="n">max_tensors_key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-141">    <span class="n">max_tensors_value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-142">    <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-143">    <span class="n">head_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-144">
+</span><span id="line-145">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-146">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+</span><span id="line-147">
 <div class="viewcode-block" id="CacheGenEncoderOutput.to_bytes">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenEncoderOutput.to_bytes">[docs]</a>
-</span><span id="line-96">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-</span><span id="line-97"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the output to a file&quot;&quot;&quot;</span>
-</span><span id="line-98">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="line-99">            <span class="c1"># torch.save(self, f)</span>
-</span><span id="line-100">            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-</span><span id="line-101">            <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
+</span><span id="line-148">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span id="line-149"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the output to a file&quot;&quot;&quot;</span>
+</span><span id="line-150">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="line-151">            <span class="c1"># torch.save(self, f)</span>
+</span><span id="line-152">            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+</span><span id="line-153">            <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
 
-</span><span id="line-102">
+</span><span id="line-154">
 <div class="viewcode-block" id="CacheGenEncoderOutput.from_bytes">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenEncoderOutput.from_bytes">[docs]</a>
-</span><span id="line-103">    <span class="nd">@staticmethod</span>
-</span><span id="line-104">    <span class="k">def</span> <span class="nf">from_bytes</span><span class="p">(</span><span class="n">bs</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenEncoderOutput&quot;</span><span class="p">:</span>
-</span><span id="line-105">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="line-106">            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
+</span><span id="line-155">    <span class="nd">@staticmethod</span>
+</span><span id="line-156">    <span class="k">def</span> <span class="nf">from_bytes</span><span class="p">(</span><span class="n">bs</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenEncoderOutput&quot;</span><span class="p">:</span>
+</span><span id="line-157">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="line-158">            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
 </div>
 
-</span><span id="line-107">
-</span><span id="line-108">
+</span><span id="line-159">
+</span><span id="line-160">
 <div class="viewcode-block" id="CacheGenGPUBytestream">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenGPUBytestream">[docs]</a>
-</span><span id="line-109"><span class="nd">@dataclass</span>
-</span><span id="line-110"><span class="k">class</span> <span class="nc">CacheGenGPUBytestream</span><span class="p">:</span>
-</span><span id="line-111">    <span class="n">bytestream</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-112">    <span class="n">bytestream_lengths</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>  <span class="c1"># [nlayers, nchannels, bytestream_length]</span>
-</span><span id="line-113">    <span class="n">ntokens</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-114">
-</span><span id="line-115">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-116">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span></div>
+</span><span id="line-161"><span class="nd">@dataclass</span>
+</span><span id="line-162"><span class="k">class</span> <span class="nc">CacheGenGPUBytestream</span><span class="p">:</span>
+</span><span id="line-163">    <span class="n">bytestream</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-164">    <span class="n">bytestream_lengths</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>  <span class="c1"># [nlayers, nchannels, bytestream_length]</span>
+</span><span id="line-165">    <span class="n">ntokens</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-166">
+</span><span id="line-167">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-168">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span></div>
 
-</span><span id="line-117">
-</span><span id="line-118">
+</span><span id="line-169">
+</span><span id="line-170">
 <div class="viewcode-block" id="CacheGenGPUEncoderOutput">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenGPUEncoderOutput">[docs]</a>
-</span><span id="line-119"><span class="nd">@dataclass</span>
-</span><span id="line-120"><span class="k">class</span> <span class="nc">CacheGenGPUEncoderOutput</span><span class="p">:</span>
-</span><span id="line-121">    <span class="n">data_chunks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CacheGenGPUBytestream</span><span class="p">]</span>
-</span><span id="line-122">    <span class="n">cdf</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-123">    <span class="n">max_tensors_key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-124">    <span class="n">max_tensors_value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-</span><span id="line-125">    <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-126">    <span class="n">head_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-127">
-</span><span id="line-128">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-129">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-</span><span id="line-130">
+</span><span id="line-171"><span class="nd">@dataclass</span>
+</span><span id="line-172"><span class="k">class</span> <span class="nc">CacheGenGPUEncoderOutput</span><span class="p">:</span>
+</span><span id="line-173">    <span class="n">data_chunks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CacheGenGPUBytestream</span><span class="p">]</span>
+</span><span id="line-174">    <span class="n">cdf</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-175">    <span class="n">max_tensors_key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-176">    <span class="n">max_tensors_value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span id="line-177">    <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-178">    <span class="n">head_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-179">
+</span><span id="line-180">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-181">        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+</span><span id="line-182">
 <div class="viewcode-block" id="CacheGenGPUEncoderOutput.to_bytes">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenGPUEncoderOutput.to_bytes">[docs]</a>
-</span><span id="line-131">    <span class="nd">@_lmcache_nvtx_annotate</span>
-</span><span id="line-132">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-</span><span id="line-133"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the output to a file&quot;&quot;&quot;</span>
-</span><span id="line-134">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="line-135">            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-</span><span id="line-136">            <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
+</span><span id="line-183">    <span class="nd">@_lmcache_nvtx_annotate</span>
+</span><span id="line-184">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span id="line-185"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the output to a file&quot;&quot;&quot;</span>
+</span><span id="line-186">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="line-187">            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+</span><span id="line-188">            <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
 
-</span><span id="line-137">
+</span><span id="line-189">
 <div class="viewcode-block" id="CacheGenGPUEncoderOutput.from_bytes">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenGPUEncoderOutput.from_bytes">[docs]</a>
-</span><span id="line-138">    <span class="nd">@staticmethod</span>
-</span><span id="line-139">    <span class="nd">@_lmcache_nvtx_annotate</span>
-</span><span id="line-140">    <span class="k">def</span> <span class="nf">from_bytes</span><span class="p">(</span><span class="n">bs</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenGPUEncoderOutput&quot;</span><span class="p">:</span>
-</span><span id="line-141">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="line-142">            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
+</span><span id="line-190">    <span class="nd">@staticmethod</span>
+</span><span id="line-191">    <span class="nd">@_lmcache_nvtx_annotate</span>
+</span><span id="line-192">    <span class="k">def</span> <span class="nf">from_bytes</span><span class="p">(</span><span class="n">bs</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CacheGenGPUEncoderOutput&quot;</span><span class="p">:</span>
+</span><span id="line-193">        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="line-194">            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
 
-</span><span id="line-143">
+</span><span id="line-195">
 <div class="viewcode-block" id="CacheGenGPUEncoderOutput.debug_print_device">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_basics.CacheGenGPUEncoderOutput.debug_print_device">[docs]</a>
-</span><span id="line-144">    <span class="k">def</span> <span class="nf">debug_print_device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-145">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-</span><span id="line-146">            <span class="sa">f</span><span class="s2">&quot;bytestream device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bytestream</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-147">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bytestream_lengths device: &quot;</span>
-</span><span id="line-148">                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bytestream_lengths</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-149">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cdf device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cdf</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-150">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;max_tensors_key device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_tensors_key</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-151">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-</span><span id="line-152">            <span class="sa">f</span><span class="s2">&quot;max_tensors_value device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_tensors_value</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span id="line-196">    <span class="k">def</span> <span class="nf">debug_print_device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-197">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+</span><span id="line-198">            <span class="sa">f</span><span class="s2">&quot;bytestream device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bytestream</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-199">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bytestream_lengths device: &quot;</span>
+</span><span id="line-200">                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bytestream_lengths</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-201">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cdf device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cdf</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-202">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;max_tensors_key device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_tensors_key</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-203">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+</span><span id="line-204">            <span class="sa">f</span><span class="s2">&quot;max_tensors_value device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_tensors_value</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </div>
 
 </span></code></pre></div>

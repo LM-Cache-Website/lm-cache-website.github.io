@@ -115,7 +115,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/launching.html">Launching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/launching.html">Basic usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/kv_blending.html">KV blending</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/backend.html">Selecting a backend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/measuring_improvements.html">Measuring improvements</a></li>
 </ul>
@@ -551,62 +553,61 @@
 <div class="viewcode-block" id="CacheGenSerializer.make_key_bins">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_encoder.CacheGenSerializer.make_key_bins">[docs]</a>
 </span><span id="line-339">    <span class="k">def</span> <span class="nf">make_key_bins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CacheGenConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span id="line-340">        <span class="n">ret</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">key_third_layers</span><span class="p">)</span>
-</span><span id="line-341">        <span class="n">ret</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">key_third_bins</span><span class="p">)</span>
-</span><span id="line-342">        <span class="n">ret</span><span class="p">[:</span><span class="n">config</span><span class="o">.</span><span class="n">key_second_layers</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">key_second_bins</span>
-</span><span id="line-343">        <span class="n">ret</span><span class="p">[:</span><span class="n">config</span><span class="o">.</span><span class="n">key_first_layers</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">key_first_bins</span>
-</span><span id="line-344">        <span class="k">return</span> <span class="n">ret</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span></div>
+</span><span id="line-340">        <span class="n">ret</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">nlayers</span><span class="p">)</span>
+</span><span id="line-341">        <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">kspecs</span><span class="p">:</span>
+</span><span id="line-342">            <span class="n">ret</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">start_layer</span><span class="p">:</span><span class="n">spec</span><span class="o">.</span><span class="n">end_layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">bins</span>
+</span><span id="line-343">        <span class="k">return</span> <span class="n">ret</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span></div>
 
-</span><span id="line-345">
+</span><span id="line-344">
 <div class="viewcode-block" id="CacheGenSerializer.make_value_bins">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_encoder.CacheGenSerializer.make_value_bins">[docs]</a>
-</span><span id="line-346">    <span class="k">def</span> <span class="nf">make_value_bins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CacheGenConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span id="line-347">        <span class="n">ret</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">key_third_layers</span><span class="p">)</span>
-</span><span id="line-348">        <span class="n">ret</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">value_second_bins</span><span class="p">)</span>
-</span><span id="line-349">        <span class="n">ret</span><span class="p">[:</span><span class="n">config</span><span class="o">.</span><span class="n">value_first_layers</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">value_first_bins</span>
-</span><span id="line-350">        <span class="k">return</span> <span class="n">ret</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span></div>
+</span><span id="line-345">    <span class="k">def</span> <span class="nf">make_value_bins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CacheGenConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span id="line-346">        <span class="n">ret</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">nlayers</span><span class="p">)</span>
+</span><span id="line-347">        <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">vspecs</span><span class="p">:</span>
+</span><span id="line-348">            <span class="n">ret</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">start_layer</span><span class="p">:</span><span class="n">spec</span><span class="o">.</span><span class="n">end_layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">bins</span>
+</span><span id="line-349">        <span class="k">return</span> <span class="n">ret</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span></div>
 
-</span><span id="line-351">
+</span><span id="line-350">
 <div class="viewcode-block" id="CacheGenSerializer.to_bytes">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.serde.html#lmcache.storage_backend.serde.cachegen_encoder.CacheGenSerializer.to_bytes">[docs]</a>
-</span><span id="line-352">    <span class="nd">@_lmcache_nvtx_annotate</span>
-</span><span id="line-353">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-</span><span id="line-354"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="line-355"><span class="sd">        Serialize a pytorch tensor to bytes. The serialized bytes should contain</span>
-</span><span id="line-356"><span class="sd">        both the data and the metadata (shape, dtype, etc.) of the tensor.</span>
-</span><span id="line-357">
-</span><span id="line-358"><span class="sd">        Input:</span>
-</span><span id="line-359"><span class="sd">            t: the input pytorch tensor, can be on any device, in any shape,</span>
-</span><span id="line-360"><span class="sd">               with any dtype</span>
-</span><span id="line-361">
-</span><span id="line-362"><span class="sd">        Returns:</span>
-</span><span id="line-363"><span class="sd">            bytes: the serialized bytes</span>
-</span><span id="line-364"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="line-365">        <span class="c1"># Temporary fix for issue #83: encoder will have the default device 0</span>
-</span><span id="line-366">        <span class="c1"># on all the ray workers. Need to set it to the correct device.</span>
-</span><span id="line-367">        <span class="c1"># Also need to figure out why this happens.</span>
-</span><span id="line-368">        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span> <span class="o">!=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
-</span><span id="line-369">            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-</span><span id="line-370">        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
-</span><span id="line-371">            <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-</span><span id="line-372">        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
-</span><span id="line-373">            <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-</span><span id="line-374">
-</span><span id="line-375">        <span class="c1"># TODO: permute is expensive here, need a better way to do it at lower</span>
-</span><span id="line-376">        <span class="c1"># level</span>
-</span><span id="line-377">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
-</span><span id="line-378">            <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
-</span><span id="line-379"><span class="w">        </span><span class="sd">&quot;&quot;&quot; expecting a tensor of shape </span>
-</span><span id="line-380"><span class="sd">        [num_layers, 2, num_tokens, num_heads, head_size] &quot;&quot;&quot;</span>
-</span><span id="line-381">        <span class="n">ntokens</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-</span><span id="line-382">        <span class="n">output_dict</span> <span class="o">=</span> <span class="n">encode_function</span><span class="p">(</span>
-</span><span id="line-383">            <span class="n">tensor</span><span class="o">.</span><span class="n">cuda</span><span class="p">(),</span>
-</span><span id="line-384">            <span class="bp">self</span><span class="o">.</span><span class="n">cachegen_config</span><span class="p">,</span>
-</span><span id="line-385">            <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="p">,</span>
-</span><span id="line-386">            <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="p">,</span>
-</span><span id="line-387">            <span class="n">ntokens</span><span class="p">,</span>
-</span><span id="line-388">        <span class="p">)</span>
-</span><span id="line-389">        <span class="k">return</span> <span class="n">output_dict</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">()</span></div>
+</span><span id="line-351">    <span class="nd">@_lmcache_nvtx_annotate</span>
+</span><span id="line-352">    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span id="line-353"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="line-354"><span class="sd">        Serialize a pytorch tensor to bytes. The serialized bytes should contain</span>
+</span><span id="line-355"><span class="sd">        both the data and the metadata (shape, dtype, etc.) of the tensor.</span>
+</span><span id="line-356">
+</span><span id="line-357"><span class="sd">        Input:</span>
+</span><span id="line-358"><span class="sd">            t: the input pytorch tensor, can be on any device, in any shape,</span>
+</span><span id="line-359"><span class="sd">               with any dtype</span>
+</span><span id="line-360">
+</span><span id="line-361"><span class="sd">        Returns:</span>
+</span><span id="line-362"><span class="sd">            bytes: the serialized bytes</span>
+</span><span id="line-363"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="line-364">        <span class="c1"># Temporary fix for issue #83: encoder will have the default device 0</span>
+</span><span id="line-365">        <span class="c1"># on all the ray workers. Need to set it to the correct device.</span>
+</span><span id="line-366">        <span class="c1"># Also need to figure out why this happens.</span>
+</span><span id="line-367">        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span> <span class="o">!=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+</span><span id="line-368">            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span id="line-369">        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+</span><span id="line-370">            <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span id="line-371">        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+</span><span id="line-372">            <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span id="line-373">
+</span><span id="line-374">        <span class="c1"># TODO: permute is expensive here, need a better way to do it at lower</span>
+</span><span id="line-375">        <span class="c1"># level</span>
+</span><span id="line-376">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
+</span><span id="line-377">            <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+</span><span id="line-378"><span class="w">        </span><span class="sd">&quot;&quot;&quot; expecting a tensor of shape </span>
+</span><span id="line-379"><span class="sd">        [num_layers, 2, num_tokens, num_heads, head_size] &quot;&quot;&quot;</span>
+</span><span id="line-380">        <span class="n">ntokens</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+</span><span id="line-381">        <span class="n">output_dict</span> <span class="o">=</span> <span class="n">encode_function</span><span class="p">(</span>
+</span><span id="line-382">            <span class="n">tensor</span><span class="o">.</span><span class="n">cuda</span><span class="p">(),</span>
+</span><span id="line-383">            <span class="bp">self</span><span class="o">.</span><span class="n">cachegen_config</span><span class="p">,</span>
+</span><span id="line-384">            <span class="bp">self</span><span class="o">.</span><span class="n">key_bins</span><span class="p">,</span>
+</span><span id="line-385">            <span class="bp">self</span><span class="o">.</span><span class="n">value_bins</span><span class="p">,</span>
+</span><span id="line-386">            <span class="n">ntokens</span><span class="p">,</span>
+</span><span id="line-387">        <span class="p">)</span>
+</span><span id="line-388">        <span class="k">return</span> <span class="n">output_dict</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">()</span></div>
 </div>
 
 </span></code></pre></div>
