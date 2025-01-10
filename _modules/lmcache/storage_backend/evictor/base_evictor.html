@@ -15,8 +15,8 @@
     <title>lmcache.storage_backend.evictor.base_evictor | LMCache</title>
     <meta property="og:title" content="lmcache.storage_backend.evictor.base_evictor | LMCache" />
     <meta name="twitter:title" content="lmcache.storage_backend.evictor.base_evictor | LMCache" />
-      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=c5d7c51f" />
-      <link rel="stylesheet" type="text/css" href="../../../../_static/theme.css?v=ecdfb4fc" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/theme.css?v=caad1007" />
       <link rel="icon" href="../../../../_static/lmcache-logo.png" />
         <link rel="search" title="Search" href="../../../../search.html" />
         <link rel="index" title="Index" href="../../../../genindex.html" />
@@ -183,123 +183,123 @@
 
     <div id="content" role="main">
       <h1>Source code for lmcache.storage_backend.evictor.base_evictor</h1><div class="highlight"><pre>
-<span></span><code><span id="line-1"><span class="kn">import</span> <span class="nn">abc</span>
-</span><span id="line-2"><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-</span><span id="line-3"><span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-</span><span id="line-4"><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
-</span><span id="line-5">
-</span><span id="line-6"><span class="kn">import</span> <span class="nn">torch</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="kn">from</span> <span class="nn">lmcache.logging</span> <span class="kn">import</span> <span class="n">init_logger</span>
-</span><span id="line-9"><span class="kn">from</span> <span class="nn">lmcache.storage_backend.mem_pool</span> <span class="kn">import</span> <span class="n">KVObj</span>
-</span><span id="line-10"><span class="kn">from</span> <span class="nn">lmcache.utils</span> <span class="kn">import</span> <span class="n">CacheEngineKey</span><span class="p">,</span> <span class="n">DiskCacheMetadata</span>
-</span><span id="line-11">
-</span><span id="line-12"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span id="line-13">
-</span><span id="line-14">
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.storage_backend.mem_pool</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVObj</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheEngineKey</span><span class="p">,</span> <span class="n">DiskCacheMetadata</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="PutStatus">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.PutStatus">[docs]</a>
-</span><span id="line-15"><span class="k">class</span> <span class="nc">PutStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-</span><span id="line-16">    <span class="n">LEGAL</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="line-17">    <span class="n">ILLEGAL</span> <span class="o">=</span> <span class="mi">2</span></div>
+<span class="k">class</span><span class="w"> </span><span class="nc">PutStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">LEGAL</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">ILLEGAL</span> <span class="o">=</span> <span class="mi">2</span></div>
 
-</span><span id="line-18">
-</span><span id="line-19">
+
+
 <div class="viewcode-block" id="BaseEvictor">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.BaseEvictor">[docs]</a>
-</span><span id="line-20"><span class="k">class</span> <span class="nc">BaseEvictor</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
-</span><span id="line-21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="line-22"><span class="sd">    Interface for cache evictor</span>
-</span><span id="line-23"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="line-24">
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseEvictor</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Interface for cache evictor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="BaseEvictor.update_on_get">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.BaseEvictor.update_on_get">[docs]</a>
-</span><span id="line-25">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-</span><span id="line-26">    <span class="k">def</span> <span class="nf">update_on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
-</span><span id="line-27">                      <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-28"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="line-29"><span class="sd">        Update cache_dict when a cache is used is used</span>
-</span><span id="line-30">
-</span><span id="line-31"><span class="sd">        Input:</span>
-</span><span id="line-32"><span class="sd">            key: a CacheEngineKey</span>
-</span><span id="line-33"><span class="sd">            cache_dict: a dict consists of current cache</span>
-</span><span id="line-34"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="line-35">        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                      <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update cache_dict when a cache is used is used</span>
 
-</span><span id="line-36">
+<span class="sd">        Input:</span>
+<span class="sd">            key: a CacheEngineKey</span>
+<span class="sd">            cache_dict: a dict consists of current cache</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
 <div class="viewcode-block" id="BaseEvictor.update_on_put">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.BaseEvictor.update_on_put">[docs]</a>
-</span><span id="line-37">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-</span><span id="line-38">    <span class="k">def</span> <span class="nf">update_on_put</span><span class="p">(</span>
-</span><span id="line-39">            <span class="bp">self</span><span class="p">,</span> <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">cache_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-40">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">PutStatus</span><span class="p">]:</span>
-</span><span id="line-41"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="line-42"><span class="sd">        Evict cache when a new cache comes and the storage is full</span>
-</span><span id="line-43">
-</span><span id="line-44"><span class="sd">        Input:</span>
-</span><span id="line-45"><span class="sd">            cache_dict: a dict consists of current cache</span>
-</span><span id="line-46"><span class="sd">            kv_obj: the new kv cache to be injected</span>
-</span><span id="line-47"><span class="sd">        </span>
-</span><span id="line-48"><span class="sd">        Return:</span>
-</span><span id="line-49"><span class="sd">            return a key to be evicted</span>
-</span><span id="line-50"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="line-51">        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_on_put</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">cache_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">PutStatus</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evict cache when a new cache comes and the storage is full</span>
 
-</span><span id="line-52">
-</span><span id="line-53">    <span class="c1"># TODO (Jiayi): KV object should have a better abstraction</span>
-</span><span id="line-54">    <span class="c1"># e.g., a kv_obj class wize size field</span>
+<span class="sd">        Input:</span>
+<span class="sd">            cache_dict: a dict consists of current cache</span>
+<span class="sd">            kv_obj: the new kv cache to be injected</span>
+<span class="sd">        </span>
+<span class="sd">        Return:</span>
+<span class="sd">            return a key to be evicted</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+    <span class="c1"># TODO (Jiayi): KV object should have a better abstraction</span>
+    <span class="c1"># e.g., a kv_obj class wize size field</span>
 <div class="viewcode-block" id="BaseEvictor.get_size">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.BaseEvictor.get_size">[docs]</a>
-</span><span id="line-55">    <span class="k">def</span> <span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kv_obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">KVObj</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-56"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="line-57"><span class="sd">        Get the size of the kv cache</span>
-</span><span id="line-58"><span class="sd">        </span>
-</span><span id="line-59"><span class="sd">        Input:</span>
-</span><span id="line-60"><span class="sd">            kv_obj: kv cache</span>
-</span><span id="line-61">
-</span><span id="line-62"><span class="sd">        Return:</span>
-</span><span id="line-63"><span class="sd">            the size of the cache (in bytes)</span>
-</span><span id="line-64"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="line-65">
-</span><span id="line-66">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-</span><span id="line-67">            <span class="n">num_elements</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
-</span><span id="line-68">            <span class="n">element_size</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">element_size</span><span class="p">()</span>
-</span><span id="line-69">            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">num_elements</span> <span class="o">*</span> <span class="n">element_size</span>
-</span><span id="line-70">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="nb">bytearray</span><span class="p">):</span>
-</span><span id="line-71">            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">)</span>
-</span><span id="line-72">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">KVObj</span><span class="p">):</span>
-</span><span id="line-73">            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">size</span>
-</span><span id="line-74">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">DiskCacheMetadata</span><span class="p">):</span>
-</span><span id="line-75">            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">size</span>
-</span><span id="line-76">        <span class="k">else</span><span class="p">:</span>
-</span><span id="line-77">            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-</span><span id="line-78">                <span class="sa">f</span><span class="s2">&quot;Encountered unknown kv data type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">)</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
-</span><span id="line-79">
-</span><span id="line-80">        <span class="k">return</span> <span class="n">size_in_bytes</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kv_obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">KVObj</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the size of the kv cache</span>
+<span class="sd">        </span>
+<span class="sd">        Input:</span>
+<span class="sd">            kv_obj: kv cache</span>
+
+<span class="sd">        Return:</span>
+<span class="sd">            the size of the cache (in bytes)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">num_elements</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+            <span class="n">element_size</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">element_size</span><span class="p">()</span>
+            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">num_elements</span> <span class="o">*</span> <span class="n">element_size</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="nb">bytearray</span><span class="p">):</span>
+            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">KVObj</span><span class="p">):</span>
+            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">,</span> <span class="n">DiskCacheMetadata</span><span class="p">):</span>
+            <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">kv_obj</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Encountered unknown kv data type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">kv_obj</span><span class="p">)</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">size_in_bytes</span></div>
 </div>
 
-</span><span id="line-81">
-</span><span id="line-82">
+
+
 <div class="viewcode-block" id="DummyEvictor">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.DummyEvictor">[docs]</a>
-</span><span id="line-83"><span class="k">class</span> <span class="nc">DummyEvictor</span><span class="p">(</span><span class="n">BaseEvictor</span><span class="p">):</span>
-</span><span id="line-84">
+<span class="k">class</span><span class="w"> </span><span class="nc">DummyEvictor</span><span class="p">(</span><span class="n">BaseEvictor</span><span class="p">):</span>
+
 <div class="viewcode-block" id="DummyEvictor.update_on_get">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.DummyEvictor.update_on_get">[docs]</a>
-</span><span id="line-85">    <span class="k">def</span> <span class="nf">update_on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
-</span><span id="line-86">                      <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-87">        <span class="c1"># Dummy implementation does nothing</span>
-</span><span id="line-88">        <span class="k">pass</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                      <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Dummy implementation does nothing</span>
+        <span class="k">pass</span></div>
 
-</span><span id="line-89">
+
 <div class="viewcode-block" id="DummyEvictor.update_on_put">
 <a class="viewcode-back" href="../../../../advanced/lmcache.storage_backend.evictor.html#lmcache.storage_backend.evictor.base_evictor.DummyEvictor.update_on_put">[docs]</a>
-</span><span id="line-90">    <span class="k">def</span> <span class="nf">update_on_put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">cache_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-</span><span id="line-91">        <span class="c1"># Dummy implementation does not evict anything</span>
-</span><span id="line-92">        <span class="k">return</span> <span class="p">[],</span> <span class="n">PutStatus</span><span class="o">.</span><span class="n">LEGAL</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_on_put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">cache_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># Dummy implementation does not evict anything</span>
+        <span class="k">return</span> <span class="p">[],</span> <span class="n">PutStatus</span><span class="o">.</span><span class="n">LEGAL</span></div>
 </div>
 
-</span></code></pre></div>
+</pre></div>
     </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 </div></div>
         </main>
@@ -309,7 +309,7 @@
       <div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
         <p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team&nbsp;Built with <a class="font-medium underline underline-offset-4"
     href="https://www.sphinx-doc.org"
-    rel="noreferrer">Sphinx 7.3.7</a></p>
+    rel="noreferrer">Sphinx 7.4.7</a></p>
 </div>
 </div>
 </footer>
@@ -318,7 +318,7 @@
     <script src="../../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script defer="defer" src="../../../../_static/theme.js?v=e82a16a3"></script>
+    <script defer="defer" src="../../../../_static/theme.js?v=ab60c18a"></script>
   
 </body>
 </html>

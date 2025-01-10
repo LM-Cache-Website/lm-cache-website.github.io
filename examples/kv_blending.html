@@ -10,8 +10,8 @@
 <title>KV blending | LMCache</title>
 <meta content="KV blending | LMCache" property="og:title"/>
 <meta content="KV blending | LMCache" name="twitter:title"/>
-<link href="../_static/pygments.css?v=c5d7c51f" rel="stylesheet" type="text/css"/>
-<link href="../_static/theme.css?v=ecdfb4fc" rel="stylesheet" type="text/css"/>
+<link href="../_static/pygments.css?v=03e43079" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=caad1007" rel="stylesheet" type="text/css"/>
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
@@ -137,82 +137,73 @@
 <ul class="simple">
 <li><p>Blend the KV cache using LMCache?</p></li>
 </ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">import</span> <span class="nn">lmcache_vllm</span>
-</span><span id="line-2"><span class="kn">import</span> <span class="nn">torch</span>
-</span><span id="line-3"><span class="kn">from</span> <span class="nn">lmcache_vllm.blend_adapter</span> <span class="kn">import</span> <span class="p">(</span><span class="n">append_separator</span><span class="p">,</span>
-</span><span id="line-4">                                        <span class="n">combine_input_prompt_chunks</span><span class="p">)</span>
-</span><span id="line-5"><span class="kn">from</span> <span class="nn">lmcache_vllm.vllm</span> <span class="kn">import</span> <span class="n">LLM</span><span class="p">,</span> <span class="n">SamplingParams</span>
-</span><span id="line-6">
-</span><span id="line-7"><span class="n">torch</span><span class="o">.</span><span class="n">multiprocessing</span><span class="o">.</span><span class="n">set_start_method</span><span class="p">(</span><span class="s1">'spawn'</span><span class="p">)</span>
-</span><span id="line-8">
-</span><span id="line-9">
-</span><span id="line-10"><span class="k">def</span> <span class="nf">precompute_kv</span><span class="p">(</span><span class="n">text_chunk</span><span class="p">,</span> <span class="n">llm</span><span class="p">):</span>
-</span><span id="line-11">    <span class="n">sampling_params_prefix</span> <span class="o">=</span> <span class="n">SamplingParams</span><span class="p">(</span><span class="n">temperature</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-</span><span id="line-12">                                            <span class="n">top_p</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
-</span><span id="line-13">                                            <span class="n">max_tokens</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="line-14">    <span class="n">text_chunk</span> <span class="o">=</span> <span class="n">append_separator</span><span class="p">(</span><span class="n">text_chunk</span><span class="p">)</span>
-</span><span id="line-15">    <span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">([</span><span class="n">text_chunk</span><span class="p">],</span> <span class="n">sampling_params_prefix</span><span class="p">)</span>
-</span><span id="line-16">
-</span><span id="line-17">
-</span><span id="line-18"><span class="n">context_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"chunk1.txt"</span><span class="p">,</span> <span class="s2">"chunk2.txt"</span><span class="p">]</span>
-</span><span id="line-19"><span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="line-20">
-</span><span id="line-21"><span class="k">for</span> <span class="n">context_file</span> <span class="ow">in</span> <span class="n">context_files</span><span class="p">:</span>
-</span><span id="line-22">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">context_file</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
-</span><span id="line-23">        <span class="n">context</span> <span class="o">=</span> <span class="n">fin</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</span><span id="line-24">    <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-</span><span id="line-25">
-</span><span id="line-26"><span class="n">sys_prompt</span> <span class="o">=</span> <span class="s2">"Here's a document from the user: "</span>
-</span><span id="line-27"><span class="n">question</span> <span class="o">=</span> <span class="s2">"Question: What does this document mainly talks about? Answer: "</span>
-</span><span id="line-28">
-</span><span id="line-29"><span class="n">llm</span> <span class="o">=</span> <span class="n">LLM</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"mistralai/Mistral-7B-Instruct-v0.2"</span><span class="p">,</span>
-</span><span id="line-30">        <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-</span><span id="line-31">        <span class="n">tensor_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="line-32"><span class="n">sampling_params_generation</span> <span class="o">=</span> <span class="n">SamplingParams</span><span class="p">(</span><span class="n">temperature</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-</span><span id="line-33">                                            <span class="n">top_p</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
-</span><span id="line-34">                                            <span class="n">max_tokens</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-</span><span id="line-35">
-</span><span id="line-36"><span class="nb">print</span><span class="p">(</span>
-</span><span id="line-37">    <span class="s2">"-------------- Pre-computing KV cache for the chunks -------------------"</span><span class="p">)</span>
-</span><span id="line-38"><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">:</span>
-</span><span id="line-39">    <span class="n">precompute_kv</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">llm</span><span class="p">)</span>
-</span><span id="line-40">
-</span><span id="line-41"><span class="nb">print</span><span class="p">(</span><span class="s2">"Running the real query here!"</span><span class="p">)</span>
-</span><span id="line-42">
-</span><span id="line-43"><span class="n">user_prompt</span> <span class="o">=</span> <span class="p">[</span><span class="n">sys_prompt</span><span class="p">,</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">question</span><span class="p">]</span>
-</span><span id="line-44"><span class="n">user_prompt</span> <span class="o">=</span> <span class="n">combine_input_prompt_chunks</span><span class="p">(</span><span class="n">user_prompt</span><span class="p">)</span>
-</span><span id="line-45"><span class="n">outputs</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">user_prompt</span><span class="p">,</span> <span class="n">sampling_params_generation</span><span class="p">)</span>
-</span><span id="line-46"><span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
-</span><span id="line-47">    <span class="n">generated_text</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span>
-</span><span id="line-48">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Newly generated text: </span><span class="si">{</span><span class="n">generated_text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="line-49">
-</span><span id="line-50"><span class="c1"># Graceful exit</span>
-</span><span id="line-51"><span class="n">lmcache_vllm</span><span class="o">.</span><span class="n">close_lmcache_engine</span><span class="p">()</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">lmcache_vllm</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lmcache_vllm.blend_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">OfflineKVPreCompute</span><span class="p">,</span>
+                                        <span class="n">combine_input_prompt_chunks</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lmcache_vllm.vllm</span><span class="w"> </span><span class="kn">import</span> <span class="n">LLM</span><span class="p">,</span> <span class="n">SamplingParams</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">multiprocessing</span><span class="o">.</span><span class="n">set_start_method</span><span class="p">(</span><span class="s1">'spawn'</span><span class="p">)</span>
+
+<span class="n">context_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"chunk1.txt"</span><span class="p">,</span> <span class="s2">"chunk2.txt"</span><span class="p">]</span>
+<span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">context_file</span> <span class="ow">in</span> <span class="n">context_files</span><span class="p">:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">context_file</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">fin</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+<span class="n">sys_prompt</span> <span class="o">=</span> <span class="s2">"Here's a document from the user: "</span>
+<span class="n">question</span> <span class="o">=</span> <span class="s2">"Question: What does this document mainly talks about? Answer: "</span>
+
+<span class="n">llm</span> <span class="o">=</span> <span class="n">LLM</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"mistralai/Mistral-7B-Instruct-v0.2"</span><span class="p">,</span>
+        <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+        <span class="n">tensor_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampling_params_generation</span> <span class="o">=</span> <span class="n">SamplingParams</span><span class="p">(</span><span class="n">temperature</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                                            <span class="n">top_p</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
+                                            <span class="n">max_tokens</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"-------------- Pre-computing KV cache for chunks -------------------"</span><span class="p">)</span>
+<span class="n">offline_precompute</span> <span class="o">=</span> <span class="n">OfflineKVPreCompute</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">:</span>
+    <span class="n">offline_precompute</span><span class="o">.</span><span class="n">precompute_kv</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+
+<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Running the real query here!"</span><span class="p">)</span>
+
+<span class="n">user_prompt</span> <span class="o">=</span> <span class="p">[</span><span class="n">sys_prompt</span><span class="p">,</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">question</span><span class="p">]</span>
+<span class="n">user_prompt</span> <span class="o">=</span> <span class="n">combine_input_prompt_chunks</span><span class="p">(</span><span class="n">user_prompt</span><span class="p">)</span>
+<span class="n">outputs</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">user_prompt</span><span class="p">,</span> <span class="n">sampling_params_generation</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
+    <span class="n">generated_text</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Newly generated text: </span><span class="si">{</span><span class="n">generated_text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">ttft</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">first_token_time</span> <span class="o">-</span> <span class="n">output</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">first_scheduled_time</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Time to first token: </span><span class="si">{</span><span class="n">ttft</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
+
+<span class="c1"># Graceful exit</span>
+<span class="n">lmcache_vllm</span><span class="o">.</span><span class="n">close_lmcache_engine</span><span class="p">()</span>
+</pre></div>
 </div>
 <p>Save the code above to a file, e.g., <code class="docutils literal notranslate"><span class="pre">kv_blend.py</span></code>.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-</span><span id="line-2"><span class="nt">local_device</span><span class="p">:</span><span class="w"> </span><span class="s">"cpu"</span>
-</span><span id="line-3">
-</span><span id="line-4"><span class="c1"># Enables KV blending</span>
-</span><span id="line-5"><span class="nt">enable_blending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
-</span><span id="line-6">
-</span><span id="line-7"><span class="c1"># Whether retrieve() is pipelined or not</span>
-</span><span id="line-8"><span class="nt">pipelined_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
-</span></code></pre></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="nt">local_device</span><span class="p">:</span><span class="w"> </span><span class="s">"cpu"</span>
+
+<span class="c1"># Enables KV blending</span>
+<span class="nt">enable_blending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</pre></div>
 </div>
 <p>Save the code above to a file, e.g., <code class="docutils literal notranslate"><span class="pre">kv_blend.yaml</span></code>.</p>
 <p>You will also need the following context files, <code class="docutils literal notranslate"><span class="pre">chunk1.txt</span></code> and <code class="docutils literal notranslate"><span class="pre">chunk2.txt</span></code>:
 They can be found here: <a class="reference external" href="https://github.com/LMCache/LMCache/blob/dev/examples/blend_kv/chunk1.txt">chunk1.txt</a> and <a class="reference external" href="https://github.com/LMCache/LMCache/blob/dev/examples/blend_kv/chunk2.txt">chunk2.txt</a>.</p>
 <p>Now you can run the following command to blend the KV cache using LMCache:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="gp">$ </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>kv_blend.yaml<span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>python<span class="w"> </span>kv_blend.py
-</span></code></pre></div>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>kv_blend.yaml<span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>python<span class="w"> </span>kv_blend.py
+</pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>KV Blending in LMCache currently uses a special separator (<code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">#</span></code>) to separate text chunks.
-This separator is added to the end of each chunk before execution by the user.
-To do this, the function <code class="docutils literal notranslate"><span class="pre">combine_input_prompt_chunks()</span></code> should be used.</p>
+<p>More advanced examples of KV Blending can be found <a class="reference external" href="https://github.com/LMCache/LMCache/tree/dev/examples/blend_kv">here</a> .</p>
 </div>
 </section>
 </section>
@@ -234,7 +225,7 @@ To do this, the function <code class="docutils literal notranslate"><span class=
 </a>
 </div>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
-<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<div class="sticky top-16 -mt-10 max-h-[calc(var(100vh)-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#how-to'" class="reference internal" href="#how-to">How to:</a></li>
 </ul>
@@ -245,7 +236,7 @@ To do this, the function <code class="docutils literal notranslate"><span class=
 </div><footer class="py-6 border-t border-border md:py-0">
 <div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
 <div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
-<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 7.3.7</a></p>
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 7.4.7</a></p>
 </div>
 </div>
 </footer>
@@ -253,6 +244,6 @@ To do this, the function <code class="docutils literal notranslate"><span class=
 <script src="../_static/documentation_options.js?v=5929fcd5"></script>
 <script src="../_static/doctools.js?v=9a2dae69"></script>
 <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-<script defer="defer" src="../_static/theme.js?v=e82a16a3"></script>
+<script defer="defer" src="../_static/theme.js?v=ab60c18a"></script>
 </body>
 </html>

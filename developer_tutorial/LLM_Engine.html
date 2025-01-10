@@ -10,8 +10,8 @@
 <title>LLM Engine | LMCache</title>
 <meta content="LLM Engine | LMCache" property="og:title"/>
 <meta content="LLM Engine | LMCache" name="twitter:title"/>
-<link href="../_static/pygments.css?v=c5d7c51f" rel="stylesheet" type="text/css"/>
-<link href="../_static/theme.css?v=ecdfb4fc" rel="stylesheet" type="text/css"/>
+<link href="../_static/pygments.css?v=03e43079" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=caad1007" rel="stylesheet" type="text/css"/>
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
@@ -146,81 +146,81 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">vllm_injection.py</span></code></p>
 <p>This file modifies two functions in <code class="docutils literal notranslate"><span class="pre">vLLM</span></code>: <code class="docutils literal notranslate"><span class="pre">vllm.worker.model_runner.ModelRunner.execute_model</span></code> and <code class="docutils literal notranslate"><span class="pre">vllm.engine.async_llm_engine._log_task_completion</span></code>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">vllm.worker.model_runner.ModelRunner.execute_model</span></code> module, we add the fetch and store command before and after model execution.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache retrieval</span>
-</span><span id="line-2"><span class="k">if</span> <span class="n">lmcache_should_retrieve</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">):</span>
-</span><span id="line-3">    <span class="n">model_input</span> <span class="o">=</span> <span class="n">lmcache_retrieve_kv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">)</span>
-</span><span id="line-4">
-</span><span id="line-5"><span class="c1">#... Model Execution</span>
-</span><span id="line-6">
-</span><span id="line-7"><span class="c1"># LMCache storing</span>
-</span><span id="line-8"><span class="k">if</span> <span class="n">lmcache_should_store</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">):</span>
-</span><span id="line-9">    <span class="n">lmcache_store_kv</span><span class="p">(</span><span class="n">model_executable</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">)</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># LMCache retrieval</span>
+<span class="k">if</span> <span class="n">lmcache_should_retrieve</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">):</span>
+    <span class="n">model_input</span> <span class="o">=</span> <span class="n">lmcache_retrieve_kv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">)</span>
+
+<span class="c1">#... Model Execution</span>
+
+<span class="c1"># LMCache storing</span>
+<span class="k">if</span> <span class="n">lmcache_should_store</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">):</span>
+    <span class="n">lmcache_store_kv</span><span class="p">(</span><span class="n">model_executable</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">kv_caches</span><span class="p">)</span>
+</pre></div>
 </div>
 <p>Currently, we check whether the LMCache Engine has been initialized each time and initializes it if it hasn’t. Later, we will initialize it when vllm initializes the model.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">init_lmcache_engine</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_config</span><span class="p">)</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">init_lmcache_engine</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_config</span><span class="p">)</span>
+</pre></div>
 </div>
 <p>In the <code class="docutils literal notranslate"><span class="pre">vllm.engine.async_llm_engine._log_task_completion</span></code> module, we shut down the LMCache Engine when a task is canceled, which only occurs upon program exit.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
-</span><span id="line-2">    <span class="c1"># We assume that if the task is cancelled, we are gracefully shutting</span>
-</span><span id="line-3">    <span class="c1"># down. This should only happen on program exit.</span>
-</span><span id="line-4">    <span class="n">close_lmcache_engine</span><span class="p">()</span>
-</span><span id="line-5">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Engine is gracefully shutting down."</span><span class="p">)</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+    <span class="c1"># We assume that if the task is cancelled, we are gracefully shutting</span>
+    <span class="c1"># down. This should only happen on program exit.</span>
+    <span class="n">close_lmcache_engine</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Engine is gracefully shutting down."</span><span class="p">)</span>
+</pre></div>
 </div>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">vllm_adapter.py</span></code></p>
 <p>The <code class="docutils literal notranslate"><span class="pre">vllm_adapter.py</span></code> file serves as the primary bridge between the LLM Engine and LMCache Engine. It defines key functions for interacting with LMCache Engine, including retrieving and storing key-value (KV) caches during the inference process.</p>
 <p>In the  <code class="docutils literal notranslate"><span class="pre">init_lmcache_engine</span></code> function will initialize and return a LMCache engine based on the given model and parallel configuration if the Engine hasn’t been initialized yet. Otherwise, it will return None.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">init_lmcache_engine</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">parallel_config</span><span class="p">:</span> <span class="n">ParallelConfig</span><span class="p">,</span>
-</span><span id="line-4"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LMCacheEngine</span><span class="p">]:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">init_lmcache_engine</span><span class="p">(</span>
+    <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
+    <span class="n">parallel_config</span><span class="p">:</span> <span class="n">ParallelConfig</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LMCacheEngine</span><span class="p">]:</span>
+</pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">close_lmcache_engine</span></code> function gracefully shuts down the LMCache engine by destroying the existing instance.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">close_lmcache_engine</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">close_lmcache_engine</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>The  <code class="docutils literal notranslate"><span class="pre">lmcache_should_retrieve</span></code> function determines whether to retrieve KV caches from LMCache based on the current model input and metadata. It checks if the KV Cache exists and whether the current run is performing a non-profiling prefill operation, and ensures that these conditions are met before retrieving the KV cache.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">lmcache_should_retrieve</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">lmcache_should_retrieve</span><span class="p">(</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
+    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>Similar to <code class="docutils literal notranslate"><span class="pre">lmcache_should_retrieve</span></code>, the <code class="docutils literal notranslate"><span class="pre">lmcache_should_store</span></code> function checks if the KV cache should be stored in LMCache after the model execution. It evaluates metadata such as prefill states and ensures the conditions for storing are met.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">lmcache_should_store</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">lmcache_should_store</span><span class="p">(</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
+    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache_store_kv</span></code> function is responsible for storing the KV cache in LMCache after the model execution. It sends the necessary data (input tokens and KV cache tensors) to the LMCache engine in a non-blocking way, using a CUDA stream for efficiency.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">lmcache_store_kv</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_executable</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
-</span><span id="line-4">    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
-</span><span id="line-5"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">lmcache_store_kv</span><span class="p">(</span>
+    <span class="n">model_executable</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
+    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache_retrieve_kv</span></code> function retrieves KV caches from LMCache and rebuilds the model input to reflect the retrieved KV data. It integrates the retrieved cache with the current model input, ensuring the decoding process can continue seamlessly with the cached data.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">lmcache_retrieve_kv</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_executable</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
-</span><span id="line-4">    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
-</span><span id="line-5"><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">lmcache_retrieve_kv</span><span class="p">(</span>
+    <span class="n">model_executable</span><span class="p">,</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
+    <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">build_partial_prefill_input</span></code> function reconstructs the model input during the prefill stage when a partial prefill operation is needed. It rebuilds key components such as the input tokens, attention metadata, and sampling metadata, ensuring the model input is correctly aligned with the retrieved KV caches.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span> <span class="nf">build_partial_prefill_input</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">input_tokens_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
-</span><span id="line-4">    <span class="n">num_computed_tokens_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span id="line-5">    <span class="n">start_pos_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span id="line-6">    <span class="n">slot_mapping_flat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-</span><span id="line-7">    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-</span><span id="line-8"><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">:</span>
-</span></code></pre></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_partial_prefill_input</span><span class="p">(</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">,</span>
+    <span class="n">input_tokens_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">num_computed_tokens_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">start_pos_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">slot_mapping_flat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ModelInputForGPUWithSamplingMetadata"</span><span class="p">:</span>
+</pre></div>
 </div>
 <p>To summarize,when a new inference request arrives, the following steps occur:</p>
 <ol class="arabic simple">
@@ -254,7 +254,7 @@
 </div><footer class="py-6 border-t border-border md:py-0">
 <div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
 <div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
-<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 7.3.7</a></p>
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 7.4.7</a></p>
 </div>
 </div>
 </footer>
@@ -262,6 +262,6 @@
 <script src="../_static/documentation_options.js?v=5929fcd5"></script>
 <script src="../_static/doctools.js?v=9a2dae69"></script>
 <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-<script defer="defer" src="../_static/theme.js?v=e82a16a3"></script>
+<script defer="defer" src="../_static/theme.js?v=ab60c18a"></script>
 </body>
 </html>
