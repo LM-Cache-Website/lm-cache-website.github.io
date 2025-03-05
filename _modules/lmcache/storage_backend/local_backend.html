@@ -113,21 +113,37 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/installation.html">Pip Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/docker.html">Docker Installation</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v1/v1_config.html">Configuring LMCache v1</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v0/v0_config.html">Configuring LMCache v0</a></li>
+</ul>
+</li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">Detailed Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/launching.html">Usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/save_decode.html">Saving the decode cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/kv_blending.html">KV blending</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/backend.html">Selecting a backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/measuring_improvements.html">End-to-end measurements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/cpu_offload.html">CPU Offloading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/disagg.html">Disaggregated prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/p2p.html">P2P KV Cache Sharing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/backend.html">Selecting a backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/launching.html">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/kv_blending.html">KV blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Models</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../models/models.html">Supported Models</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Configuration</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../configuration/config.html">Configuring LMCache</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Documentation</span></p>
 <ul>
@@ -141,6 +157,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.blend.html">LMCache Blend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.server.html">LMCache Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.experimental.html">LMCache Experimental</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.integration.html">LMCache Integration</a></li>
 </ul>
 
 </nav>
@@ -188,7 +206,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ProcessPoolExecutor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ThreadPoolExecutor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -365,13 +383,6 @@
         <span class="k">if</span> <span class="n">put_status</span> <span class="o">==</span> <span class="n">PutStatus</span><span class="o">.</span><span class="n">ILLEGAL</span><span class="p">:</span>
             <span class="k">return</span>
 
-        <span class="n">kv_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpool</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">kv_chunk</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">kv_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span>
-
-        <span class="n">kv_obj</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">kv_chunk</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
         <span class="c1"># free old block to avoid mem leak</span>
         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
@@ -379,6 +390,13 @@
         <span class="c1"># Evict caches</span>
         <span class="k">for</span> <span class="n">evict_key</span> <span class="ow">in</span> <span class="n">evict_keys</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">evict_key</span><span class="p">)</span>
+
+        <span class="n">kv_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpool</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">kv_chunk</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">kv_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">kv_obj</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">kv_chunk</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="c1"># Store new chunk</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">kv_obj</span></div>
@@ -461,8 +479,6 @@
 <span class="c1"># current impl. with &quot;safetensors&quot; might not be efficient</span>
 <span class="c1"># but it is better than &quot;torch.save/load&quot;</span>
 
-<span class="c1"># TODO(Jiayi): need to support prefetch for disk</span>
-
 
 <div class="viewcode-block" id="save_disk">
 <a class="viewcode-back" href="../../../advanced/lmcache.storage_backend.html#lmcache.storage_backend.local_backend.save_disk">[docs]</a>
@@ -528,7 +544,7 @@
         <span class="c1"># TODO(Jiayi): share the buffer if both cpu and disk backend are enabled</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cpu_mbufferpool</span> <span class="o">=</span> <span class="n">LocalCPUBufferPool</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">proc_pool_executor</span> <span class="o">=</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proc_pool_executor</span> <span class="o">=</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
 <div class="viewcode-block" id="LMCLocalDiskBackend.contains">
 <a class="viewcode-back" href="../../../advanced/lmcache.storage_backend.html#lmcache.storage_backend.local_backend.LMCLocalDiskBackend.contains">[docs]</a>
@@ -545,7 +561,8 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            True if the cache engine contains the key, False otherwise</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span></div>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_lock</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_key_to_path</span><span class="p">(</span>

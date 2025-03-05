@@ -113,21 +113,37 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/installation.html">Pip Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/docker.html">Docker Installation</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v1/v1_config.html">Configuring LMCache v1</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v0/v0_config.html">Configuring LMCache v0</a></li>
+</ul>
+</li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">Detailed Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/launching.html">Usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/save_decode.html">Saving the decode cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/kv_blending.html">KV blending</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/backend.html">Selecting a backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/measuring_improvements.html">End-to-end measurements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/cpu_offload.html">CPU Offloading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/disagg.html">Disaggregated prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/p2p.html">P2P KV Cache Sharing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/backend.html">Selecting a backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/launching.html">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/kv_blending.html">KV blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Models</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../models/models.html">Supported Models</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Configuration</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../configuration/config.html">Configuring LMCache</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Documentation</span></p>
 <ul>
@@ -141,6 +157,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.blend.html">LMCache Blend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.server.html">LMCache Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.experimental.html">LMCache Experimental</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.integration.html">LMCache Integration</a></li>
 </ul>
 
 </nav>
@@ -232,6 +250,7 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">recompute_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">all_reduce_function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">recompute_ratio</span> <span class="o">=</span> <span class="n">recompute_ratio</span>
 
@@ -241,6 +260,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">positional_encoder</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PositionalEncoder</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reverse_positional_encoder</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PositionalEncoder</span><span class="p">]</span> <span class="o">=</span> \
                 <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_reduce_function</span> <span class="o">=</span> <span class="n">all_reduce_function</span>
 
 <div class="viewcode-block" id="CacheBlendImpl.set_positional_encoder">
 <a class="viewcode-back" href="../../../advanced/lmcache.blend.html#lmcache.blend.executor.CacheBlendImpl.set_positional_encoder">[docs]</a>
@@ -301,6 +321,55 @@
             <span class="n">ret</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">-=</span> <span class="n">start</span>
         <span class="k">return</span> <span class="n">ret</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_tokens_all_queries</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">rk</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">rv</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">valid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">fq</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">fk</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">fv</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">token_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">query_start_loc</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Input: retrieved KV, valid_mask, and fresh QKV for a single query, </span>
+<span class="sd">        and query_start_loc</span>
+<span class="sd">        Output: new_query_start_locs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Consider TP here.</span>
+        <span class="c1"># But we cannot couple it with serving engine,</span>
+        <span class="c1"># so pass a all_reduce_function.</span>
+
+        <span class="c1"># We compare the retrieved KVs with the fresh KVs and keep the</span>
+        <span class="c1"># following tokens:</span>
+        <span class="c1">#  1. Invalid tokens</span>
+        <span class="c1">#  2. Token with top difference in the fresh KV, if the token is</span>
+        <span class="c1">#     valid. Based on previous CacheBlend implementation, we only</span>
+        <span class="c1">#     use V to compare the difference. The number of tokens to</span>
+        <span class="c1">#     keep is determined by the `recompute_ratio`</span>
+        <span class="k">assert</span> <span class="n">fk</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">rk</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">assert</span> <span class="n">fv</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">rv</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">new_query_start_locs</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Find the top different tokens</span>
+        <span class="n">dims_to_average</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">fv</span><span class="o">.</span><span class="n">dim</span><span class="p">())</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">token_dim</span><span class="p">]</span>
+        <span class="n">diff_per_token</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">fv</span> <span class="o">-</span> <span class="n">rv</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">dims_to_average</span><span class="p">)</span>
+        <span class="c1"># NOTE(Sixian): Here I assume valid mask is the same across TPs.</span>
+        <span class="c1"># As TP runs in lock-step, we should guarantee this in evictor.</span>
+        <span class="n">diff_per_token</span> <span class="o">=</span> <span class="n">diff_per_token</span> <span class="o">*</span> <span class="n">valid</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">diff_per_token</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_reduce_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">diff_per_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_reduce_function</span><span class="p">(</span><span class="n">diff_per_token</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">qstart</span><span class="p">,</span> <span class="n">qend</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">query_start_loc</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">query_start_loc</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="n">local_valid</span> <span class="o">=</span> <span class="n">valid</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">]</span>
+            <span class="n">num_valid_tokens</span> <span class="o">=</span> <span class="n">local_valid</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">num_selected_tokens</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_valid_tokens</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">recompute_ratio</span><span class="p">)</span>
+            <span class="n">top_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">diff_per_token</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span>
+                                     <span class="n">num_selected_tokens</span><span class="p">)</span><span class="o">.</span><span class="n">indices</span>
+            <span class="n">top_mask</span> <span class="o">=</span> <span class="n">indices_to_mask</span><span class="p">(</span><span class="n">top_indices</span><span class="p">,</span> <span class="n">local_valid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">total_selected_mask</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">local_valid</span><span class="p">)</span> <span class="o">+</span> <span class="n">top_mask</span>
+            <span class="n">local_indices</span> <span class="o">=</span> <span class="n">mask_to_indices</span><span class="p">(</span><span class="n">total_selected_mask</span><span class="p">)</span>
+            <span class="n">new_query_start_locs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_query_start_locs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span>
+                                        <span class="nb">len</span><span class="p">(</span><span class="n">local_indices</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span><span class="p">,</span> <span class="n">local_indices</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">qstart</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">new_query_start_locs</span><span class="p">,</span>
+                            <span class="n">device</span><span class="o">=</span><span class="n">query_start_loc</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                            <span class="n">dtype</span><span class="o">=</span><span class="n">query_start_loc</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
 <div class="viewcode-block" id="CacheBlendImpl.blend">
 <a class="viewcode-back" href="../../../advanced/lmcache.blend.html#lmcache.blend.executor.CacheBlendImpl.blend">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">blend</span><span class="p">(</span>
@@ -359,26 +428,11 @@
                                <span class="n">query_start_loc</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">layer_id</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">new_query_start_locs</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">qstart</span><span class="p">,</span> <span class="n">qend</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">query_start_loc</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">query_start_loc</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
-                <span class="c1"># Select the tokens for each query</span>
-                <span class="n">local_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_tokens_single_query</span><span class="p">(</span>
-                    <span class="n">retrieved_k</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span> <span class="n">retrieved_v</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span>
-                    <span class="n">valid_mask</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span> <span class="n">fresh_q</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span>
-                    <span class="n">fresh_k</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span> <span class="n">fresh_v</span><span class="p">[</span><span class="n">qstart</span><span class="p">:</span><span class="n">qend</span><span class="p">],</span> <span class="n">token_dim</span><span class="p">)</span>
-
-                <span class="n">new_query_start_locs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_query_start_locs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span>
-                                            <span class="nb">len</span><span class="p">(</span><span class="n">local_indices</span><span class="p">))</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span><span class="p">,</span> <span class="n">local_indices</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">qstart</span><span class="p">)))</span>
-
+            <span class="n">query_start_locs_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_tokens_all_queries</span><span class="p">(</span>
+                <span class="n">retrieved_k</span><span class="p">,</span> <span class="n">retrieved_v</span><span class="p">,</span> <span class="n">valid_mask</span><span class="p">,</span> <span class="n">fresh_q</span><span class="p">,</span> <span class="n">fresh_k</span><span class="p">,</span>
+                <span class="n">fresh_v</span><span class="p">,</span> <span class="n">token_dim</span><span class="p">,</span> <span class="n">query_start_loc</span><span class="p">)</span>
             <span class="n">new_q</span> <span class="o">=</span> <span class="n">fresh_q</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span><span class="p">]</span>
             <span class="n">new_positions</span> <span class="o">=</span> <span class="n">positions</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span><span class="p">]</span>
-            <span class="n">query_start_locs_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-                <span class="n">new_query_start_locs</span><span class="p">,</span>
-                <span class="n">device</span><span class="o">=</span><span class="n">query_start_loc</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">query_start_loc</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Selected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes_in_kv</span><span class="p">)</span><span class="si">}</span><span class="s2"> tokens out of &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">retrieved_k</span><span class="p">)</span><span class="si">}</span><span class="s2"> tokens to blend&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">BlendOutput</span><span class="p">(</span><span class="n">new_q</span><span class="p">,</span> <span class="n">fresh_k</span><span class="p">,</span> <span class="n">fresh_v</span><span class="p">,</span> <span class="n">new_positions</span><span class="p">,</span>

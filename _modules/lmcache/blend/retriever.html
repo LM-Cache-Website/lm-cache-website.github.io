@@ -113,21 +113,37 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/installation.html">Pip Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/docker.html">Docker Installation</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v1/v1_config.html">Configuring LMCache v1</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../configuration/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../configuration/v0/v0_config.html">Configuring LMCache v0</a></li>
+</ul>
+</li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">Detailed Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/launching.html">Usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/save_decode.html">Saving the decode cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/kv_blending.html">KV blending</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/backend.html">Selecting a backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/measuring_improvements.html">End-to-end measurements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v1/index.html">LMCache v1</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/cpu_offload.html">CPU Offloading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/disagg.html">Disaggregated prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v1/p2p.html">P2P KV Cache Sharing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/v0/index.html">LMCache v0</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/backend.html">Selecting a backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/launching.html">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/kv_blending.html">KV blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Models</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../models/models.html">Supported Models</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Configuration</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../configuration/config.html">Configuring LMCache</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Documentation</span></p>
 <ul>
@@ -141,6 +157,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.blend.html">LMCache Blend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.server.html">LMCache Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.experimental.html">LMCache Experimental</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.integration.html">LMCache Integration</a></li>
 </ul>
 
 </nav>
@@ -394,65 +412,17 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">spt</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
         <span class="n">cache_engine</span><span class="p">:</span> <span class="n">LMCacheEngine</span><span class="p">,</span>
         <span class="n">metadata</span><span class="p">:</span> <span class="n">LMCacheEngineMetadata</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the SPT retriever.</span>
 
-<span class="sd">        :param List[int] spt: The special token to use as delimiter</span>
 <span class="sd">        :param LMCacheEngine cache_engine: The cache engine to retrieve </span>
 <span class="sd">            the KV caches</span>
 <span class="sd">        :param LMCacheEngineMetadata metadata: The metadata of the cache engine</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">spt</span> <span class="o">=</span> <span class="n">spt</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache_engine</span> <span class="o">=</span> <span class="n">cache_engine</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
-
-<div class="viewcode-block" id="SPTBlendRetriever.drop_spt_and_get_indices">
-<a class="viewcode-back" href="../../../advanced/lmcache.blend.html#lmcache.blend.retriever.SPTBlendRetriever.drop_spt_and_get_indices">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">drop_spt_and_get_indices</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">full_prompt</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the special token and get the indices of the split requests.</span>
-
-<span class="sd">        :param List[int] full_prompt: The full prompt after tokenization.</span>
-<span class="sd">        </span>
-<span class="sd">        :return: The new prompts without the special token and the indices of</span>
-<span class="sd">            the split segments.</span>
-<span class="sd">            The indices is recording the start of each segment, ending with</span>
-<span class="sd">            the end of the full prompt. </span>
-<span class="sd">            e.g. [0, index_of_segment2, len(full_prompt)]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">spt_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spt</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">spt_len</span> <span class="o">&gt;=</span> <span class="mi">1</span>
-        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">splitted_tokens</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">next_len</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">spt_len</span>
-            <span class="k">if</span> <span class="n">next_len</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">full_prompt</span><span class="p">):</span>
-                <span class="k">break</span>
-            <span class="k">if</span> <span class="n">full_prompt</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">next_len</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">spt</span><span class="p">:</span>
-                <span class="n">splitted_tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">full_prompt</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">i</span><span class="p">])</span>
-                <span class="n">start</span> <span class="o">=</span> <span class="n">next_len</span>
-                <span class="n">i</span> <span class="o">=</span> <span class="n">next_len</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">full_prompt</span><span class="p">):</span>
-            <span class="n">splitted_tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">full_prompt</span><span class="p">[</span><span class="n">start</span><span class="p">:])</span>
-
-        <span class="n">new_prompt</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">new_indices</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">this_seg_start</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="n">splitted_tokens</span><span class="p">:</span>
-            <span class="n">new_prompt</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
-            <span class="n">new_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">this_seg_start</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">split</span><span class="p">))</span>
-            <span class="n">this_seg_start</span> <span class="o">=</span> <span class="n">new_indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_indices</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">new_indices</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">new_prompt</span><span class="p">,</span> <span class="n">new_indices</span></div>
-
 
 <div class="viewcode-block" id="SPTBlendRetriever.new_request">
 <a class="viewcode-back" href="../../../advanced/lmcache.blend.html#lmcache.blend.retriever.SPTBlendRetriever.new_request">[docs]</a>
@@ -488,7 +458,7 @@
                     <span class="n">tokens</span><span class="p">,</span>  <span class="c1"># tokens</span>
                     <span class="kc">None</span><span class="p">,</span>  <span class="c1"># mask</span>
                     <span class="kc">False</span><span class="p">,</span>  <span class="c1"># return_tuple</span>
-                <span class="p">)</span> <span class="k">for</span> <span class="n">tokens</span> <span class="ow">in</span> <span class="n">splitted_tokens</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="p">)</span> <span class="k">for</span> <span class="n">tokens</span> <span class="ow">in</span> <span class="n">splitted_tokens</span>
             <span class="p">]</span>
 
         <span class="k">return</span> <span class="n">SPTBlendRetrieverTask</span><span class="p">(</span><span class="n">token_segments</span><span class="o">=</span><span class="n">splitted_tokens</span><span class="p">,</span>
