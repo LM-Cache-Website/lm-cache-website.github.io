@@ -111,8 +111,9 @@
   <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/speedup.html">3 Min Quick Example: Docker + Speedup with vLLM</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/installation.html">Pip Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../getting_started/docker.html">Docker Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
 <ul>
@@ -138,7 +139,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/launching.html">Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/kv_blending.html">KV blending</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
 </ul>
 </li>
 </ul>
@@ -239,6 +239,10 @@
     <span class="n">lookup_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="c1"># the url of the lookup server</span>
     <span class="n">distributed_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="c1"># the url of the distributed server</span>
 
+    <span class="c1"># Error handling related configurations</span>
+    <span class="n">error_handling</span><span class="p">:</span> <span class="nb">bool</span>  <span class="c1"># whether to enable error handling with</span>
+    <span class="c1"># full recompute</span>
+
 <div class="viewcode-block" id="LMCacheEngineConfig.from_defaults">
 <a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.config.LMCacheEngineConfig.from_defaults">[docs]</a>
     <span class="nd">@staticmethod</span>
@@ -257,13 +261,14 @@
         <span class="n">enable_p2p</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">lookup_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">distributed_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">error_handling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LMCacheEngineConfig&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">LMCacheEngineConfig</span><span class="p">(</span><span class="n">chunk_size</span><span class="p">,</span> <span class="n">local_cpu</span><span class="p">,</span> <span class="n">max_local_cpu_size</span><span class="p">,</span>
                                    <span class="n">local_disk</span><span class="p">,</span> <span class="n">max_local_disk_size</span><span class="p">,</span> <span class="n">remote_url</span><span class="p">,</span>
                                    <span class="n">remote_serde</span><span class="p">,</span> <span class="n">save_decode_cache</span><span class="p">,</span>
                                    <span class="n">enable_blending</span><span class="p">,</span> <span class="n">blend_recompute_ratio</span><span class="p">,</span>
                                    <span class="n">blend_min_tokens</span><span class="p">,</span> <span class="n">enable_p2p</span><span class="p">,</span> <span class="n">lookup_url</span><span class="p">,</span>
-                                   <span class="n">distributed_url</span><span class="p">)</span></div>
+                                   <span class="n">distributed_url</span><span class="p">,</span> <span class="n">error_handling</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="LMCacheEngineConfig.from_legacy">
@@ -282,6 +287,7 @@
         <span class="n">enable_p2p</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">lookup_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">distributed_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">error_handling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LMCacheEngineConfig&quot;</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span><span class="p">:</span>
             <span class="n">local_cpu</span> <span class="o">=</span> <span class="kc">True</span>
@@ -326,7 +332,7 @@
                                    <span class="n">remote_serde</span><span class="p">,</span> <span class="n">save_decode_cache</span><span class="p">,</span>
                                    <span class="n">enable_blending</span><span class="p">,</span> <span class="n">blend_recompute_ratio</span><span class="p">,</span>
                                    <span class="n">blend_min_tokens</span><span class="p">,</span> <span class="n">enable_p2p</span><span class="p">,</span> <span class="n">lookup_url</span><span class="p">,</span>
-                                   <span class="n">distributed_url</span><span class="p">)</span></div>
+                                   <span class="n">distributed_url</span><span class="p">,</span> <span class="n">error_handling</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="LMCacheEngineConfig.from_file">
@@ -358,6 +364,8 @@
         <span class="n">enable_p2p</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;enable_p2p&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
         <span class="n">lookup_url</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lookup_url&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">distributed_url</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;distributed_url&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">error_handling</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error_handling&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">enable_p2p</span><span class="p">:</span>
             <span class="k">assert</span> <span class="n">lookup_url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="k">assert</span> <span class="n">distributed_url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -392,6 +400,7 @@
             <span class="n">enable_p2p</span><span class="p">,</span>
             <span class="n">lookup_url</span><span class="p">,</span>
             <span class="n">distributed_url</span><span class="p">,</span>
+            <span class="n">error_handling</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -467,6 +476,9 @@
                                       <span class="n">config</span><span class="o">.</span><span class="n">lookup_url</span><span class="p">)</span>
         <span class="n">config</span><span class="o">.</span><span class="n">distributed_url</span> <span class="o">=</span> <span class="n">parse_env</span><span class="p">(</span><span class="n">get_env_name</span><span class="p">(</span><span class="s2">&quot;distributed_url&quot;</span><span class="p">),</span>
                                            <span class="n">config</span><span class="o">.</span><span class="n">distributed_url</span><span class="p">)</span>
+
+        <span class="n">config</span><span class="o">.</span><span class="n">error_handling</span> <span class="o">=</span> <span class="n">to_bool</span><span class="p">(</span>
+            <span class="n">parse_env</span><span class="p">(</span><span class="n">get_env_name</span><span class="p">(</span><span class="s2">&quot;error_handling&quot;</span><span class="p">),</span> <span class="n">config</span><span class="o">.</span><span class="n">error_handling</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">config</span></div>
 

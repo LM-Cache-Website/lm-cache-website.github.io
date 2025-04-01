@@ -111,8 +111,9 @@
   <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../getting_started/speedup.html">3 Min Quick Example: Docker + Speedup with vLLM</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../getting_started/installation.html">Pip Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../getting_started/installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../getting_started/docker.html">Docker Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../getting_started/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
 <ul>
@@ -138,7 +139,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../../examples/v0/launching.html">Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../examples/v0/kv_blending.html">KV blending</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
 </ul>
 </li>
 </ul>
@@ -280,7 +280,16 @@
         <span class="n">kv_bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key_str</span> <span class="o">+</span> <span class="s2">&quot;kv_bytes&quot;</span><span class="p">)</span>
 
         <span class="k">assert</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="n">kv_bytes</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">kv_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">kv_bytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># TODO (Jiayi): We might need a way to better handle</span>
+            <span class="c1"># consistency issues.</span>
+            <span class="c1"># TODO (Jiayi): A better way is to aggregate metadata</span>
+            <span class="c1"># and kv cache in one key.</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Key exists but KV cache does not exist.&quot;</span>
+                           <span class="s2">&quot;Might happen when the cache is evicted by redis.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key_str</span> <span class="o">+</span> <span class="s2">&quot;metadata&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">view</span> <span class="o">=</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">memory_obj</span><span class="o">.</span><span class="n">byte_array</span><span class="p">)</span>
         <span class="n">view</span><span class="p">[:</span><span class="n">redis_metadata</span><span class="o">.</span><span class="n">length</span><span class="p">]</span> <span class="o">=</span> <span class="n">kv_bytes</span>
@@ -407,7 +416,16 @@
         <span class="n">kv_bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slave</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key_str</span> <span class="o">+</span> <span class="s2">&quot;kv_bytes&quot;</span><span class="p">)</span>
 
         <span class="k">assert</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="n">kv_bytes</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">kv_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">kv_bytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># TODO (Jiayi): We might need a way to better handle</span>
+            <span class="c1"># consistency issues.</span>
+            <span class="c1"># TODO (Jiayi): A background sweeper might be better</span>
+            <span class="c1"># for the sake of performance.</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Key exists but KV cache does not exist.&quot;</span>
+                           <span class="s2">&quot;Might happen when the cache is evicted by redis.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">master</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key_str</span> <span class="o">+</span> <span class="s2">&quot;metadata&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">view</span> <span class="o">=</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">memory_obj</span><span class="o">.</span><span class="n">byte_array</span><span class="p">)</span>
         <span class="n">view</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">redis_metadata</span><span class="o">.</span><span class="n">length</span><span class="p">]</span> <span class="o">=</span> <span class="n">kv_bytes</span>

@@ -111,8 +111,9 @@
   <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/speedup.html">3 Min Quick Example: Docker + Speedup with vLLM</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/installation.html">Pip Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/docker.html">Docker Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
 <ul>
@@ -138,7 +139,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/launching.html">Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/kv_blending.html">KV blending</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
 </ul>
 </li>
 </ul>
@@ -208,7 +208,7 @@
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.experimental.memory_management</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryAllocatorInterface</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.experimental.storage_backend.connector.base_connector</span><span class="w"> </span><span class="kn">import</span> \
@@ -230,12 +230,14 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ParsedRemoteURL</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The parsed URL of the format:</span>
-<span class="sd">    &lt;connector_type&gt;://&lt;host&gt;:&lt;port&gt;,&lt;host2&gt;:&lt;port2&gt;,...</span>
+<span class="sd">    &lt;connector_type&gt;://&lt;host&gt;:&lt;port&gt;[/path][?query],&lt;host2&gt;:&lt;port2&gt;[/path2][?query2],...</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">connector_type</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">hosts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="n">ports</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span></div>
+    <span class="n">ports</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">query_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span></div>
 
 
 
@@ -243,7 +245,10 @@
 <a class="viewcode-back" href="../../../../advanced/lmcache.experimental.storage_backend.connector.html#lmcache.experimental.storage_backend.connector.parse_remote_url">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">parse_remote_url</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParsedRemoteURL</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Parses the remote URL into its constituent parts.</span>
+<span class="sd">    Parses the remote URL into its constituent parts with support for:</span>
+<span class="sd">    - Multiple hosts (comma-separated)</span>
+<span class="sd">    - Path and query parameters in each host definition</span>
+<span class="sd">    - Forward compatibility with legacy format</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If the URL is invalid.</span>
@@ -254,23 +259,54 @@
         <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot parse remote_url </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2"> in the config&quot;</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid remote url </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="n">connector_type</span><span class="p">,</span> <span class="n">hosts_and_ports</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">connector_type</span><span class="p">,</span> <span class="n">hosts_section</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
 
     <span class="n">hosts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">ports</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">body</span> <span class="ow">in</span> <span class="n">hosts_and_ports</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(.+):(\d+)&quot;</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Cannot parse url body </span><span class="si">{</span><span class="n">body</span><span class="si">}</span><span class="s2"> from remote_url </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2"> in the &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid remote url </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">query_params</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="n">host</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">host_def</span> <span class="ow">in</span> <span class="n">hosts_section</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
+        <span class="n">host_pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                ^</span>
+<span class="s2">                ([^:]+)        # hostname</span>
+<span class="s2">                :              # :</span>
+<span class="s2">                (\d+)          # port</span>
+<span class="s2">                (/?[^?]*)      # path（optional, start with /）</span>
+<span class="s2">                (?:\?(.*))?    # query（optional，? content after ?）</span>
+<span class="s2">                $</span>
+<span class="s2">            &quot;&quot;&quot;</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">host_pattern</span><span class="p">,</span> <span class="n">host_def</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid host definition: </span><span class="si">{</span><span class="n">host_def</span><span class="si">}</span><span class="s2"> in URL: </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">host</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+        <span class="n">query_str</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+
+        <span class="n">params_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">query_str</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">query_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;&amp;&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="s1">&#39;=&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+                    <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">params_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+                <span class="k">elif</span> <span class="n">param</span><span class="p">:</span>
+                    <span class="n">params_dict</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
         <span class="n">hosts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">host</span><span class="p">)</span>
         <span class="n">ports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">query_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params_dict</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">ParsedRemoteURL</span><span class="p">(</span><span class="n">connector_type</span><span class="p">,</span> <span class="n">hosts</span><span class="p">,</span> <span class="n">ports</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">ParsedRemoteURL</span><span class="p">(</span><span class="n">connector_type</span><span class="o">=</span><span class="n">connector_type</span><span class="p">,</span>
+                           <span class="n">hosts</span><span class="o">=</span><span class="n">hosts</span><span class="p">,</span>
+                           <span class="n">ports</span><span class="o">=</span><span class="n">ports</span><span class="p">,</span>
+                           <span class="n">paths</span><span class="o">=</span><span class="n">paths</span><span class="p">,</span>
+                           <span class="n">query_params</span><span class="o">=</span><span class="n">query_params</span><span class="p">)</span></div>
 
 
 
@@ -321,7 +357,8 @@
                     <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">case</span> <span class="s2">&quot;infinistore&quot;</span><span class="p">:</span>
             <span class="n">host</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">parsed_url</span><span class="o">.</span><span class="n">hosts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">parsed_url</span><span class="o">.</span><span class="n">ports</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">connector</span> <span class="o">=</span> <span class="n">InfinistoreConnector</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="s2">&quot;mlx5_0&quot;</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span>
+            <span class="n">device_name</span> <span class="o">=</span> <span class="n">parsed_url</span><span class="o">.</span><span class="n">query_params</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device&quot;</span><span class="p">,</span> <span class="s2">&quot;mlx5_0&quot;</span><span class="p">)</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">InfinistoreConnector</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">device_name</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span>
                                              <span class="n">memory_allocator</span><span class="p">)</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>

@@ -111,8 +111,9 @@
   <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/speedup.html">3 Min Quick Example: Docker + Speedup with vLLM</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/installation.html">Pip Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/docker.html">Docker Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Configure LMCache</span></p>
 <ul>
@@ -138,7 +139,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/launching.html">Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/save_decode.html">Saving the decode cache</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/kv_blending.html">KV blending</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/v0/measuring_improvements.html">End-to-end measurements</a></li>
 </ul>
 </li>
 </ul>
@@ -204,14 +204,11 @@
       <h1>Source code for lmcache.integration.vllm.vllm_adapter</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.utils.rnn</span><span class="w"> </span><span class="kn">import</span> <span class="n">pad_sequence</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
@@ -219,7 +216,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">vllm.attention.backends.flash_attn</span><span class="w"> </span><span class="kn">import</span> <span class="n">FlashAttentionMetadata</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">vllm.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ParallelConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">vllm.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceGroupMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vllm.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntermediateTensors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">vllm.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_kv_cache_torch_dtype</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">LMCacheEngineMetadata</span>
@@ -253,83 +250,12 @@
 <div class="viewcode-block" id="RetrieveStatus">
 <a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.RetrieveStatus">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">RetrieveStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-    <span class="n">PREFILL</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">PREFILL</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># include (1) normal_prefill</span>
+    <span class="c1"># (2) chunk_prefill_last</span>
+    <span class="c1"># (3) prefix_prefill</span>
     <span class="n">CHUNK_PREFILL</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># not last chunk</span>
-    <span class="n">CHUNK_PREFILL_LAST</span> <span class="o">=</span> <span class="mi">3</span>
     <span class="n">NONE</span> <span class="o">=</span> <span class="mi">4</span></div>
 
-
-
-<span class="n">SUPPORTED_MODELS</span> <span class="o">=</span> <span class="n">SimpleNamespace</span><span class="p">(</span>
-    <span class="n">llama_family</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">],</span>
-    <span class="n">longchat_family</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;lmsys/longchat-7b-16k&quot;</span><span class="p">],</span>
-    <span class="n">mistral_family</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mistralai/Mistral-7B-Instruct-v0.2&quot;</span><span class="p">],</span>
-    <span class="n">glm_family</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;THUDM/glm-4-9b-chat&quot;</span><span class="p">],</span>
-    <span class="n">qwen_family</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Qwen/Qwen-7B&quot;</span><span class="p">],</span>
-<span class="p">)</span>
-
-
-<div class="viewcode-block" id="ModelInputSubset">
-<a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.ModelInputSubset">[docs]</a>
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ModelInputSubset</span><span class="p">:</span>
-    <span class="n">model_layers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span>
-    <span class="n">attn_layers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span>
-    <span class="n">start_layer</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">end_layer</span><span class="p">:</span> <span class="nb">int</span></div>
-
-
-
-<div class="viewcode-block" id="create_model_input_subset">
-<a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.create_model_input_subset">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_model_input_subset</span><span class="p">(</span>
-    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">model_executable</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelInputSubset</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">SUPPORTED_MODELS</span><span class="o">.</span><span class="n">llama_family</span> <span class="ow">or</span> \
-        <span class="n">model_name</span> <span class="ow">in</span> <span class="n">SUPPORTED_MODELS</span><span class="o">.</span><span class="n">mistral_family</span><span class="p">:</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">model_executable</span><span class="o">.</span><span class="n">model</span>
-        <span class="n">model_layers</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">layers</span>
-        <span class="n">attn_layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">model_layers</span><span class="p">]</span>
-    <span class="k">elif</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="n">SUPPORTED_MODELS</span><span class="o">.</span><span class="n">glm_family</span><span class="p">:</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">model_executable</span><span class="o">.</span><span class="n">transformer</span>
-        <span class="n">model_layers</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">encoder</span><span class="o">.</span><span class="n">layers</span>
-        <span class="n">attn_layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">layer</span><span class="o">.</span><span class="n">self_attention</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">model_layers</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># FIXME(Jiayi): `else` is the default setting, which could be wrong</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">model_executable</span><span class="o">.</span><span class="n">model</span>
-        <span class="n">model_layers</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">layers</span>
-        <span class="n">attn_layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">model_layers</span><span class="p">]</span>
-
-    <span class="c1"># FIXME(Jiayi): ChatGLM does not have `model` or `start_layer`</span>
-    <span class="c1"># How does PP work in this case?</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;start_layer&quot;</span><span class="p">):</span>
-        <span class="n">start_layer</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">start_layer</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">start_layer</span> <span class="o">=</span> <span class="mi">0</span>
-
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;end_layer&quot;</span><span class="p">):</span>
-        <span class="n">end_layer</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">end_layer</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">end_layer</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_layers</span><span class="p">)</span>
-
-    <span class="n">model_input_subset</span> <span class="o">=</span> <span class="n">ModelInputSubset</span><span class="p">(</span><span class="n">model_layers</span><span class="o">=</span><span class="n">model_layers</span><span class="p">,</span>
-                                          <span class="n">attn_layers</span><span class="o">=</span><span class="n">attn_layers</span><span class="p">,</span>
-                                          <span class="n">start_layer</span><span class="o">=</span><span class="n">start_layer</span><span class="p">,</span>
-                                          <span class="n">end_layer</span><span class="o">=</span><span class="n">end_layer</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">model_input_subset</span></div>
-
-
-
-<span class="c1"># FIXME(Jiayi): temporarily comment this out</span>
-<span class="c1">#def lmcache_remove_request_id_indices(request_id):</span>
-<span class="c1">#    engine = LMCacheEngineBuilder.get(ENGINE_NAME)</span>
-<span class="c1">#    if engine is None:</span>
-<span class="c1">#        return</span>
-<span class="c1">#    if not engine.config.enable_blending:</span>
-<span class="c1">#        return</span>
-<span class="c1">#    remove_request_id_indices(request_id)</span>
 
 
 <div class="viewcode-block" id="init_lmcache_engine">
@@ -387,56 +313,6 @@
 
 
 
-<span class="c1"># TODO(Jiayi): This function is not used for now</span>
-<div class="viewcode-block" id="broadcast_seq_group_metadata">
-<a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.broadcast_seq_group_metadata">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">broadcast_seq_group_metadata</span><span class="p">(</span>
-    <span class="n">model_input</span><span class="p">:</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span>
-    <span class="n">is_driver_worker</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Broadcast the `model_input` from driver worker to non-driver workers.</span>
-
-<span class="sd">    :param model_input: The model input for the current request.</span>
-<span class="sd">    :type model_input: ModelInputForGPUWithSamplingMetadata</span>
-
-<span class="sd">    :param is_driver_worker: Whether the code is executed in driver worker. </span>
-<span class="sd">    :type is_driver_worker: bool</span>
-
-<span class="sd">    : return: Original `model_input` if driver_worker.</span>
-<span class="sd">              Broadcasted `model_input` otherwise.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="c1"># broadcast len of `seq_group_metadata_list`</span>
-    <span class="k">if</span> <span class="n">is_driver_worker</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">seq_group_metadata_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="n">seq_group_len_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">model_input</span><span class="o">.</span><span class="n">seq_group_metadata_list</span><span class="p">)]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">seq_group_len_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">dist</span><span class="o">.</span><span class="n">broadcast_object_list</span><span class="p">(</span><span class="n">seq_group_len_list</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">seq_group_len</span> <span class="o">=</span> <span class="n">seq_group_len_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-    <span class="c1"># broadcast `seq_group_metadata_list`</span>
-    <span class="n">seq_group_metadata_list</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">SequenceGroupMetadata</span><span class="p">]]</span>
-    <span class="k">if</span> <span class="n">is_driver_worker</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">seq_group_metadata_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="n">seq_group_metadata_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">seq_group_metadata_list</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">seq_group_metadata_list</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">seq_group_len</span>
-    <span class="n">dist</span><span class="o">.</span><span class="n">broadcast_object_list</span><span class="p">(</span><span class="n">seq_group_metadata_list</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">is_driver_worker</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">model_input</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-            <span class="n">model_input</span><span class="p">,</span>
-            <span class="n">seq_group_metadata_list</span><span class="o">=</span>\
-                <span class="n">seq_group_metadata_list</span> <span class="c1"># type: ignore[arg-type]</span>
-
-        <span class="p">)</span></div>
-
-
-
-<span class="c1"># TODO(Jiayi): This function is not used for now</span>
 <div class="viewcode-block" id="broadcast_seq_group_list">
 <a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.broadcast_seq_group_list">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_seq_group_list</span><span class="p">(</span>
@@ -492,13 +368,12 @@
 
 
 
-<span class="c1"># FIXME(Jiayi): Need to modify this for lmcache_connector</span>
 <span class="c1"># This function is not used for now</span>
 <div class="viewcode-block" id="lmcache_should_retrieve">
 <a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.lmcache_should_retrieve">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">lmcache_should_retrieve</span><span class="p">(</span>
-        <span class="n">model_input</span><span class="p">:</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span>
-        <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">RetrieveStatus</span><span class="p">:</span>
+    <span class="n">model_input</span><span class="p">:</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RetrieveStatus</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check should we retrieve KV from LMCache for the current model_input.</span>
 
 <span class="sd">    :param model_input: The model input for the current request.</span>
@@ -517,46 +392,50 @@
     <span class="c1"># but attn_metadata does</span>
     <span class="n">seq_lens</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">attn_metadata</span><span class="o">.</span><span class="n">seq_lens</span>
     <span class="k">assert</span> <span class="n">seq_lens</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-
+    <span class="n">num_seqs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">)</span>
+    <span class="n">retrieve_status</span> <span class="o">=</span> <span class="p">[</span><span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">NONE</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_seqs</span>
     <span class="n">has_engine</span> <span class="o">=</span> <span class="n">LMCacheEngineBuilder</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ENGINE_NAME</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_engine</span> <span class="ow">or</span> <span class="n">kv_caches</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">NONE</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_engine</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">retrieve_status</span>
 
     <span class="n">attn_meta</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">attn_metadata</span>
-    <span class="n">prefill_meta</span> <span class="o">=</span> <span class="n">attn_meta</span><span class="o">.</span><span class="n">prefill_metadata</span>
 
-    <span class="c1"># check if the current run is profiling</span>
-    <span class="n">is_profile_run</span> <span class="o">=</span> <span class="p">(</span><span class="n">kv_caches</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">kv_caches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">is_profile_run</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">NONE</span>
+    <span class="n">prefill_exist</span> <span class="o">=</span> <span class="p">(</span><span class="n">attn_meta</span><span class="o">.</span><span class="n">num_prefills</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">prefill_exist</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">retrieve_status</span>
+    <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
+    <span class="n">model_input</span> <span class="o">=</span> <span class="n">broadcast_seq_group_list</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">seq_group_list</span>
+                                           <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
+    <span class="k">assert</span> <span class="n">seq_group_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
-    <span class="c1"># check if the current run is prefill</span>
-    <span class="c1"># TODO (Jiayi): chunked prefill + prefix caching in a single batch</span>
-    <span class="c1"># is not and should not be supported here</span>
-    <span class="c1"># what about multiple chunk prefills in a single batch??</span>
+    <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1">#selected_token_indices_idx = 0</span>
+    <span class="k">for</span> <span class="n">seq_group_idx</span><span class="p">,</span> <span class="n">seq_group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_group_list</span><span class="p">):</span>
+        <span class="n">num_seqs_in_seq_group</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="p">)</span>
+        <span class="n">seq_data_idx_end</span> <span class="o">=</span> <span class="n">seq_data_idx</span> <span class="o">+</span> <span class="n">num_seqs_in_seq_group</span>
 
-    <span class="c1"># Assume all chunks are prefills</span>
-    <span class="n">is_all_prefill_run</span> <span class="o">=</span> <span class="p">((</span><span class="n">attn_meta</span><span class="o">.</span><span class="n">num_prefills</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">))</span>\
-        <span class="ow">and</span> <span class="n">prefill_meta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">is_all_prefill_run</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="n">selected_token_indices</span> <span class="o">=</span> \
-            <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">selected_token_indices</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_token_indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># There should only be 1 chunk in chunked prefill</span>
-            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
-            <span class="k">return</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span>
+        <span class="c1"># DECODE</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">is_prompt</span><span class="p">:</span>
+            <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="n">seq_data_idx_end</span>
+            <span class="k">continue</span>
 
-        <span class="c1"># `&lt;` means chunked prefill is batched with decode</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_token_indices</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">PREFILL</span>
+        <span class="c1"># CHUNK_PREFILL</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">do_sample</span><span class="p">:</span>
+            <span class="n">retrieve_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">:</span><span class="n">seq_data_idx_end</span><span class="p">]</span> <span class="o">=</span>\
+                <span class="p">[</span><span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_seqs_in_seq_group</span>
+            <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="n">seq_data_idx_end</span>
+        <span class="c1"># LAST_CHUNK_PREFILL or NORMAL_PREFILL</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">retrieve_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">:</span><span class="n">seq_data_idx_end</span><span class="p">]</span> <span class="o">=</span>\
+                <span class="p">[</span><span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">PREFILL</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_seqs_in_seq_group</span>
+            <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="n">seq_data_idx_end</span>
 
-    <span class="k">return</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">NONE</span></div>
+    <span class="k">return</span> <span class="n">retrieve_status</span></div>
 
 
 
-<span class="c1"># FIXME(Jiayi): Need to modify this for lmcache_connector</span>
-<span class="c1"># This function is not used for now</span>
 <div class="viewcode-block" id="lmcache_should_store">
 <a class="viewcode-back" href="../../../../advanced/lmcache.integration.vllm.html#lmcache.integration.vllm.vllm_adapter.lmcache_should_store">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">lmcache_should_store</span><span class="p">(</span>
@@ -596,54 +475,75 @@
     <span class="k">assert</span> <span class="n">engine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
     <span class="n">attn_meta</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">attn_metadata</span>
-    <span class="n">prefill_meta</span> <span class="o">=</span> <span class="n">attn_meta</span><span class="o">.</span><span class="n">prefill_metadata</span>
 
     <span class="c1"># Don&#39;t store if this request is processed by cacheblend</span>
     <span class="k">if</span> <span class="n">is_blend_effective</span><span class="p">(</span><span class="n">attn_meta</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">store_status</span>
 
-    <span class="n">is_all_prefill_run</span> <span class="o">=</span> <span class="p">((</span><span class="n">attn_meta</span><span class="o">.</span><span class="n">num_prefills</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">))</span>\
-        <span class="ow">and</span> <span class="p">(</span><span class="n">prefill_meta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
+    <span class="c1"># FIXME(Jiayi): Use `seq_group_list` to determine driver worker</span>
+    <span class="c1"># Alternative 1, we can pass in a parameter `is_driver_worker`</span>
+    <span class="c1"># Alternative 2, make the broadcast in outside, so the `broadcast`</span>
+    <span class="c1"># doesn&#39;t need to be done twice in `lmcache_retrieve` and</span>
+    <span class="c1"># `lmcache_store`</span>
+    <span class="c1"># We use this dirty fix now as we don&#39;t want to modify the vllm</span>
+    <span class="c1"># connector interface for now</span>
+    <span class="n">model_input</span> <span class="o">=</span> <span class="n">broadcast_seq_group_list</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">seq_group_list</span>
+                                           <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
+    <span class="k">assert</span> <span class="n">seq_group_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
-    <span class="k">if</span> <span class="n">is_all_prefill_run</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
-        <span class="n">model_input</span> <span class="o">=</span> <span class="n">broadcast_seq_group_list</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">seq_group_list</span>
-                                               <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
-        <span class="k">assert</span> <span class="n">seq_group_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">selected_token_indices</span> <span class="o">=</span> \
+        <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">selected_token_indices</span>
 
-        <span class="n">selected_token_indices</span> <span class="o">=</span> \
-            <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">selected_token_indices</span>
+    <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">selected_token_indices_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">seq_group_idx</span><span class="p">,</span> <span class="n">seq_group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_group_list</span><span class="p">):</span>
+        <span class="n">num_seqs_in_seq_group</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="p">)</span>
+        <span class="n">seq_data_idx_end</span> <span class="o">=</span> <span class="n">seq_data_idx</span> <span class="o">+</span> <span class="n">num_seqs_in_seq_group</span>
 
-        <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">selected_token_indices_idx</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">seq_group_idx</span><span class="p">,</span> <span class="n">seq_group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_group_list</span><span class="p">):</span>
+        <span class="c1"># DECODE</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">is_prompt</span><span class="p">:</span>
+            <span class="c1"># Determine whether to save decoded KV cache</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">save_decode_cache</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">seq_data_idx</span><span class="p">,</span> <span class="n">seq_data_idx_end</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">seq_lens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">%</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">store_status</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">DECODE</span>
+            <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="n">seq_data_idx_end</span>
+            <span class="n">selected_token_indices_idx</span> <span class="o">+=</span> <span class="n">num_seqs_in_seq_group</span>
+            <span class="k">continue</span>
 
-            <span class="c1"># TODO(Jiayi): Figure out scenarios (other than chunk prefill)</span>
-            <span class="c1"># where `do_sample`` is False</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">do_sample</span><span class="p">:</span>
-                <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span>
-                <span class="n">seq_data_idx</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">continue</span>
+        <span class="c1"># TODO(Jiayi): Maybe it&#39;s cleaner to handle all logic for</span>
+        <span class="c1"># `lmcache_model_request` inside `cache_engine`</span>
+        <span class="c1"># Check whether user has specified to not store the cache</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">seq_group</span><span class="p">,</span> <span class="s2">&quot;lmcache_model_request&quot;</span><span class="p">):</span>
+            <span class="n">lmcache_model_request</span> <span class="o">=</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">lmcache_model_request</span>
+            <span class="k">if</span> <span class="n">lmcache_model_request</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">user_should_store</span> <span class="o">=</span> <span class="n">lmcache_model_request</span><span class="o">.</span><span class="n">store_cache</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">user_should_store</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;User has specified not to store the cache&quot;</span><span class="p">)</span>
+                    <span class="n">seq_data_idx</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="p">)</span>
+                    <span class="k">continue</span>
 
-            <span class="k">for</span> <span class="n">seqid</span><span class="p">,</span> <span class="n">seq_data</span> <span class="ow">in</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">seq_data</span><span class="o">.</span><span class="n">get_len</span><span class="p">(</span>
-                <span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">!=</span> <span class="n">selected_token_indices</span><span class="p">[</span><span class="n">selected_token_indices_idx</span><span class="p">]:</span>
-                    <span class="c1"># last chunk in chunk prefill</span>
-                    <span class="c1"># or prefix already hit in retrieve</span>
-                    <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">SUFFIX_PREFILL</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">PREFILL</span>
-                <span class="n">seq_data_idx</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="n">selected_token_indices_idx</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="n">store_status</span>
+        <span class="c1"># CHUNK_PREFILL</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">do_sample</span><span class="p">:</span>
+            <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">:</span><span class="n">seq_data_idx_end</span><span class="p">]</span> <span class="o">=</span> \
+                <span class="p">[</span><span class="n">StoreStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_seqs_in_seq_group</span>
+            <span class="n">seq_data_idx</span> <span class="o">=</span> <span class="n">seq_data_idx_end</span>
+            <span class="k">continue</span>
 
-    <span class="c1"># Determine whether to save decoded KV cache</span>
-    <span class="k">if</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">save_decode_cache</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">seq_len</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_lens</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">seq_len</span> <span class="o">%</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">store_status</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">DECODE</span>
+        <span class="c1"># LAST_CHUNK_PREFILL or NORMAL_PREFILL</span>
+        <span class="k">for</span> <span class="n">seqid</span><span class="p">,</span> <span class="n">seq_data</span> <span class="ow">in</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">seq_data</span><span class="o">.</span><span class="n">get_len</span><span class="p">(</span>
+            <span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">!=</span> <span class="n">selected_token_indices</span><span class="p">[</span><span class="n">selected_token_indices_idx</span><span class="p">]:</span>
+                <span class="c1"># last chunk in chunk prefill</span>
+                <span class="c1"># or prefix already hit in retrieve</span>
+                <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">SUFFIX_PREFILL</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">StoreStatus</span><span class="o">.</span><span class="n">PREFILL</span>
+            <span class="n">seq_data_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">selected_token_indices_idx</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="k">return</span> <span class="n">store_status</span></div>
 
 
@@ -703,20 +603,10 @@
 
     <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
 
-    <span class="c1"># FIXME(Jiayi): Use `seq_group_list` to determine driver worker</span>
-    <span class="c1"># Alternative 1, we can pass in a parameter `is_driver_worker`</span>
-    <span class="c1"># Alternative 2, make the broadcast in outside, so the `broadcast`</span>
-    <span class="c1"># doesn&#39;t need to be done twice in `lmcache_retrieve` and</span>
-    <span class="c1"># `lmcache_store`</span>
-    <span class="c1"># We use this dirty fix now as we don&#39;t want to modify the vllm</span>
-    <span class="c1"># connector interface for now</span>
-    <span class="n">model_input</span> <span class="o">=</span> <span class="n">broadcast_seq_group_list</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">seq_group_list</span>
-                                           <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
     <span class="k">assert</span> <span class="n">seq_group_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
     <span class="n">next_start_pos</span> <span class="o">=</span> <span class="mi">0</span>
-
     <span class="k">for</span> <span class="n">seq_group_idx</span><span class="p">,</span> <span class="n">seq_group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq_group_list</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">seqid</span><span class="p">,</span> <span class="n">seq_data</span> <span class="ow">in</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">status</span> <span class="o">=</span> <span class="n">store_status</span><span class="p">[</span><span class="n">seq_data_idx</span><span class="p">]</span>
@@ -749,7 +639,6 @@
 
             <span class="n">vllm_num_computed_tokens</span> <span class="o">=</span> <span class="n">seq_len</span> <span class="o">-</span> <span class="n">vllm_num_required_tokens</span>
             <span class="k">if</span> <span class="n">vllm_num_computed_tokens</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># TODO (Jiayi): what if vllm_num_computed &gt; skip_leading_tokens</span>
                 <span class="k">if</span> <span class="n">skip_leading_tokens</span> <span class="o">&gt;=</span> <span class="n">vllm_num_computed_tokens</span><span class="p">:</span>
                     <span class="n">slot_mapping_req_full</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
                         <span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">),</span>
@@ -788,20 +677,19 @@
                 <span class="c1"># might error here. `slot_mapping_seq` could be wrong</span>
 
                 <span class="n">stored_token_num</span> <span class="o">=</span> <span class="n">seq_len</span> <span class="o">-</span> <span class="n">skip_leading_tokens</span>
-                <span class="n">skipped_token_num</span> <span class="o">=</span> <span class="n">skip_leading_tokens</span>
                 <span class="n">kv_tensors_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">current_tokens</span><span class="p">,</span>
                                                   <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
-                <span class="n">kv_tensors_mask</span><span class="p">[:</span><span class="n">skipped_token_num</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">kv_tensors_mask</span><span class="p">[:</span><span class="n">skip_leading_tokens</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
 
                 <span class="n">engine</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">current_tokens</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span>
                              <span class="n">kv_tensors_mask</span><span class="p">,</span>
                              <span class="n">kvcaches</span><span class="o">=</span><span class="n">kv_caches</span><span class="p">,</span>
                              <span class="n">slot_mapping</span><span class="o">=</span><span class="n">slot_mapping_req_full</span><span class="p">,</span>
-                             <span class="n">offset</span><span class="o">=</span><span class="n">skipped_token_num</span><span class="p">)</span>
+                             <span class="n">offset</span><span class="o">=</span><span class="n">skip_leading_tokens</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">stored_token_num</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">skipped_token_num</span> <span class="o">=</span> <span class="n">seq_len</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Store skips </span><span class="si">{</span><span class="n">skipped_token_num</span><span class="si">}</span><span class="s2"> tokens &quot;</span>\
+                <span class="n">skip_leading_tokens</span> <span class="o">=</span> <span class="n">seq_len</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Store skips </span><span class="si">{</span><span class="n">skip_leading_tokens</span><span class="si">}</span><span class="s2"> tokens &quot;</span>\
                     <span class="sa">f</span><span class="s2">&quot;and then stores </span><span class="si">{</span><span class="n">stored_token_num</span><span class="si">}</span><span class="s2"> tokens&quot;</span><span class="p">)</span>
             <span class="n">seq_data_idx</span> <span class="o">+=</span> <span class="mi">1</span></div>
 
@@ -815,8 +703,9 @@
     <span class="n">model_input</span><span class="p">:</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span>
     <span class="n">cache_config</span><span class="p">:</span> <span class="n">CacheConfig</span><span class="p">,</span>
     <span class="n">kv_caches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
-    <span class="n">retrieve_status</span><span class="p">:</span> <span class="n">RetrieveStatus</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+    <span class="n">retrieve_status</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">RetrieveStatus</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">IntermediateTensors</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Retrieve the KV caches from LMCache for the current model_input. And </span>
 <span class="sd">    rebuild the model_input to reflect the changes in KV if necessary.</span>
 
@@ -837,11 +726,12 @@
 <span class="sd">    :return: The boolean value to indicate whether the </span>
 <span class="sd">             entire execute_model should be skipped</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">engine</span> <span class="o">=</span> <span class="n">LMCacheEngineBuilder</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ENGINE_NAME</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">engine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;LMCache engine is not initialized.&quot;</span>
 
     <span class="k">if</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">enable_blending</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
 
     <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="o">.</span><span class="n">attn_metadata</span><span class="p">,</span> <span class="n">FlashAttentionMetadata</span><span class="p">),</span> \
         <span class="s2">&quot;Only FlashAttention backend is supported for now.&quot;</span>
@@ -861,6 +751,8 @@
     <span class="n">start_pos_list</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">is_prefill_list</span> <span class="o">=</span> <span class="p">[]</span>
 
+    <span class="n">do_sample_list</span> <span class="o">=</span> <span class="p">[]</span>
+
     <span class="n">next_start_pos</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">num_request_not_found</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -870,27 +762,21 @@
     <span class="k">assert</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
     <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
 
-    <span class="c1"># FIXME(Jiayi): Use `seq_group_list` to determine driver worker</span>
-    <span class="c1"># Alternative 1, we can pass in a parameter `is_driver_worker`</span>
-    <span class="c1"># Alternative 2, make the broadcast in outside, so the `broadcast`</span>
-    <span class="c1"># doesn&#39;t need to be done twice in `lmcache_retrieve` and</span>
-    <span class="c1"># `lmcache_store`</span>
-    <span class="c1"># We use this dirty fix now as we don&#39;t want to modify the vllm</span>
-    <span class="c1"># connector interface for now</span>
-    <span class="n">model_input</span> <span class="o">=</span> <span class="n">broadcast_seq_group_list</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">seq_group_list</span>
-                                           <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">seq_group_list</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">sampling_metadata</span><span class="o">.</span><span class="n">seq_groups</span>
     <span class="k">assert</span> <span class="n">seq_group_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
+    <span class="n">chunk_prefill_full_hit</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="k">for</span> <span class="n">seq_group</span> <span class="ow">in</span> <span class="n">seq_group_list</span><span class="p">:</span>
         <span class="n">seq_ids</span> <span class="o">=</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">seq_ids</span>
         <span class="k">for</span> <span class="n">seq_id</span> <span class="ow">in</span> <span class="n">seq_ids</span><span class="p">:</span>
             <span class="n">seq_data</span> <span class="o">=</span> <span class="n">seq_group</span><span class="o">.</span><span class="n">seq_data</span><span class="p">[</span><span class="n">seq_id</span><span class="p">]</span>
             <span class="n">is_prefill_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq_group</span><span class="o">.</span><span class="n">is_prompt</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">retrieve_status</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">retrieve_status</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">:</span>
                 <span class="n">total_seq_len</span> <span class="o">=</span> <span class="n">seq_lens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="n">do_sample_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">total_seq_len</span> <span class="o">=</span> <span class="n">seq_data</span><span class="o">.</span><span class="n">get_len</span><span class="p">()</span>
+                <span class="n">do_sample_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="n">full_token_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
                 <span class="n">seq_data</span><span class="o">.</span><span class="n">get_token_ids</span><span class="p">()[:</span><span class="n">total_seq_len</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
@@ -909,7 +795,19 @@
             <span class="c1"># (e.g., chunk prefill, prefix caching)</span>
             <span class="n">vllm_num_computed_tokens</span> <span class="o">=</span> <span class="n">total_seq_len</span> <span class="o">-</span> <span class="n">vllm_num_required_tokens</span>
 
-            <span class="c1"># No need to retrieve from lmc if the number of tokens</span>
+            <span class="c1"># NOTE: No need to retrieve from lmc if the current sequence is</span>
+            <span class="c1"># in DECODE stage</span>
+            <span class="k">if</span> <span class="n">retrieve_status</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">NONE</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">vllm_num_required_tokens</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="n">total_seq_len</span> <span class="o">=</span> <span class="n">seq_lens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="n">num_computed_tokens_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vllm_num_computed_tokens</span><span class="p">)</span>
+                <span class="n">lmc_num_computed_tokens_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">num_request_not_found</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Injected token number: 0. This is DECODE&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># NOTE: No need to retrieve from lmc if the number of tokens</span>
             <span class="c1"># to be retrieved is small</span>
             <span class="n">lmc_chunk_size</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span>
             <span class="k">if</span> <span class="n">vllm_num_required_tokens</span> <span class="o">&lt;</span> <span class="n">lmc_chunk_size</span><span class="p">:</span>
@@ -958,9 +856,12 @@
 
             <span class="c1"># TODO(Jiayi): currently we do not skip anything if chunked prefill</span>
             <span class="c1"># is batched with any decode or other chunked prefills.</span>
-            <span class="k">if</span> <span class="n">retrieve_status</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">retrieve_status</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">num_computed_tokens</span> <span class="o">!=</span> <span class="n">total_seq_len</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">False</span>
+                    <span class="n">chunk_prefill_full_hit</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">lmc_num_computed_tokens</span> <span class="o">-=</span> <span class="mi">1</span>
+                    <span class="n">num_computed_tokens</span> <span class="o">-=</span> <span class="mi">1</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># Avoid error when prefix is exactly the same as the retrieved</span>
                 <span class="c1"># However, the entire prefill should be skipped in chunk prefill</span>
@@ -985,13 +886,23 @@
     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">lmc_num_computed_tokens_list</span><span class="p">)</span> <span class="o">==</span> <span class="n">seq_cnt</span>
     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">num_computed_tokens_list</span><span class="p">)</span> <span class="o">==</span> <span class="n">seq_cnt</span>
 
-    <span class="k">if</span> <span class="n">retrieve_status</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span> <span class="ow">and</span> \
-        <span class="n">num_request_not_found</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">True</span>
+    <span class="n">is_all_chunk_prefill</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">status</span> <span class="o">==</span> <span class="n">RetrieveStatus</span><span class="o">.</span><span class="n">CHUNK_PREFILL</span> <span class="k">for</span> <span class="n">status</span> <span class="ow">in</span> <span class="n">retrieve_status</span><span class="p">])</span>
 
-    <span class="c1"># Some of the request can be skipped for a bit</span>
-    <span class="c1"># TODO(Jiayi): need e2e test full prefill and partial prefill</span>
-    <span class="c1"># in a single batch</span>
+    <span class="c1"># NOTE: We can only skip model forward if all requests are chunk prefill</span>
+
+    <span class="k">if</span> <span class="n">is_all_chunk_prefill</span> <span class="ow">and</span> <span class="n">chunk_prefill_full_hit</span><span class="p">:</span>
+        <span class="n">num_tok</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_input</span><span class="o">.</span><span class="n">input_tokens</span><span class="p">)</span>
+        <span class="n">num_dim</span> <span class="o">=</span> <span class="n">model_executable</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embed_tokens</span><span class="o">.</span><span class="n">embedding_dim</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">model_executable</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embed_tokens</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">input_tokens</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">hidden_or_intermediate_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_tok</span><span class="p">,</span>
+                                                    <span class="n">num_dim</span><span class="p">,</span>
+                                                    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                                                    <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Skip the entire model forward!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hidden_or_intermediate_states</span>
+
     <span class="k">if</span> <span class="n">num_request_not_found</span> <span class="o">&lt;</span> <span class="n">seq_cnt</span><span class="p">:</span>
         <span class="n">rebuilt_model_input</span> <span class="o">=</span> <span class="n">build_partial_prefill_input</span><span class="p">(</span>
             <span class="n">model_input</span><span class="p">,</span>
@@ -1001,14 +912,15 @@
             <span class="n">slot_mapping</span><span class="p">,</span>
             <span class="n">lmc_num_computed_tokens_list</span><span class="p">,</span>
             <span class="n">is_prefill_list</span><span class="p">,</span>
+            <span class="n">do_sample_list</span><span class="p">,</span>
             <span class="n">kv_caches</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
             <span class="n">cache_config</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Rebuilt the input!&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">rebuilt_model_input</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">rebuilt_model_input</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Returning the original input!&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">False</span></div>
+    <span class="k">return</span> <span class="n">model_input</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span></div>
 
 
 
@@ -1022,6 +934,7 @@
     <span class="n">slot_mapping_flat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">lmc_num_computed_tokens_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
     <span class="n">is_prefill_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
+    <span class="n">do_sample_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="n">cache_config</span><span class="p">:</span> <span class="n">CacheConfig</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelInputForGPUWithSamplingMetadata&quot;</span><span class="p">:</span>
@@ -1097,7 +1010,8 @@
 
         <span class="c1"># Sampling metadata related</span>
         <span class="c1"># seq_groups (use rebuilt query lens)</span>
-        <span class="n">rebuilt_selected_token_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">last_query_start_loc</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">do_sample_list</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
+            <span class="n">rebuilt_selected_token_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">last_query_start_loc</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># rebuilt attn_metadata</span>
     <span class="n">rebuilt_attn_metadata</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_input</span><span class="o">.</span><span class="n">attn_metadata</span><span class="p">)</span>
