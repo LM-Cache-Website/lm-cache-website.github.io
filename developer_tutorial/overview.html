@@ -16,7 +16,7 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="LLM_Engine.html" rel="next" title="LLM Engine"/>
+<link href="EngineInterface.html" rel="next" title="LMCache Engine Interface"/>
 <link href="../models/models.html" rel="prev" title="Supported Models"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
@@ -116,17 +116,17 @@
 <p class="caption" role="heading"><span class="caption-text">Developer Documentation</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">LMCache Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="LLM_Engine.html">LLM Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="LMCache_Engine.html">LMCache Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="LMCache_Backend.html">LMCache Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EngineInterface.html">LMCache Engine Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GPUConnectorInterface.html">LMCache GPU Connector Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MemoryObject.html">LMCache Memory Object</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MemoryInterface.html">LMCache Memory Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="BackendInterface.html">LMCache Backend Interface</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.blend.html">LMCache Blend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.server.html">LMCache Server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.experimental.html">LMCache Experimental</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lmcache.integration.html">LMCache Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/KVBlend.html">KV Blending</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/KVEvictor.html">KVCache Evictor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/vLLMIntegration.html">vLLM Integration</a></li>
 </ul>
 </nav>
 </div>
@@ -151,27 +151,6 @@
 <div id="content" role="main">
 <section id="lmcache-overview">
 <span id="dev-doc"></span><h1>LMCache Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-overview"><span>#</span></a></h1>
-<section id="instance-level-overview">
-<h2>Instance-Level Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#instance-level-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#instance-level-overview'"><span>#</span></a></h2>
-<p>The LMCache project consists of three main components: the LLM Engine, the LMCache Engine, and the LMCache Backend.</p>
-<p>When a new request is received, the LLM Engine checks if the prompt’s KV Cache exists. If the KV Cache is found, the LLM Engine retrieves it from the LMCache Engine. If not, the LLM Engine performs the prefill for the prompt. After completing the decoding process, the LLM Engine stores the tokens and their corresponding KV Cache in the LMCache Engine.</p>
-<p>Whenever the KV Cache is retrieved from or stored in the LMCache Engine, it is split into chunks along the token dimension. These chunks are then fetched from or stored in the corresponding LMCache Backend.</p>
-<blockquote>
-<div><p>Currently, the LLM Engine (in the <code class="docutils literal notranslate"><span class="pre">lmcache-vllm</span></code> repository) is based on <code class="docutils literal notranslate"><span class="pre">vllm</span></code> with a customized wrapper.</p>
-</div></blockquote>
-<figure class="align-center">
-<img alt="Instance Level Overview" class="no-scaled-link" src="../_images/pic1.PNG" style="width: 60%;"/>
-</figure>
-</section>
-<section id="inter-instance-overview">
-<h2>Inter-Instance Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#inter-instance-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#inter-instance-overview'"><span>#</span></a></h2>
-<p>Within an instance, the LMCache Backend stores KV Cache Chunks in tensor format across GPU, CPU, and Disk.</p>
-<p>To share the KV Cache across different instances, the LMCache Backend first serializes the KV Cache Chunks, transmits them over the network, and then deserializes them. Currently, we use a centralized server that maintains the entire Chunk index dictionary. Each instance can synchronize the Chunk index and retrieve missing KV Chunks from the server.</p>
-<figure class="align-center">
-<img alt="Inter-Instance Overview" class="no-scaled-link" src="../_images/pic2.PNG" style="width: 100%;"/>
-</figure>
-<p>For serializer and deserializer, we have implemented four methods: <code class="docutils literal notranslate"><span class="pre">torch</span></code>, <code class="docutils literal notranslate"><span class="pre">safetensor</span></code>, <code class="docutils literal notranslate"><span class="pre">fast</span></code> and <code class="docutils literal notranslate"><span class="pre">cachegen</span></code>. The <code class="docutils literal notranslate"><span class="pre">cachegen</span></code> method is recommended for its significant reduction in transmission size, though it may require some GPU computation. For more details, refer to the appendix of the <a class="reference external" href="https://dl.acm.org/doi/10.1145/3651890.3672274">paper</a>.</p>
-</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -183,21 +162,14 @@
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="LLM_Engine.html">
-        LLM Engine
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="EngineInterface.html">
+        LMCache Engine Interface
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
 </a>
 </div>
-</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
-<div class="sticky top-16 -mt-10 max-h-[calc(var(100vh)-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
-<ul>
-<li><a :data-current="activeSection === '#instance-level-overview'" class="reference internal" href="#instance-level-overview">Instance-Level Overview</a></li>
-<li><a :data-current="activeSection === '#inter-instance-overview'" class="reference internal" href="#inter-instance-overview">Inter-Instance Overview</a></li>
-</ul>
-</div>
-</aside>
+</div></div>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
