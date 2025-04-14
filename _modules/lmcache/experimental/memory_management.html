@@ -149,17 +149,17 @@
 <p class="caption" role="heading"><span class="caption-text">Developer Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/overview.html">LMCache Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/LLM_Engine.html">LLM Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/LMCache_Engine.html">LMCache Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/LMCache_Backend.html">LMCache Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/EngineInterface.html">LMCache Engine Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/GPUConnectorInterface.html">LMCache GPU Connector Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/MemoryObject.html">LMCache Memory Object</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/MemoryInterface.html">LMCache Memory Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer_tutorial/BackendInterface.html">LMCache Backend Interface</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.blend.html">LMCache Blend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.server.html">LMCache Server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.storage_backend.html">LMCache Storage Backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.experimental.html">LMCache Experimental</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/lmcache.integration.html">LMCache Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/KVBlend.html">KV Blending</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/KVEvictor.html">KVCache Evictor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/vLLMIntegration.html">vLLM Integration</a></li>
 </ul>
 
 </nav>
@@ -219,7 +219,7 @@
 
 
 <div class="viewcode-block" id="MemoryFormat">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryFormat">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryFormat">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MemoryFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
     <span class="n">UNDEFINED</span> <span class="o">=</span> <span class="mi">0</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;[2, num_layers, num_tokens, hidden_dim]</span>
@@ -232,7 +232,7 @@
     <span class="n">BINARY_BUFFER</span> <span class="o">=</span> <span class="mi">3</span>
 
 <div class="viewcode-block" id="MemoryFormat.token_dim">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryFormat.token_dim">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryFormat.token_dim">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">token_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">KV_BLOB</span><span class="p">:</span>
             <span class="k">return</span> <span class="mi">2</span>
@@ -243,8 +243,6 @@
 
 
 
-<div class="viewcode-block" id="FreeBlock">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.FreeBlock">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FreeBlock</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Metadata class used by the memory allocators</span>
@@ -252,16 +250,10 @@
     <span class="n">start</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">size</span><span class="p">:</span> <span class="nb">int</span>
 
-<div class="viewcode-block" id="FreeBlock.can_be_coalesced">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.FreeBlock.can_be_coalesced">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">can_be_coalesced</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">succ</span><span class="p">:</span> <span class="s2">&quot;FreeBlock&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">succ</span><span class="o">.</span><span class="n">start</span></div>
-</div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">succ</span><span class="o">.</span><span class="n">start</span>
 
 
-
-<div class="viewcode-block" id="MemoryObjMetadata">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObjMetadata">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MemoryObjMetadata</span><span class="p">:</span>
     <span class="c1"># The &#39;logical&#39; shape of the tensor</span>
@@ -280,19 +272,18 @@
     <span class="n">ref_count</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="c1"># The &#39;logical&#39; format of the tensor</span>
-    <span class="n">fmt</span><span class="p">:</span> <span class="n">MemoryFormat</span> <span class="o">=</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">UNDEFINED</span></div>
-
+    <span class="n">fmt</span><span class="p">:</span> <span class="n">MemoryFormat</span> <span class="o">=</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">UNDEFINED</span>
 
 
 <div class="viewcode-block" id="MemoryObj">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MemoryObj</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    MemoryObj interface.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="MemoryObj.invalidate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.invalidate">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.invalidate">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">invalidate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -302,7 +293,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.is_valid">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.is_valid">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.is_valid">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -312,7 +303,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.get_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.get_size">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.get_size">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -322,7 +313,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.get_shape">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.get_shape">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.get_shape">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -332,7 +323,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.get_dtype">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.get_dtype">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.get_dtype">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the dtype of the MemoryObj.</span>
@@ -341,7 +332,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.get_memory_format">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.get_memory_format">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.get_memory_format">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_memory_format</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemoryFormat</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -351,7 +342,7 @@
 
 
 <div class="viewcode-block" id="MemoryObj.get_physical_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryObj.get_physical_size">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryObject.html#lmcache.experimental.memory_management.MemoryObj.get_physical_size">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_physical_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -386,8 +377,6 @@
 
 
 
-<div class="viewcode-block" id="TensorMemoryObj">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TensorMemoryObj</span><span class="p">(</span><span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Wraps a raw flat tensor with some metadata</span>
@@ -398,51 +387,30 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="n">metadata</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">True</span>
 
-<div class="viewcode-block" id="TensorMemoryObj.invalidate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.invalidate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">invalidate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">False</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">False</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.is_valid">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.is_valid">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.get_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.get_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="n">num_elements</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
         <span class="n">element_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">element_size</span><span class="p">()</span>
         <span class="n">size_in_bytes</span> <span class="o">=</span> <span class="n">num_elements</span> <span class="o">*</span> <span class="n">element_size</span>
-        <span class="k">return</span> <span class="n">size_in_bytes</span></div>
+        <span class="k">return</span> <span class="n">size_in_bytes</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.get_shape">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.get_shape">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shape</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shape</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.get_dtype">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.get_dtype">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">dtype</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">dtype</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.get_memory_format">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.get_memory_format">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_memory_format</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemoryFormat</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">fmt</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">fmt</span>
 
-
-<div class="viewcode-block" id="TensorMemoryObj.get_physical_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryObj.get_physical_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_physical_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">phy_size</span></div>
-
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">phy_size</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemoryObjMetadata</span><span class="p">:</span>
@@ -466,12 +434,9 @@
         <span class="n">ubyte_ptr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">))</span>
         <span class="n">byte_array</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span> <span class="o">*</span> <span class="n">num_bytes</span><span class="p">)</span><span class="o">.</span><span class="n">from_address</span><span class="p">(</span>
             <span class="n">ctypes</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="n">ubyte_ptr</span><span class="o">.</span><span class="n">contents</span><span class="p">))</span>
-        <span class="k">return</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">byte_array</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">byte_array</span><span class="p">)</span>
 
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BytesBufferMemoryObj</span><span class="p">(</span><span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Wraps a raw flat tensor with some metadata</span>
@@ -493,47 +458,26 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="n">metadata</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">True</span>
 
-<div class="viewcode-block" id="BytesBufferMemoryObj.invalidate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.invalidate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">invalidate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">False</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid</span> <span class="o">=</span> <span class="kc">False</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.is_valid">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.is_valid">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.get_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.get_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.get_shape">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.get_shape">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span></div>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.get_dtype">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.get_dtype">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="kc">None</span></div>
+        <span class="k">return</span> <span class="kc">None</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.get_memory_format">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.get_memory_format">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_memory_format</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemoryFormat</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">fmt</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">fmt</span>
 
-
-<div class="viewcode-block" id="BytesBufferMemoryObj.get_physical_size">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BytesBufferMemoryObj.get_physical_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_physical_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">phy_size</span></div>
-
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">phy_size</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemoryObjMetadata</span><span class="p">:</span>
@@ -548,16 +492,15 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">byte_array</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span></div>
-
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span>
 
 
 <div class="viewcode-block" id="MemoryAllocatorInterface">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MemoryAllocatorInterface</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
 
 <div class="viewcode-block" id="MemoryAllocatorInterface.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.allocate">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.allocate">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -581,7 +524,7 @@
 
 
 <div class="viewcode-block" id="MemoryAllocatorInterface.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.free">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.free">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -595,7 +538,7 @@
 
 
 <div class="viewcode-block" id="MemoryAllocatorInterface.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.ref_count_up">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.ref_count_up">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -607,7 +550,7 @@
 
 
 <div class="viewcode-block" id="MemoryAllocatorInterface.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.ref_count_down">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.ref_count_down">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -619,7 +562,7 @@
 
 
 <div class="viewcode-block" id="MemoryAllocatorInterface.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.get_ref_count">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.MemoryAllocatorInterface.get_ref_count">[docs]</a>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -633,7 +576,7 @@
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TensorMemoryAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Implements a &quot;explicit list&quot; memory allocator.</span>
@@ -698,7 +641,7 @@
         <span class="k">return</span> <span class="n">merge_prev</span> <span class="ow">or</span> <span class="n">merge_succ</span>
 
 <div class="viewcode-block" id="TensorMemoryAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.allocate">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -745,7 +688,7 @@
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.free">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
             <span class="k">return</span>
@@ -770,13 +713,13 @@
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.ref_count_up">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">memory_obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">ref_count</span> <span class="o">+=</span> <span class="mi">1</span></div>
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.ref_count_down">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">memory_obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">ref_count</span> <span class="o">-=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">ref_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -784,13 +727,13 @@
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.get_ref_count">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">ref_count</span></div>
 
 
 <div class="viewcode-block" id="TensorMemoryAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.TensorMemoryAllocator.memcheck">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.TensorMemoryAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;For debug purposes.</span>
 <span class="sd">        Returns True is everything is fine, otherwise False.</span>
@@ -827,7 +770,7 @@
 
 
 <div class="viewcode-block" id="BufferAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BufferAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Allocates memory in the pre-allocated pinned memory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -839,7 +782,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
 
 <div class="viewcode-block" id="BufferAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.allocate">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -852,39 +795,37 @@
 
 
 <div class="viewcode-block" id="BufferAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.free">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">return</span></div>
 
 
 <div class="viewcode-block" id="BufferAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.ref_count_up">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="BufferAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.ref_count_down">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="BufferAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.get_ref_count">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="BufferAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.BufferAllocator.memcheck">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.BufferAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 </div>
 
 
 
-<div class="viewcode-block" id="HostMemoryAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">HostMemoryAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Allocates memory in the pre-allocated Host memory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -898,8 +839,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
-<div class="viewcode-block" id="HostMemoryAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -907,48 +846,29 @@
         <span class="n">fmt</span><span class="p">:</span> <span class="n">MemoryFormat</span> <span class="o">=</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">KV_BLOB</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MemoryObj</span><span class="p">]:</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="HostMemoryAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="HostMemoryAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span>
 
-
-<div class="viewcode-block" id="HostMemoryAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="HostMemoryAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="HostMemoryAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.HostMemoryAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
-</div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
 
-
-<div class="viewcode-block" id="PinMemoryAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PinMemoryAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Allocates memory in the pre-allocated pinned memory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -963,8 +883,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
-<div class="viewcode-block" id="PinMemoryAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -972,48 +890,29 @@
         <span class="n">fmt</span><span class="p">:</span> <span class="n">MemoryFormat</span> <span class="o">=</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">KV_BLOB</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MemoryObj</span><span class="p">]:</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="PinMemoryAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="PinMemoryAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="PinMemoryAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="PinMemoryAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="PinMemoryAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.PinMemoryAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span></div>
-</div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span>
 
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MixedMemoryAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Allocates (1) memory in the pre-allocated pinned memory.</span>
@@ -1031,8 +930,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
-<div class="viewcode-block" id="MixedMemoryAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -1045,11 +942,8 @@
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">fmt</span> <span class="o">=</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">get_memory_format</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">BINARY_BUFFER</span><span class="p">:</span>
@@ -1058,11 +952,8 @@
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">fmt</span> <span class="o">=</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">get_memory_format</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">BINARY_BUFFER</span><span class="p">:</span>
@@ -1071,11 +962,8 @@
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">fmt</span> <span class="o">=</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">get_memory_format</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">BINARY_BUFFER</span><span class="p">:</span>
@@ -1084,11 +972,8 @@
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="n">fmt</span> <span class="o">=</span> <span class="n">memory_obj</span><span class="o">.</span><span class="n">get_memory_format</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">MemoryFormat</span><span class="o">.</span><span class="n">BINARY_BUFFER</span><span class="p">:</span>
@@ -1097,20 +982,15 @@
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported memory format: </span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="MixedMemoryAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.MixedMemoryAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_mem_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span></div>
-</div>
-
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin_allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span>
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GPUMemoryAllocator</span><span class="p">(</span><span class="n">MemoryAllocatorInterface</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Allocates memory in the pre-allocated Host memory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1123,7 +1003,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span> <span class="o">=</span> <span class="n">TensorMemoryAllocator</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
 
 <div class="viewcode-block" id="GPUMemoryAllocator.allocate">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.allocate">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.allocate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">allocate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -1134,31 +1014,31 @@
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator.free">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.free">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.free">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">free</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator.ref_count_up">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.ref_count_up">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.ref_count_up">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_up</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator.ref_count_down">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.ref_count_down">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.ref_count_down">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ref_count_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">ref_count_down</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator.get_ref_count">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.get_ref_count">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.get_ref_count">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ref_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_obj</span><span class="p">:</span> <span class="n">MemoryObj</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">get_ref_count</span><span class="p">(</span><span class="n">memory_obj</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GPUMemoryAllocator.memcheck">
-<a class="viewcode-back" href="../../../advanced/lmcache.experimental.html#lmcache.experimental.memory_management.GPUMemoryAllocator.memcheck">[docs]</a>
+<a class="viewcode-back" href="../../../developer_tutorial/MemoryInterface.html#lmcache.experimental.memory_management.GPUMemoryAllocator.memcheck">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">memcheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allocator</span><span class="o">.</span><span class="n">memcheck</span><span class="p">()</span></div>
 </div>
