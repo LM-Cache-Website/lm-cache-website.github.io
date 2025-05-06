@@ -13,6 +13,7 @@
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/custom.css?v=0f06b6ab" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=d15ffde1" rel="stylesheet" type="text/css"/>
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
@@ -166,7 +167,343 @@
 <div id="content" role="main">
 <section id="redis">
 <h1>Redis<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#redis"><span>#</span></a></h1>
-<p>Coming soon…</p>
+<section id="overview">
+<span id="redis-overview"></span><h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>Redis is an in-memory key-value store and is a supported option for remote KV Cache offloading in LMCache.
+Some other remote backends are <a class="reference internal" href="mooncake.html"><span class="doc">Mooncake</span></a>, <a class="reference internal" href="valkey.html"><span class="doc">Valkey</span></a>, and <a class="reference internal" href="infinistore.html"><span class="doc">InfiniStore</span></a>.
+This guide will mainly focus on single-node Redis but also shows you how to set up Redis Sentinels and an LMCache Server.</p>
+</section>
+<section id="two-ways-to-configure-lmcache-redis-offloading">
+<h2>Two ways to configure LMCache Redis Offloading:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#two-ways-to-configure-lmcache-redis-offloading" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#two-ways-to-configure-lmcache-redis-offloading'"><span>#</span></a></h2>
+<p><strong>1. Environment Variables:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">LMCACHE_USE_EXPERIMENTAL</span></code> MUST be set by environment variable directly.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Specify LMCache V1</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_USE_EXPERIMENTAL</span><span class="o">=</span>True
+</span><span id="line-3"><span class="c1"># 256 Tokens per KV Chunk</span>
+</span><span id="line-4"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_CHUNK_SIZE</span><span class="o">=</span><span class="m">256</span>
+</span><span id="line-5"><span class="c1"># Redis host</span>
+</span><span id="line-6"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_REMOTE_URL</span><span class="o">=</span><span class="s2">"redis://your-redis-host:6379"</span>
+</span><span id="line-7"><span class="c1"># Redis Sentinel hosts (for high availability)</span>
+</span><span id="line-8"><span class="c1"># export LMCACHE_REMOTE_URL="redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-9"><span class="c1"># LMCache Server host</span>
+</span><span id="line-10"><span class="c1"># export LMCACHE_REMOTE_URL="lm://localhost:65432"</span>
+</span><span id="line-11">
+</span><span id="line-12"><span class="c1"># How to serialize and deserialize KV cache on remote transmission</span>
+</span><span id="line-13"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_REMOTE_SERDE</span><span class="o">=</span><span class="s2">"naive"</span><span class="w"> </span><span class="c1"># "naive" (default) or "cachegen"</span>
+</span></code></pre></div>
+</div>
+<p><strong>2. Configuration File</strong>:</p>
+<p>Passed in through <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE=your-lmcache-config.yaml</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">LMCACHE_USE_EXPERIMENTAL</span></code> MUST be set by environment variable directly.</p>
+<p>Example <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># 256 Tokens per KV Chunk</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="c1"># Redis host</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span><span id="line-5"><span class="c1"># Redis Sentinel hosts (for high availability)</span>
+</span><span id="line-6"><span class="c1"># remote_url: "redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-7"><span class="c1"># LMCache Server host</span>
+</span><span id="line-8"><span class="c1"># remote_url: "lm://localhost:65432"</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># How to serialize and deserialize KV cache on remote transmission</span>
+</span><span id="line-11"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span><span class="w"> </span><span class="c1"># "naive" (default) or "cachegen"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="remote-storage-explanation">
+<h2>Remote Storage Explanation:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#remote-storage-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#remote-storage-explanation'"><span>#</span></a></h2>
+<p>LMCache’s backend is obeys the natural memory hierarchy of prioritizing CPU RAM offloading, then Local Storage
+offloading, and finally remote offloading.</p>
+<p>For LMCache to know how to create a connector to a remote backend, you must specify in
+<code class="docutils literal notranslate"><span class="pre">remote_url</span></code> a connector type followed by one or most host:port pairs (depending on what connector type is used).
+If <code class="docutils literal notranslate"><span class="pre">remote_url</span></code> is set to <code class="docutils literal notranslate"><span class="pre">None</span></code>, LMCache will not use any remote storage.</p>
+<p>Examples of <code class="docutils literal notranslate"><span class="pre">remote_url</span></code>’s:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"infinistore://127.0.0.1:12345"</span>
+</span><span id="line-5"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mooncakestore://127.0.0.1:50051"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="remote-storage-example">
+<h2>Remote Storage Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#remote-storage-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#remote-storage-example'"><span>#</span></a></h2>
+<p id="redis-prerequisites"><strong>Prerequisites:</strong></p>
+<ul class="simple">
+<li><p>A Machine with at least one GPU. You can adjust the max model length of your vllm instance depending on your GPU memory.</p></li>
+<li><p>vllm and lmcache installed (<a class="reference internal" href="../getting_started/installation.html"><span class="doc">Installation Guide</span></a>)</p></li>
+<li><p>Hugging Face access to <code class="docutils literal notranslate"><span class="pre">meta-llama/Meta-Llama-3.1-8B-Instruct</span></code></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">HF_TOKEN</span><span class="o">=</span>your_hugging_face_token
+</span></code></pre></div>
+</div>
+<p><strong>Step 0. Set up a directory for this example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache-redis-offload-example
+</span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>lmcache-redis-offload-example
+</span></code></pre></div>
+</div>
+<p><strong>Step 1. Start a Redis server:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Ubuntu / Debian Installation</span>
+</span><span id="line-2">sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>redis
+</span><span id="line-3">redis-server<span class="w"> </span><span class="c1"># starts the server on default port 6379</span>
+</span></code></pre></div>
+</div>
+<p>Check if Redis is running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>ping
+</span></code></pre></div>
+</div>
+<p>Expected Response:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">PONG
+</span></code></pre></div>
+</div>
+<p><strong>Optional: Setting up Sentinels:</strong></p>
+<p>To enable high availability with Redis, you can configure Redis sentinels to
+monitor the master and automatically fail over to a replica if needed.</p>
+<p><strong>Step 1a. Start a Redis replica:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-server<span class="w"> </span>--port<span class="w"> </span><span class="m">6380</span><span class="w"> </span>--replicaof<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="m">6379</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 1b. Create Sentinel configuration files:</strong></p>
+<p>Create three files: <code class="docutils literal notranslate"><span class="pre">sentinel-26379.conf</span></code>, <code class="docutils literal notranslate"><span class="pre">sentinel-26380.conf</span></code>, and <code class="docutils literal notranslate"><span class="pre">sentinel-26381.conf</span></code>, with contents like this:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="na">port 26379  # Use 26380 and 26381 in other files respectively</span>
+</span><span id="line-2"><span class="na">sentinel monitor mymaster 127.0.0.1 6379 1</span>
+</span><span id="line-3"><span class="na">sentinel down-after-milliseconds mymaster 5000</span>
+</span><span id="line-4"><span class="na">sentinel failover-timeout mymaster 10000</span>
+</span><span id="line-5"><span class="na">sentinel parallel-syncs mymaster 1</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 1c. Start each Sentinel:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-server<span class="w"> </span>sentinel-26379.conf<span class="w"> </span>--sentinel
+</span><span id="line-2">redis-server<span class="w"> </span>sentinel-26380.conf<span class="w"> </span>--sentinel
+</span><span id="line-3">redis-server<span class="w"> </span>sentinel-26381.conf<span class="w"> </span>--sentinel
+</span></code></pre></div>
+</div>
+<p><strong>Step 1d. Make sure the Sentinels are tracking the master:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span><span id="line-2">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26380</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span><span id="line-3">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26381</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span></code></pre></div>
+</div>
+<p><strong>Step 1e. Verify everything is running:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">ps<span class="w"> </span>aux<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>redis
+</span></code></pre></div>
+</div>
+<p>You should see something like this (without the comments):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"># Master (read-write)
+</span><span id="line-2">user      60816  0.1  0.0  69804 11132 ?        Sl   04:11   0:00 redis-server *:6379
+</span><span id="line-3"># Replica (read-only mirror of 6379)
+</span><span id="line-4">user      60903  0.1  0.0  80048 10928 ?        Sl   04:12   0:00 redis-server *:6380
+</span><span id="line-5"># Sentinels (monitor the master and hold quorums to decide when to failover)
+</span><span id="line-6">user      61301  0.1  0.0  67244 10944 ?        Sl   04:14   0:00 redis-server *:26379 [sentinel]
+</span><span id="line-7">user      61382  0.1  0.0  67244 10944 ?        Sl   04:14   0:00 redis-server *:26380 [sentinel]
+</span><span id="line-8">user      61462  0.1  0.0  67244 10944 ?        Sl   04:15   0:00 redis-server *:26381 [sentinel]
+</span></code></pre></div>
+</div>
+<p><strong>Alternative: Starting an LMCache Server:</strong></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache_server</span></code> CLI entrypoint starts a remote LMCache server and comes with
+the <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> package.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache_server<span class="w"> </span>&lt;host&gt;<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;device&gt;
+</span><span id="line-2">
+</span><span id="line-3">lmcache_server<span class="w"> </span>localhost<span class="w"> </span><span class="m">65432</span>
+</span></code></pre></div>
+</div>
+<p>Currently, the only supported device is “cpu” (which is the default, so you don’t need to specify it).</p>
+<p><strong>Step 2. Start a vLLM server with remote offloading enabled:</strong></p>
+<p>Create a an lmcache configuration file called: <code class="docutils literal notranslate"><span class="pre">redis-offload.yaml</span></code></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># disabling CPU RAM offload not recommended (on by default) but</span>
+</span><span id="line-2"><span class="c1"># if you want to confirm that the remote backend works by itself</span>
+</span><span id="line-3"><span class="c1"># local_cpu: false</span>
+</span><span id="line-4"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-5"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://localhost:6379"</span>
+</span><span id="line-6"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>If you don’t want to use a config file, uncomment the first three environment variables
+and then comment out the <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code> below:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># disabling CPU RAM offload not recommended (on by default) but</span>
+</span><span id="line-2"><span class="c1"># if you want to confirm that the remote backend works by itself</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_LOCAL_CPU=False \</span>
+</span><span id="line-4"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-5"><span class="c1"># LMCACHE_REMOTE_URL="redis://localhost:6379" \</span>
+</span><span id="line-6"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-7"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"redis-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="nv">LMCACHE_USE_EXPERIMENTAL</span><span class="o">=</span>True<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-12"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-13"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Optional: Sentinels</strong></p>
+<p>Create a an lmcache configuration file called: <code class="docutils literal notranslate"><span class="pre">redis-sentinel-offload.yaml</span></code></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>If you don’t want to use a config file, uncomment the first three environment variables
+and then comment out the <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code> below:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-2"><span class="c1"># LMCACHE_REMOTE_URL="redis-sentinel://localhost:26379,localhost:26380,localhost:26381" \</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-4"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"redis-sentinel-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">LMCACHE_USE_EXPERIMENTAL</span><span class="o">=</span>True<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Alternative: LMCache Server</strong></p>
+<p>Create a an lmcache configuration file called: <code class="docutils literal notranslate"><span class="pre">lmcache-server-offload.yaml</span></code></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>If you don’t want to use a config file, uncomment the first three environment variables
+and then comment out the <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code> below:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-2"><span class="c1"># LMCACHE_REMOTE_URL="lm://localhost:65432" \</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-4"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"lmcache-server-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">LMCACHE_USE_EXPERIMENTAL</span><span class="o">=</span>True<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 3. Viewing and Managing LMCache Entries in Redis:</strong></p>
+<p>If you would like to feel the TTFT speed up with offloading and KV Cache reuse, feel free to use the same
+<code class="docutils literal notranslate"><span class="pre">query-twice.py</span></code> script and <code class="docutils literal notranslate"><span class="pre">man-bash.txt</span></code> long context as in <a class="reference internal" href="cpu_ram.html"><span class="doc">CPU RAM</span></a> and <a class="reference internal" href="local_storage.html"><span class="doc">Local Storage</span></a>.</p>
+<p>Here, we are instead going to demonstrate how to search for and modify LMCache KV Chunk entries in Redis.</p>
+<p>Please note that the official LMCache way to achieve this redis-specific functionality of viewing and modifying LMCache KV Chunks is available in <a class="reference internal" href="../kv_cache_management/controller.html"><span class="doc">LMCache Controller</span></a>.</p>
+<p>Let’s warm/populate LMCache first with <code class="docutils literal notranslate"><span class="pre">curl</span></code> this time:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span><span class="s1">'POST'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="s1">'http://127.0.0.1:8000/v1/chat/completions'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">-H<span class="w"> </span><span class="s1">'accept: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-6"><span class="s1">    "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-7"><span class="s1">    "messages": [</span>
+</span><span id="line-8"><span class="s1">    {"role": "system", "content": "You are a helpful AI coding assistant."},</span>
+</span><span id="line-9"><span class="s1">    {"role": "user", "content": "Write a segment tree implementation in python"}</span>
+</span><span id="line-10"><span class="s1">    ],</span>
+</span><span id="line-11"><span class="s1">    "max_tokens": 150</span>
+</span><span id="line-12"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<p>LMCache stores data in Redis using a structured key format. Each key contains the following information in a delimited format:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">format@model_name@world_size@worker_id@chunk_hash
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><cite>format</cite>: The model format (e.g., “vllm” or “huggingface”)</p></li>
+<li><p><cite>model_name</cite>: Name of the language model</p></li>
+<li><p><cite>world_size</cite>: Total number of workers in distributed deployment</p></li>
+<li><p><cite>worker_id</cite>: ID of the worker that created this cache entry</p></li>
+<li><p><cite>chunk_hash</cite>: Hash of the token chunk (SHA-256 based)</p></li>
+</ul>
+<p>For example, a typical key might look like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@a1b2c3d4e5f6...
+</span></code></pre></div>
+</div>
+<p><strong>Using redis-cli to View LMCache Data</strong></p>
+<p>To inspect and manage LMCache entries in Redis:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span>
+</span></code></pre></div>
+</div>
+<p><strong>Optional: If you are using sentinels, first find the master port:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>sentinel<span class="w"> </span>get-master-addr-by-name<span class="w"> </span>mymaster
+</span><span id="line-2">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span>&lt;master-port&gt;
+</span></code></pre></div>
+</div>
+<p><strong>List LMCache keys:</strong></p>
+<p>Notice (from the suffixes of the keys) that each LMCache KV Chunk has two entries: <code class="docutils literal notranslate"><span class="pre">kv_bytes</span></code> and <code class="docutils literal notranslate"><span class="pre">metadata</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Show all keys</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*
+</span><span id="line-3"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-4"><span class="m">2</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span><span id="line-5"><span class="c1"># Show keys for a specific model</span>
+</span><span id="line-6">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*Llama-3.1-8B-Instruct*
+</span><span id="line-7"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-8"><span class="m">2</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span></code></pre></div>
+</div>
+<p><strong>Delete LMCache entries:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span>*
+</span></code></pre></div>
+</div>
+<p>Delete a specific LMCache entry:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*
+</span><span id="line-3"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span></code></pre></div>
+</div>
+<p><strong>Check if a key exists:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>EXISTS<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span></code></pre></div>
+</div>
+<p><strong>View memory usage for a key:</strong></p>
+<p>Notice that the <code class="docutils literal notranslate"><span class="pre">kv_bytes</span></code> entry is what is exactly holding the KV Chunk and is much
+larger than the <code class="docutils literal notranslate"><span class="pre">metadata</span></code> entry.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>MEMORY<span class="w"> </span>USAGE<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span><span id="line-2"><span class="o">(</span>integer<span class="o">)</span><span class="w"> </span><span class="m">198</span>
+</span><span id="line-3">localhost:6379&gt;<span class="w"> </span>MEMORY<span class="w"> </span>USAGE<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-4"><span class="o">(</span>integer<span class="o">)</span><span class="w"> </span><span class="m">7340200</span>
+</span></code></pre></div>
+</div>
+<p><strong>Delete specific keys:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Delete a single key</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Delete all keys matching a pattern</span>
+</span><span id="line-2">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>--scan<span class="w"> </span>--pattern<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct*"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>DEL
+</span></code></pre></div>
+</div>
+<p><strong>Monitor Redis in real-time:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>MONITOR
+</span></code></pre></div>
+</div>
+<p><strong>Get Redis stats for LMCache:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Get memory stats</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>INFO<span class="w"> </span>memory
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Get statistics about operations</span>
+</span><span id="line-5">localhost:6379&gt;<span class="w"> </span>INFO<span class="w"> </span>stats
+</span></code></pre></div>
+</div>
+<p>This tutorial utilized the <code class="docutils literal notranslate"><span class="pre">redis-cli</span></code> to directly peak into a remote backend and manipualte
+KV Chunks.</p>
+<p>Once again, please refer to the <a class="reference internal" href="../kv_cache_management/controller.html"><span class="doc">LMCache Controller</span></a>
+for the official LMCache way of controlling and routing your KV Caches in your LMCache instances.</p>
+<p><strong>Step 4. Clean up:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>shutdown
+</span><span id="line-2">
+</span><span id="line-3"><span class="c1"># Optional:</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Shut down the Redis replica (if started)</span>
+</span><span id="line-6">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">6380</span><span class="w"> </span>shutdown
+</span><span id="line-7">
+</span><span id="line-8"><span class="c1"># Shut down all Redis Sentinels (if started)</span>
+</span><span id="line-9">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>shutdown
+</span><span id="line-10">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26380</span><span class="w"> </span>shutdown
+</span><span id="line-11">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26381</span><span class="w"> </span>shutdown
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># (Optional) Remove temporary files or configs</span>
+</span><span id="line-14">rm<span class="w"> </span>-f<span class="w"> </span>sentinel-26379.conf<span class="w"> </span>sentinel-26380.conf<span class="w"> </span>sentinel-26381.conf
+</span><span id="line-15">
+</span><span id="line-16"><span class="c1"># Confirm no Redis processes are still running</span>
+</span><span id="line-17">ps<span class="w"> </span>aux<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>redis
+</span></code></pre></div>
+</div>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -185,7 +522,16 @@
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
+<li><a :data-current="activeSection === '#two-ways-to-configure-lmcache-redis-offloading'" class="reference internal" href="#two-ways-to-configure-lmcache-redis-offloading">Two ways to configure LMCache Redis Offloading:</a></li>
+<li><a :data-current="activeSection === '#remote-storage-explanation'" class="reference internal" href="#remote-storage-explanation">Remote Storage Explanation:</a></li>
+<li><a :data-current="activeSection === '#remote-storage-example'" class="reference internal" href="#remote-storage-example">Remote Storage Example</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
