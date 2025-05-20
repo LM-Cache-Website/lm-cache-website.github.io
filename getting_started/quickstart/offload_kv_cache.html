@@ -206,15 +206,17 @@ See the <a class="reference external" href="https://github.com/vllm-project/vllm
 </span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">vllm.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVTransferConfig</span>
 </span><span id="line-3">
 </span><span id="line-4"><span class="c1"># Configure KV cache transfer to use LMCache</span>
-</span><span id="line-5"><span class="n">ktc</span> <span class="o">=</span> <span class="n">KVTransferConfig</span><span class="o">.</span><span class="n">from_cli</span><span class="p">(</span>
-</span><span id="line-6">    <span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span><span class="p">)</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="c1"># Initialize LLM with LMCache configuration</span>
-</span><span id="line-9"><span class="c1"># Adjust gpu_memory_utilization based on your GPU memory</span>
-</span><span id="line-10"><span class="n">llm</span> <span class="o">=</span> <span class="n">LLM</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"meta-llama/Meta-Llama-3.1-8B-Instruct"</span><span class="p">,</span>
-</span><span id="line-11">          <span class="n">kv_transfer_config</span><span class="o">=</span><span class="n">ktc</span><span class="p">,</span>
-</span><span id="line-12">          <span class="n">max_model_len</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
-</span><span id="line-13">          <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+</span><span id="line-5"><span class="n">ktc</span> <span class="o">=</span> <span class="n">KVTransferConfig</span><span class="p">(</span>
+</span><span id="line-6">    <span class="n">kv_connector</span><span class="o">=</span><span class="s2">"LMCacheConnectorV1"</span><span class="p">,</span>
+</span><span id="line-7">    <span class="n">kv_role</span><span class="o">=</span><span class="s2">"kv_both"</span><span class="p">,</span>
+</span><span id="line-8"><span class="p">)</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># Initialize LLM with LMCache configuration</span>
+</span><span id="line-11"><span class="c1"># Adjust gpu_memory_utilization based on your GPU memory</span>
+</span><span id="line-12"><span class="n">llm</span> <span class="o">=</span> <span class="n">LLM</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"meta-llama/Meta-Llama-3.1-8B-Instruct"</span><span class="p">,</span>
+</span><span id="line-13">          <span class="n">kv_transfer_config</span><span class="o">=</span><span class="n">ktc</span><span class="p">,</span>
+</span><span id="line-14">          <span class="n">max_model_len</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
+</span><span id="line-15">          <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p>Now you can run inference with automatic KV cache offloading:</p>
@@ -416,73 +418,75 @@ See the <a class="reference external" href="https://github.com/vllm-project/vllm
 </span><span id="line-90"><span class="sd">    Returns:</span>
 </span><span id="line-91"><span class="sd">        LLM: Configured LLM instance</span>
 </span><span id="line-92"><span class="sd">    """</span>
-</span><span id="line-93">    <span class="n">ktc</span> <span class="o">=</span> <span class="n">KVTransferConfig</span><span class="o">.</span><span class="n">from_cli</span><span class="p">(</span>
-</span><span id="line-94">        <span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span><span class="p">)</span> <span class="k">if</span> <span class="n">enable_lmcache</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span id="line-95">
-</span><span id="line-96">    <span class="k">return</span> <span class="n">LLM</span><span class="p">(</span>
-</span><span id="line-97">        <span class="n">model</span><span class="o">=</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-98">        <span class="n">kv_transfer_config</span><span class="o">=</span><span class="n">ktc</span><span class="p">,</span>
-</span><span id="line-99">        <span class="n">max_model_len</span><span class="o">=</span><span class="n">max_len</span><span class="p">,</span>
-</span><span id="line-100">        <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="n">calculate_gpu_utilization</span><span class="p">()</span>
-</span><span id="line-101">    <span class="p">)</span>
-</span><span id="line-102">
-</span><span id="line-103"><span class="k">def</span><span class="w"> </span><span class="nf">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">):</span>
-</span><span id="line-104"><span class="w">    </span><span class="sd">"""</span>
-</span><span id="line-105"><span class="sd">    Generate text and print the results.</span>
-</span><span id="line-106"><span class="sd">    Args:</span>
-</span><span id="line-107"><span class="sd">        llm: LLM instance</span>
-</span><span id="line-108"><span class="sd">        prompts: List of input prompts</span>
-</span><span id="line-109"><span class="sd">        sampling_params: Configured sampling parameters</span>
-</span><span id="line-110"><span class="sd">    Returns:</span>
-</span><span id="line-111"><span class="sd">        float: Time taken for generation in seconds</span>
-</span><span id="line-112"><span class="sd">    """</span>
-</span><span id="line-113">    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span id="line-114">    <span class="n">outputs</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
-</span><span id="line-115">    <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span id="line-116">
-</span><span id="line-117">    <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
-</span><span id="line-118">        <span class="n">generated_text</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span>
-</span><span id="line-119">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Generated text: </span><span class="si">{</span><span class="n">generated_text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="line-120">
-</span><span id="line-121">    <span class="k">return</span> <span class="n">end_time</span> <span class="o">-</span> <span class="n">start_time</span>
+</span><span id="line-93">    <span class="n">ktc</span> <span class="o">=</span> <span class="n">KVTransferConfig</span><span class="p">(</span>
+</span><span id="line-94">        <span class="n">kv_connector</span><span class="o">=</span><span class="s2">"LMCacheConnectorV1"</span><span class="p">,</span>
+</span><span id="line-95">        <span class="n">kv_role</span><span class="o">=</span><span class="s2">"kv_both"</span><span class="p">,</span>
+</span><span id="line-96">    <span class="p">)</span> <span class="k">if</span> <span class="n">enable_lmcache</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span id="line-97">
+</span><span id="line-98">    <span class="k">return</span> <span class="n">LLM</span><span class="p">(</span>
+</span><span id="line-99">        <span class="n">model</span><span class="o">=</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-100">        <span class="n">kv_transfer_config</span><span class="o">=</span><span class="n">ktc</span><span class="p">,</span>
+</span><span id="line-101">        <span class="n">max_model_len</span><span class="o">=</span><span class="n">max_len</span><span class="p">,</span>
+</span><span id="line-102">        <span class="n">gpu_memory_utilization</span><span class="o">=</span><span class="n">calculate_gpu_utilization</span><span class="p">()</span>
+</span><span id="line-103">    <span class="p">)</span>
+</span><span id="line-104">
+</span><span id="line-105"><span class="k">def</span><span class="w"> </span><span class="nf">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">):</span>
+</span><span id="line-106"><span class="w">    </span><span class="sd">"""</span>
+</span><span id="line-107"><span class="sd">    Generate text and print the results.</span>
+</span><span id="line-108"><span class="sd">    Args:</span>
+</span><span id="line-109"><span class="sd">        llm: LLM instance</span>
+</span><span id="line-110"><span class="sd">        prompts: List of input prompts</span>
+</span><span id="line-111"><span class="sd">        sampling_params: Configured sampling parameters</span>
+</span><span id="line-112"><span class="sd">    Returns:</span>
+</span><span id="line-113"><span class="sd">        float: Time taken for generation in seconds</span>
+</span><span id="line-114"><span class="sd">    """</span>
+</span><span id="line-115">    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="line-116">    <span class="n">outputs</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
+</span><span id="line-117">    <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="line-118">
+</span><span id="line-119">    <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
+</span><span id="line-120">        <span class="n">generated_text</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span>
+</span><span id="line-121">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Generated text: </span><span class="si">{</span><span class="n">generated_text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span id="line-122">
-</span><span id="line-123"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="line-124"><span class="w">    </span><span class="sd">"""Main execution function."""</span>
-</span><span id="line-125">    <span class="c1"># Parse command line arguments</span>
-</span><span id="line-126">    <span class="n">args</span> <span class="o">=</span> <span class="n">parse_arguments</span><span class="p">()</span>
-</span><span id="line-127">
-</span><span id="line-128">    <span class="c1"># Setup environment if LMCache is enabled</span>
-</span><span id="line-129">    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">:</span>
-</span><span id="line-130">        <span class="n">setup_lmcache_environment</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">num_prompts</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">num_tokens</span><span class="p">)</span>
-</span><span id="line-131">
-</span><span id="line-132">    <span class="c1"># Create prompts and sampling parameters</span>
-</span><span id="line-133">    <span class="n">prompts</span> <span class="o">=</span> <span class="n">create_test_prompts</span><span class="p">(</span><span class="n">num_prompts</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_prompts</span><span class="p">,</span> <span class="n">num_tokens</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_tokens</span><span class="p">)</span>
-</span><span id="line-134">    <span class="n">sampling_params</span> <span class="o">=</span> <span class="n">SamplingParams</span><span class="p">(</span><span class="n">temperature</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">top_p</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="line-135">
-</span><span id="line-136">    <span class="c1"># Initialize model</span>
-</span><span id="line-137">    <span class="n">llm</span> <span class="o">=</span> <span class="n">initialize_llm</span><span class="p">(</span><span class="n">enable_lmcache</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">)</span>
-</span><span id="line-138">
-</span><span id="line-139">    <span class="c1"># First run</span>
-</span><span id="line-140">    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">First run:"</span><span class="p">)</span>
-</span><span id="line-141">    <span class="n">first_run_time</span> <span class="o">=</span> <span class="n">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
-</span><span id="line-142">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"First run time: </span><span class="si">{</span><span class="n">first_run_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
-</span><span id="line-143">
-</span><span id="line-144">    <span class="c1"># Second run</span>
-</span><span id="line-145">    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Second run:"</span><span class="p">)</span>
-</span><span id="line-146">    <span class="n">second_run_time</span> <span class="o">=</span> <span class="n">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
-</span><span id="line-147">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Second run time: </span><span class="si">{</span><span class="n">second_run_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
-</span><span id="line-148">
-</span><span id="line-149">    <span class="c1"># Print speedup</span>
-</span><span id="line-150">    <span class="k">if</span> <span class="n">first_run_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span id="line-151">        <span class="n">speedup</span> <span class="o">=</span> <span class="n">first_run_time</span> <span class="o">/</span> <span class="n">second_run_time</span>
-</span><span id="line-152">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Speedup (first run / second run): </span><span class="si">{</span><span class="n">speedup</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x"</span><span class="p">)</span>
-</span><span id="line-153">
-</span><span id="line-154">    <span class="c1"># Cleanup if LMCache was enabled</span>
-</span><span id="line-155">    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">:</span>
-</span><span id="line-156">        <span class="n">LMCacheEngineBuilder</span><span class="o">.</span><span class="n">destroy</span><span class="p">(</span><span class="n">ENGINE_NAME</span><span class="p">)</span>
-</span><span id="line-157">
-</span><span id="line-158"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="line-159">    <span class="n">main</span><span class="p">()</span>
+</span><span id="line-123">    <span class="k">return</span> <span class="n">end_time</span> <span class="o">-</span> <span class="n">start_time</span>
+</span><span id="line-124">
+</span><span id="line-125"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="line-126"><span class="w">    </span><span class="sd">"""Main execution function."""</span>
+</span><span id="line-127">    <span class="c1"># Parse command line arguments</span>
+</span><span id="line-128">    <span class="n">args</span> <span class="o">=</span> <span class="n">parse_arguments</span><span class="p">()</span>
+</span><span id="line-129">
+</span><span id="line-130">    <span class="c1"># Setup environment if LMCache is enabled</span>
+</span><span id="line-131">    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">:</span>
+</span><span id="line-132">        <span class="n">setup_lmcache_environment</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">num_prompts</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">num_tokens</span><span class="p">)</span>
+</span><span id="line-133">
+</span><span id="line-134">    <span class="c1"># Create prompts and sampling parameters</span>
+</span><span id="line-135">    <span class="n">prompts</span> <span class="o">=</span> <span class="n">create_test_prompts</span><span class="p">(</span><span class="n">num_prompts</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_prompts</span><span class="p">,</span> <span class="n">num_tokens</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_tokens</span><span class="p">)</span>
+</span><span id="line-136">    <span class="n">sampling_params</span> <span class="o">=</span> <span class="n">SamplingParams</span><span class="p">(</span><span class="n">temperature</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">top_p</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="line-137">
+</span><span id="line-138">    <span class="c1"># Initialize model</span>
+</span><span id="line-139">    <span class="n">llm</span> <span class="o">=</span> <span class="n">initialize_llm</span><span class="p">(</span><span class="n">enable_lmcache</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">)</span>
+</span><span id="line-140">
+</span><span id="line-141">    <span class="c1"># First run</span>
+</span><span id="line-142">    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">First run:"</span><span class="p">)</span>
+</span><span id="line-143">    <span class="n">first_run_time</span> <span class="o">=</span> <span class="n">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
+</span><span id="line-144">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"First run time: </span><span class="si">{</span><span class="n">first_run_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
+</span><span id="line-145">
+</span><span id="line-146">    <span class="c1"># Second run</span>
+</span><span id="line-147">    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Second run:"</span><span class="p">)</span>
+</span><span id="line-148">    <span class="n">second_run_time</span> <span class="o">=</span> <span class="n">generate_and_print_output</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompts</span><span class="p">,</span> <span class="n">sampling_params</span><span class="p">)</span>
+</span><span id="line-149">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Second run time: </span><span class="si">{</span><span class="n">second_run_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">)</span>
+</span><span id="line-150">
+</span><span id="line-151">    <span class="c1"># Print speedup</span>
+</span><span id="line-152">    <span class="k">if</span> <span class="n">first_run_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="line-153">        <span class="n">speedup</span> <span class="o">=</span> <span class="n">first_run_time</span> <span class="o">/</span> <span class="n">second_run_time</span>
+</span><span id="line-154">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Speedup (first run / second run): </span><span class="si">{</span><span class="n">speedup</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x"</span><span class="p">)</span>
+</span><span id="line-155">
+</span><span id="line-156">    <span class="c1"># Cleanup if LMCache was enabled</span>
+</span><span id="line-157">    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">enable_lmcache</span><span class="p">:</span>
+</span><span id="line-158">        <span class="n">LMCacheEngineBuilder</span><span class="o">.</span><span class="n">destroy</span><span class="p">(</span><span class="n">ENGINE_NAME</span><span class="p">)</span>
+</span><span id="line-159">
+</span><span id="line-160"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="line-161">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
 </section>
