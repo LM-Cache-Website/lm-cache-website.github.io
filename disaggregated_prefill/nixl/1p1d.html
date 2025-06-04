@@ -173,7 +173,241 @@
 <div id="content" role="main">
 <section id="p1d">
 <h1>1p1d<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#p1d"><span>#</span></a></h1>
-<p>Coming soon…</p>
+<section id="one-prefiller-one-decoder-1p1d-example">
+<h2>One Prefiller, One Decoder (1p1d) Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#one-prefiller-one-decoder-1p1d-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#one-prefiller-one-decoder-1p1d-example'"><span>#</span></a></h2>
+<p>This example demonstrates how to run LMCache with disaggregated prefill using NIXL on a single node with a 1 prefiller + 1 decoder setup. This configuration separates the compute-intensive prefill operations from the decode operations, allowing for better resource utilization and performance optimization.</p>
+<section id="architecture-overview">
+<h3>Architecture Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h3>
+<p>The 1p1d setup consists of three main components:</p>
+<ol class="arabic simple">
+<li><p><strong>Prefiller Server</strong> - Handles the prefill phase of inference (initial prompt processing)</p></li>
+<li><p><strong>Decoder Server</strong> - Handles the decode phase of inference (token generation)</p></li>
+<li><p><strong>Proxy Server</strong> - Coordinates requests between the prefiller and decoder</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">       ┌─────────────┐
+</span><span id="line-2">       │   Client    │
+</span><span id="line-3">       └─────┬───────┘
+</span><span id="line-4">             │
+</span><span id="line-5">     ┌───────▼───────┐
+</span><span id="line-6">     │ Proxy Server  │
+</span><span id="line-7">     │   Port 9000   │
+</span><span id="line-8">     └───┬───────┬───┘
+</span><span id="line-9">         │       │
+</span><span id="line-10">┌────────▼──┐  ┌─▼────────┐
+</span><span id="line-11">│ Prefiller │  │ Decoder  │
+</span><span id="line-12">│Port 8100  │  │Port 8200 │
+</span><span id="line-13">│  GPU 0    │  │  GPU 1   │
+</span><span id="line-14">└───────────┘  └──────────┘
+</span><span id="line-15">         │       ▲
+</span><span id="line-16">         │       │
+</span><span id="line-17">         └───────┘
+</span><span id="line-18">          NIXL Transfer
+</span></code></pre></div>
+</div>
+</section>
+<section id="prerequisites">
+<h3>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p><strong>LMCache</strong>: Install with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">lmcache</span></code></p></li>
+<li><p><strong>NIXL</strong>: Install from <a class="reference external" href="https://github.com/ai-dynamo/nixl">NIXL GitHub repository</a></p></li>
+<li><p><strong>Hardware</strong>: At least 2 GPUs</p></li>
+<li><p><strong>Model Access</strong>: Valid Hugging Face token (HF_TOKEN) for Llama 3.1 8B Instruct</p></li>
+</ul>
+</section>
+<section id="quick-start">
+<h3>Quick Start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h3>
+<ol class="arabic">
+<li><p><strong>Set your Hugging Face token</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">HF_TOKEN</span><span class="o">=</span>hf_your_token_here
+</span></code></pre></div>
+</div>
+</li>
+<li><p><strong>Navigate to the example directory</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">cd</span><span class="w"> </span>examples/disagg_prefill/1p1d
+</span></code></pre></div>
+</div>
+</li>
+<li><p><strong>Run the example</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">bash<span class="w"> </span>disagg_example_nixl.sh
+</span></code></pre></div>
+</div>
+</li>
+</ol>
+<p>The script will automatically:</p>
+<ul class="simple">
+<li><p>Launch a prefiller instance on port 8100 (GPU 0)</p></li>
+<li><p>Launch a decoder instance on port 8200 (GPU 1)</p></li>
+<li><p>Launch a proxy server on port 9000</p></li>
+<li><p>Wait for all servers to be ready</p></li>
+</ul>
+<p>Press <code class="docutils literal notranslate"><span class="pre">Ctrl+C</span></code> to stop all servers.</p>
+</section>
+<section id="configuration">
+<h3>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h3>
+<section id="prefiller-configuration">
+<h4>Prefiller Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefiller-configuration"><span>#</span></a></h4>
+<p>The prefiller is configured via <code class="docutils literal notranslate"><span class="pre">configs/lmcache-prefiller-config.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-2"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="line-3"><span class="nt">max_local_disk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="line-4"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NULL</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="nt">enable_nixl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-7"><span class="nt">nixl_role</span><span class="p">:</span><span class="w"> </span><span class="s">"sender"</span>
+</span><span id="line-8"><span class="nt">nixl_peer_host</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost"</span>
+</span><span id="line-9"><span class="nt">nixl_peer_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">55555</span>
+</span><span id="line-10"><span class="nt">nixl_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1073741824</span><span class="w"> </span><span class="c1"># 1GB</span>
+</span><span id="line-11"><span class="nt">nixl_buffer_device</span><span class="p">:</span><span class="w"> </span><span class="s">"cuda"</span>
+</span><span id="line-12"><span class="nt">nixl_enable_gc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span></code></pre></div>
+</div>
+<p>Key settings:
+- <code class="docutils literal notranslate"><span class="pre">nixl_role:</span> <span class="pre">"sender"</span></code> - Configures this instance to send KV cache data
+- <code class="docutils literal notranslate"><span class="pre">nixl_buffer_size:</span> <span class="pre">1GB</span></code> - Buffer size for NIXL transfers
+- <code class="docutils literal notranslate"><span class="pre">nixl_buffer_device:</span> <span class="pre">"cuda"</span></code> - Uses GPU memory for buffering</p>
+</section>
+<section id="decoder-configuration">
+<h4>Decoder Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decoder-configuration"><span>#</span></a></h4>
+<p>The decoder is configured via <code class="docutils literal notranslate"><span class="pre">configs/lmcache-decoder-config.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-2"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="line-3"><span class="nt">max_local_disk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="line-4"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NULL</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="nt">enable_nixl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-7"><span class="nt">nixl_role</span><span class="p">:</span><span class="w"> </span><span class="s">"receiver"</span>
+</span><span id="line-8"><span class="nt">nixl_peer_host</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost"</span>
+</span><span id="line-9"><span class="nt">nixl_peer_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">55555</span>
+</span><span id="line-10"><span class="nt">nixl_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1073741824</span><span class="w"> </span><span class="c1"># 1GB</span>
+</span><span id="line-11"><span class="nt">nixl_buffer_device</span><span class="p">:</span><span class="w"> </span><span class="s">"cuda"</span>
+</span><span id="line-12"><span class="nt">nixl_enable_gc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span></code></pre></div>
+</div>
+<p>Key settings:
+- <code class="docutils literal notranslate"><span class="pre">nixl_role:</span> <span class="pre">"receiver"</span></code> - Configures this instance to receive KV cache data
+- Same buffer configuration as the prefiller for compatibility</p>
+</section>
+</section>
+<section id="components-deep-dive">
+<h3>Components Deep Dive<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#components-deep-dive" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#components-deep-dive'"><span>#</span></a></h3>
+<section id="proxy-server-disagg-proxy-server-py">
+<h4>Proxy Server (disagg_proxy_server.py)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#proxy-server-disagg-proxy-server-py"><span>#</span></a></h4>
+<p>The proxy server coordinates the disaggregated prefill workflow:</p>
+<ol class="arabic simple">
+<li><p><strong>Request Handling</strong>: Receives client requests on port 9000</p></li>
+<li><p><strong>Prefill Coordination</strong>: Sends requests to the prefiller with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code></p></li>
+<li><p><strong>Response Streaming</strong>: Streams the full response from the decoder</p></li>
+<li><p><strong>Performance Monitoring</strong>: Tracks Time-To-First-Token (TTFT) statistics</p></li>
+</ol>
+<p>Supported endpoints:
+- <code class="docutils literal notranslate"><span class="pre">/v1/completions</span></code>
+- <code class="docutils literal notranslate"><span class="pre">/v1/chat/completions</span></code></p>
+</section>
+<section id="vllm-server-launcher-disagg-vllm-launcher-sh">
+<h4>vLLM Server Launcher (disagg_vllm_launcher.sh)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-server-launcher-disagg-vllm-launcher-sh"><span>#</span></a></h4>
+<p>This script launches individual vLLM servers with appropriate configurations:</p>
+<p><strong>Prefiller Launch Command</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">UCX_TLS</span><span class="o">=</span>cuda_ipc,cuda_copy,tcp<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>configs/lmcache-prefiller-config.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="nv">VLLM_ENABLE_V1_MULTIPROCESSING</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="nv">VLLM_WORKER_MULTIPROC_METHOD</span><span class="o">=</span>spawn<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--port<span class="w"> </span><span class="m">8100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--disable-log-requests<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--enforce-eager<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_producer",...}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Decoder Launch Command</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">UCX_TLS</span><span class="o">=</span>cuda_ipc,cuda_copy,tcp<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>configs/lmcache-decoder-config.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="nv">VLLM_ENABLE_V1_MULTIPROCESSING</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="nv">VLLM_WORKER_MULTIPROC_METHOD</span><span class="o">=</span>spawn<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--port<span class="w"> </span><span class="m">8200</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--disable-log-requests<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--enforce-eager<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_consumer",...}'</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="testing-and-benchmarking">
+<h3>Testing and Benchmarking<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#testing-and-benchmarking" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#testing-and-benchmarking'"><span>#</span></a></h3>
+<section id="basic-test">
+<h4>Basic Test<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#basic-test"><span>#</span></a></h4>
+<p>Once all servers are running, you can test with a simple curl command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9000/v1/completions<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">    "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-5"><span class="s1">    "prompt": "The future of AI is",</span>
+</span><span id="line-6"><span class="s1">    "max_tokens": 50,</span>
+</span><span id="line-7"><span class="s1">    "temperature": 0.7</span>
+</span><span id="line-8"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="performance-benchmarking">
+<h4>Performance Benchmarking<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#performance-benchmarking"><span>#</span></a></h4>
+<p>For comprehensive performance testing, use vLLM’s benchmark tool:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>benchmark_serving.py<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--seed<span class="w"> </span><span class="k">$(</span>date<span class="w"> </span>+%s<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--model<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--dataset-name<span class="w"> </span>random<span class="w"> </span>--random-input-len<span class="w"> </span><span class="m">7500</span><span class="w"> </span>--random-output-len<span class="w"> </span><span class="m">200</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--num-prompts<span class="w"> </span><span class="m">30</span><span class="w"> </span>--burstiness<span class="w"> </span><span class="m">100</span><span class="w"> </span>--request-rate<span class="w"> </span><span class="m">1</span><span class="w"> </span>--ignore-eos
+</span></code></pre></div>
+</div>
+<p>This benchmark:
+- Sends requests to port 9000 (proxy server)
+- Uses random prompts with 7500 input tokens
+- Generates 200 output tokens per request
+- Tests with 30 total prompts at 1 request/second</p>
+</section>
+</section>
+<section id="log-files-and-monitoring">
+<h3>Log Files and Monitoring<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#log-files-and-monitoring" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#log-files-and-monitoring'"><span>#</span></a></h3>
+<p>The example generates three log files for monitoring:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">prefiller.log</span></code> - Prefiller server logs and errors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">decoder.log</span></code> - Decoder server logs and errors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">proxy.log</span></code> - Proxy server logs and TTFT statistics</p></li>
+</ul>
+<p>The proxy server automatically calculates and displays TTFT statistics every 5 seconds:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="o">===============================</span>
+</span><span id="line-2"><span class="n">Num</span> <span class="n">requests</span><span class="p">:</span> <span class="mi">10</span>
+</span><span id="line-3"><span class="n">Prefill</span> <span class="n">node</span> <span class="n">TTFT</span> <span class="n">stats</span><span class="p">:</span>
+</span><span id="line-4"> <span class="o">-</span> <span class="n">Average</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">45.2</span>
+</span><span id="line-5"> <span class="o">-</span> <span class="n">Median</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">43.1</span>
+</span><span id="line-6"> <span class="o">-</span> <span class="mi">99</span><span class="n">th</span> <span class="n">Percentile</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">52.8</span>
+</span><span id="line-7"><span class="o">===============================</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="troubleshooting">
+<h3>Troubleshooting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#troubleshooting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#troubleshooting'"><span>#</span></a></h3>
+<section id="common-issues">
+<h4>Common Issues<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#common-issues"><span>#</span></a></h4>
+<ol class="arabic simple">
+<li><p><strong>GPU Memory</strong>: Ensure each GPU has sufficient memory for the model</p></li>
+<li><p><strong>NIXL Installation</strong>: Verify NIXL is properly installed and accessible</p></li>
+<li><p><strong>Port Conflicts</strong>: Check that ports 8100, 8200, and 9000 are available</p></li>
+<li><p><strong>HF Token</strong>: Ensure your Hugging Face token has access to Llama models</p></li>
+</ol>
+</section>
+<section id="error-recovery">
+<h4>Error Recovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#error-recovery"><span>#</span></a></h4>
+<p>If any server fails to start:</p>
+<ol class="arabic simple">
+<li><p>Check the corresponding log file for error details</p></li>
+<li><p>Verify GPU availability with <code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code></p></li>
+<li><p>Ensure all dependencies are installed</p></li>
+<li><p>Try restarting with <code class="docutils literal notranslate"><span class="pre">Ctrl+C</span></code> followed by re-running the script</p></li>
+</ol>
+</section>
+</section>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -192,7 +426,39 @@
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#one-prefiller-one-decoder-1p1d-example'" class="reference internal" href="#one-prefiller-one-decoder-1p1d-example">One Prefiller, One Decoder (1p1d) Example</a><ul>
+<li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a></li>
+<li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a><ul>
+<li><a :data-current="activeSection === '#prefiller-configuration'" class="reference internal" href="#prefiller-configuration">Prefiller Configuration</a></li>
+<li><a :data-current="activeSection === '#decoder-configuration'" class="reference internal" href="#decoder-configuration">Decoder Configuration</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#components-deep-dive'" class="reference internal" href="#components-deep-dive">Components Deep Dive</a><ul>
+<li><a :data-current="activeSection === '#proxy-server-disagg-proxy-server-py'" class="reference internal" href="#proxy-server-disagg-proxy-server-py">Proxy Server (disagg_proxy_server.py)</a></li>
+<li><a :data-current="activeSection === '#vllm-server-launcher-disagg-vllm-launcher-sh'" class="reference internal" href="#vllm-server-launcher-disagg-vllm-launcher-sh">vLLM Server Launcher (disagg_vllm_launcher.sh)</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#testing-and-benchmarking'" class="reference internal" href="#testing-and-benchmarking">Testing and Benchmarking</a><ul>
+<li><a :data-current="activeSection === '#basic-test'" class="reference internal" href="#basic-test">Basic Test</a></li>
+<li><a :data-current="activeSection === '#performance-benchmarking'" class="reference internal" href="#performance-benchmarking">Performance Benchmarking</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#log-files-and-monitoring'" class="reference internal" href="#log-files-and-monitoring">Log Files and Monitoring</a></li>
+<li><a :data-current="activeSection === '#troubleshooting'" class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a :data-current="activeSection === '#common-issues'" class="reference internal" href="#common-issues">Common Issues</a></li>
+<li><a :data-current="activeSection === '#error-recovery'" class="reference internal" href="#error-recovery">Error Recovery</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
