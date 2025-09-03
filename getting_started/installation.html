@@ -101,6 +101,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/valkey.html">ValKey</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/weka.html">Weka</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/nixl.html">Nixl</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/external_backend.html">External Storage Backends</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
@@ -192,8 +193,8 @@
 <h3>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p>OS: Linux</p></li>
-<li><p>Python: 3.10 – 3.12</p></li>
-<li><p>GPU: NVIDIA compute capability 7.0+ (e.g., V100, T4, RTX20xx, A100, L4, H100, etc.)</p></li>
+<li><p>Python: 3.9 – 3.13</p></li>
+<li><p>GPU: NVIDIA compute capability 7.0+ (e.g., V100, T4, RTX20xx, A100, L4, H100, B200, etc.)</p></li>
 <li><p>CUDA 12.8+</p></li>
 </ul>
 <div class="admonition note">
@@ -203,31 +204,97 @@
 </section>
 <section id="install-stable-lmcache-from-pypi">
 <h3>Install Stable LMCache from PyPI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#install-stable-lmcache-from-pypi" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#install-stable-lmcache-from-pypi'"><span>#</span></a></h3>
-<p>The simplest way to install the latest stable release of LMCache is through PyPI. If other dependencies
-demand a version of torch that differs across major versions (e.g. 2.7.1 versus 2.8.0), LMCache stays compatible
-through installation from source (see below). The LMCache is always build with the latest version of torch.
-Installing from source allows torch version flexibility.</p>
+<p>The simplest way to install the latest stable release of LMCache is through PyPI.
+If you require a different version of torch for the LMCache instance that you built with (symbol undefined error), please follow the install from source instructions below.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache wheels are built with the latest version of torch.</span>
-</span><span id="line-2"><span class="c1"># If your serving engine pins a different version of torch, it will</span>
-</span><span id="line-3"><span class="c1"># override the torch version installed by lmcache</span>
-</span><span id="line-4"><span class="c1"># if these torch versions differ across major versions, ABI compatibility</span>
-</span><span id="line-5"><span class="c1"># may break so please install from source (see below)</span>
-</span><span id="line-6">pip<span class="w"> </span>install<span class="w"> </span>lmcache
+</span><span id="line-2">pip<span class="w"> </span>install<span class="w"> </span>lmcache
 </span></code></pre></div>
 </div>
+<p><strong>Compatibility Matrix:</strong></p>
+<p>This compatibility matrix accounts for dependencies as well as connector API changes. Please raise an issue on GitHub if you encounter any incompatibilities.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.2%"/>
+<col style="width: 13.6%"/>
+<col style="width: 13.6%"/>
+<col style="width: 13.6%"/>
+<col style="width: 13.6%"/>
+<col style="width: 13.6%"/>
+<col style="width: 13.6%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>LMCache 0.3.5 (Aug 28)</p></th>
+<th class="head"><p>LMCache 0.3.4 (Aug 24)</p></th>
+<th class="head"><p>LMCache 0.3.3 (Aug 1)</p></th>
+<th class="head"><p>LMCache 0.3.2 (Jul 14)</p></th>
+<th class="head"><p>LMCache 0.3.1 (June 25)</p></th>
+<th class="head"><p>LMCache 0.3.0 (May 28)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>vLLM 0.10.1.x (Aug 19)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>vLLM 0.10.0.x (Jul 24)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>vLLM 0.9.2.x (Jul 3)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>vLLM 0.9.1.x (June 10)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>vLLM 0.9.0.x (May 14)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>vLLM 0.8.5.x (Apr 28)</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+</tr>
+</tbody>
+</table>
+<p>Notable Change List:</p>
+<ul class="simple">
+<li><p>June 30: vLLM Cached Req Scheduler Output Changes <a class="reference external" href="https://github.com/vllm-project/vllm/pull/20232">https://github.com/vllm-project/vllm/pull/20232</a> and <a class="reference external" href="https://github.com/vllm-project/vllm/pull/20291">https://github.com/vllm-project/vllm/pull/20291</a></p></li>
+</ul>
 </section>
 <section id="install-latest-lmcache-from-testpypi">
 <h3>Install Latest LMCache from TestPyPI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#install-latest-lmcache-from-testpypi" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#install-latest-lmcache-from-testpypi'"><span>#</span></a></h3>
-<p>These wheels are continually built from the latest LMCache source code (not officially stable release).
-If other dependencies demand a version of torch that differs across major versions (e.g. 2.7.1 versus 2.8.0),
-LMCache stays compatible through installation from source (see below). The LMCache torch version always
-matches the latest nightly version of vllm. Installing from source allows torch version flexibility.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># by default, this will port the version of torch of the latest *NIGHTLY* vllm wheel</span>
-</span><span id="line-2"><span class="c1"># if your serving engine demands a different version of torch, it will</span>
-</span><span id="line-3"><span class="c1"># override the torch version installed by lmcache</span>
-</span><span id="line-4"><span class="c1"># if these torch versions differ across major versions, ABI compatibility</span>
-</span><span id="line-5"><span class="c1"># may break so please install from source (see below)</span>
-</span><span id="line-6">pip<span class="w"> </span>install<span class="w"> </span>--index-url<span class="w"> </span>https://pypi.org/simple<span class="w"> </span>--extra-index-url<span class="w"> </span>https://test.pypi.org/simple<span class="w"> </span><span class="nv">lmcache</span><span class="o">==</span><span class="m">0</span>.3.4.dev61
+<p>TestPyPI wheels are continually built from the latest LMCache source code (not officially stable release).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># By default, this will adopt the version of torch from the latest *NIGHTLY* vLLM wheel.</span>
+</span><span id="line-2"><span class="c1"># If you require a different version of torch for the LMCache instance that you built with (symbol undefined error), please</span>
+</span><span id="line-3"><span class="c1"># follow the install from source instructions below.</span>
+</span><span id="line-4">pip<span class="w"> </span>install<span class="w"> </span>--index-url<span class="w"> </span>https://pypi.org/simple<span class="w"> </span>--extra-index-url<span class="w"> </span>https://test.pypi.org/simple<span class="w"> </span><span class="nv">lmcache</span><span class="o">==</span><span class="m">0</span>.3.4.dev61
 </span></code></pre></div>
 </div>
 <p>See the latest pre-release of LMCache: <a class="reference external" href="https://test.pypi.org/project/lmcache/#history">latest LMCache pre-releases</a> and replace <cite>0.3.4.dev61</cite> with the latest pre-release version.</p>
@@ -244,19 +311,15 @@ matches the latest nightly version of vllm. Installing from source allows torch 
 <section id="install-latest-lmcache-from-source">
 <h3>Install Latest LMCache from Source<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#install-latest-lmcache-from-source" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#install-latest-lmcache-from-source'"><span>#</span></a></h3>
 <p>To install from source, clone the repository and install in editable mode.</p>
-<p>The reason that torch installation is separated is:
-1. different serving engines and different versions of those serving engines
-have different torch dependencies and we want to maintain flexibility
-(torch versions only break across major versions where the ABI may change e.g. 2.7.1 -&gt; 2.8.0).
-2. no build isolation bypasses <a class="reference external" href="https://peps.python.org/pep-0517/">PEP 517</a> / <a class="reference external" href="https://peps.python.org/pep-0518/">PEP 518</a>
-avoiding the case where LMCache GPU kernels are compiled with <cite>torch.utils.cuda_extension</cite> or <cite>torch.utils.hipify</cite>
-inside of <cite>setup.py</cite> with one torch version while runtime dependencies (unpinned torch version in <cite>requirements/common.txt</cite>)
-are overridden, causing undefined symbol references. This forces LMCache to be built with the torch version already in your
-environment.</p>
+<p><cite>–no-build-isolation</cite> bypasses <a class="reference external" href="https://peps.python.org/pep-0517/">PEP 517</a> / <a class="reference external" href="https://peps.python.org/pep-0518/">PEP 518</a>
+avoiding a potential issue where LMCache’s kernels are compiled with <cite>torch.utils.cuda_extension</cite> or <cite>torch.utils.hipify</cite>
+inside of <cite>setup.py</cite> with one torch version while during runtime, the version of torch differs across major versions
+(which is possible because LMCache intentionally has an unpinned torch version in <cite>requirements/common.txt</cite>), causing
+linker issues that will show up as undefined symbol references.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
 </span><span id="line-3">
-</span><span id="line-4"><span class="c1"># we need to install these packages because we are avoiding build isolation</span>
+</span><span id="line-4"><span class="c1"># Need to install these packages manually to avoid build isolation</span>
 </span><span id="line-5">pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements/build.txt
 </span><span id="line-6">
 </span><span id="line-7"><span class="c1"># Option 1.</span>
@@ -265,7 +328,7 @@ environment.</p>
 </span><span id="line-10">pip<span class="w"> </span>install<span class="w"> </span><span class="nv">torch</span><span class="o">==</span><span class="m">2</span>.7.1
 </span><span id="line-11">
 </span><span id="line-12"><span class="c1"># Option 2.</span>
-</span><span id="line-13"><span class="c1"># install your serving engine with its required torch version declared already</span>
+</span><span id="line-13"><span class="c1"># install your serving engine with its required torch version bundled</span>
 </span><span id="line-14"><span class="c1"># example: vllm 0.10.0 will install torch 2.7.1</span>
 </span><span id="line-15">pip<span class="w"> </span>install<span class="w"> </span><span class="nv">vllm</span><span class="o">==</span><span class="m">0</span>.10.0
 </span><span id="line-16">
@@ -277,14 +340,14 @@ environment.</p>
 </section>
 <section id="install-lmcache-with-uv">
 <h3>Install LMCache with uv<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#install-lmcache-with-uv" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#install-lmcache-with-uv'"><span>#</span></a></h3>
-<p>We recommend developers to use <cite>uv</cite> for faster package management:</p>
+<p>We recommend developers to use <cite>uv</cite> for faster package management.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
 </span><span id="line-3">
 </span><span id="line-4">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
 </span><span id="line-5"><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </span><span id="line-6">
-</span><span id="line-7"><span class="c1"># we need to install these packages because we are avoiding build isolation</span>
+</span><span id="line-7"><span class="c1"># Need to install these packages manually to avoid build isolation</span>
 </span><span id="line-8">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements/build.txt
 </span><span id="line-9">
 </span><span id="line-10"><span class="c1"># Option 1.</span>
@@ -293,13 +356,17 @@ environment.</p>
 </span><span id="line-13">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">torch</span><span class="o">==</span><span class="m">2</span>.7.1
 </span><span id="line-14">
 </span><span id="line-15"><span class="c1"># Option 2.</span>
-</span><span id="line-16"><span class="c1"># install your serving engine with its required torch version declared already</span>
+</span><span id="line-16"><span class="c1"># install your serving engine with its required torch version bundled</span>
 </span><span id="line-17"><span class="c1"># example: vllm 0.10.0 will install torch 2.7.1</span>
 </span><span id="line-18">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">vllm</span><span class="o">==</span><span class="m">0</span>.10.0
 </span><span id="line-19">
 </span><span id="line-20"><span class="c1"># no build isolation requires torch to already be installed</span>
 </span><span id="line-21"><span class="c1"># with your desired version</span>
 </span><span id="line-22">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-build-isolation
+</span></code></pre></div>
+</div>
+<p>You can quickly test whether you have undefined symbol references by running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import lmcache.c_ops"</span>
 </span></code></pre></div>
 </div>
 </section>
