@@ -17,8 +17,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="persist.html" rel="next" title="Persist the KV cache"/>
-<link href="controller.html" rel="prev" title="LMCache Controller"/>
+<link href="move.html" rel="next" title="Move the KV cache"/>
+<link href="health.html" rel="prev" title="Check controller health"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -118,11 +118,12 @@
 <p class="caption" role="heading"><span class="caption-text">KV Cache management</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="controller.html">LMCache Controller</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Lookup the KV cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="persist.html">Persist the KV cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="clear.html">Clear the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compress.html">Compress and Decompress the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="health.html">Check controller health</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Lookup the KV cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="move.html">Move the KV cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="compress.html">Compress the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pin.html">Pin the KV cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="check_finish.html">Check finish of a control event</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">KV Cache Optimizations</span></p>
@@ -189,18 +190,14 @@
 <section id="lookup-the-kv-cache">
 <span id="lookup"></span><h1>Lookup the KV cache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lookup-the-kv-cache"><span>#</span></a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">lookup</span></code> interface is defined as the following:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lookup</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">layout_info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lookup</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">event_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">layout_info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
 </span></code></pre></div>
 </div>
-<p>The function takes a list of tokens as input and returns a dictionary containing the layout information for each token.
+<p>The function takes a list of tokens as input and returns event_id and a dictionary containing the layout information for each token.
 The layout information is represented as a mapping between <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and a tuple of <code class="docutils literal notranslate"><span class="pre">(location,</span> <span class="pre">matched_prefix_length)</span></code>.</p>
 <section id="example-usage">
 <h2>Example usage:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-usage'"><span>#</span></a></h2>
-<p>First, we need to start the lmcache controller at port 9000 and the monitor at port 9001:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.api_server<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--monitor-port<span class="w"> </span><span class="m">9001</span>
-</span></code></pre></div>
-</div>
-<p>Second, we need a yaml file <code class="docutils literal notranslate"><span class="pre">example.yaml</span></code> to properly configure the lmcache instance:</p>
+<p>First, we need a yaml file <code class="docutils literal notranslate"><span class="pre">example.yaml</span></code> to properly configure the lmcache instance:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
 </span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
@@ -213,47 +210,64 @@ The layout information is represented as a mapping between <code class="docutils
 </span><span id="line-10"><span class="nt">lmcache_worker_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8001</span>
 </span></code></pre></div>
 </div>
-<p>Third, we need to start the vllm/lmcache instance:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_USE_EXPERIMENTAL</span><span class="o">=</span>True<span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>example.yaml<span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Meta-Llama-3.1-8B-Instruct<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">4096</span><span class="w">  </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+<p>Second, we need to start the vllm/lmcache instance at port 8000:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>example.yaml<span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">4096</span><span class="w">  </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
-<p>Then, we can send a request to vllm:</p>
+<p>Third, we need to start the lmcache controller at port 9000 and the monitor at port 9001:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span>lmcache_controller<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--monitor-port<span class="w"> </span><span class="m">9001</span>
+</span></code></pre></div>
+</div>
+<p>Then we can send a request to vllm to see if it works properly:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/v1/completions<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2">-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3">-d<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-4"><span class="s1">    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">    "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
 </span><span id="line-5"><span class="s1">    "prompt": "Explain the significance of KV cache in language models.",</span>
 </span><span id="line-6"><span class="s1">    "max_tokens": 10</span>
-</span><span id="line-7"><span class="s1">}'</span>
+</span><span id="line-7"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+<p>Now we send a request to tokenize the prompt:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/tokenize<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">    "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-5"><span class="s1">    "prompt": "Explain the significance of KV cache in language models."</span>
+</span><span id="line-6"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+<p>We should be able to see token ids in response:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">{"count":12,"max_model_len":4096,"tokens":[128000,849,21435,279,26431,315,85748,6636,304,4221,4211,13],"token_strs":null}
 </span></code></pre></div>
 </div>
 <p>Finally, we can send a <code class="docutils literal notranslate"><span class="pre">lookup</span></code> request to the lmcache controller:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9000/lookup<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2">-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3">-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
 </span><span id="line-4"><span class="s1">    "tokens": [128000, 849, 21435, 279, 26431, 315, 85748, 6636, 304, 4221, 4211, 13]</span>
-</span><span id="line-5"><span class="s1">}'</span>
+</span><span id="line-5"><span class="s1">  }'</span>
 </span></code></pre></div>
 </div>
 <p>We should be able to see the response like this:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">{"lmcache_default_instance_id": ["LocalCPUBackend",12]}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">{"event_id": "xxx", "lmcache_default_instance": ("LocalCPUBackend", 12)}
 </span></code></pre></div>
 </div>
-<p>This means that the KV cache for the given tokens is stored in <code class="docutils literal notranslate"><span class="pre">lmcache_default_instance</span></code>’s CPU memory and the matched prefix length is 12.</p>
+<p>The field <code class="docutils literal notranslate"><span class="pre">lmcache_default_instance</span></code> shows the instance ID, followed by a tuple of <code class="docutils literal notranslate"><span class="pre">(location,</span> <span class="pre">matched_prefix_length)</span></code> indicating the cache location within that instance and matched prefix length. <code class="docutils literal notranslate"><span class="pre">event_id</span></code> is an identifier of the controller operation and can typically be ignored.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="controller.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="health.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        LMCache Controller
+        Check controller health
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="persist.html">
-        Persist the KV cache
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="move.html">
+        Move the KV cache
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>

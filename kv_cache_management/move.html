@@ -17,8 +17,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="compress.html" rel="next" title="Compress the KV cache"/>
-<link href="clear.html" rel="prev" title="Clear the KV cache"/>
+<link href="pin.html" rel="next" title="Pin the KV cache"/>
+<link href="lookup.html" rel="prev" title="Lookup the KV cache"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -118,11 +118,12 @@
 <p class="caption" role="heading"><span class="caption-text">KV Cache management</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="controller.html">LMCache Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lookup.html">Lookup the KV cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="persist.html">Persist the KV cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="clear.html">Clear the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compress.html">Compress and Decompress the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="health.html">Check controller health</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup.html">Lookup the KV cache</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Move the KV cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="compress.html">Compress the KV cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pin.html">Pin the KV cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="check_finish.html">Check finish of a control event</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">KV Cache Optimizations</span></p>
@@ -188,26 +189,117 @@
 <div id="content" role="main">
 <section id="move-the-kv-cache">
 <span id="move"></span><h1>Move the KV cache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#move-the-kv-cache"><span>#</span></a></h1>
-<p>Coming soon…</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">move</span></code> interface is defined as the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">move</span><span class="p">(</span><span class="n">old_position</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">new_position</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+</span><span id="line-2">     <span class="n">tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">copy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">event_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_tokens</span><span class="p">:</span> <span class="nb">int</span>
+</span></code></pre></div>
+</div>
+<p>The function moves the KV cache chunks identified by <code class="docutils literal notranslate"><span class="pre">tokens</span></code> from
+<code class="docutils literal notranslate"><span class="pre">old_position</span></code> to <code class="docutils literal notranslate"><span class="pre">new_position</span></code>. Each position is a tuple of
+<code class="docutils literal notranslate"><span class="pre">(instance_id,</span> <span class="pre">location)</span></code>. Setting <code class="docutils literal notranslate"><span class="pre">copy</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code> copies the
+KV cache instead of moving it.</p>
+<section id="example-usage">
+<h2>Example usage:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-usage'"><span>#</span></a></h2>
+<p>First, prepare two yaml files <code class="docutils literal notranslate"><span class="pre">instance1.yaml</span></code> and <code class="docutils literal notranslate"><span class="pre">instance2.yaml</span></code> to
+configure two lmcache instances:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># instance1.yaml</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-4"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="nt">enable_controller</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-7"><span class="nt">lmcache_instance_id</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache_instance_1"</span>
+</span><span id="line-8"><span class="nt">controller_url</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:9001"</span>
+</span><span id="line-9"><span class="nt">lmcache_worker_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8002</span>
+</span><span id="line-10"><span class="nt">distributed_url</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:8004"</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># instance2.yaml</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-4"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="nt">enable_controller</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+</span><span id="line-7"><span class="nt">lmcache_instance_id</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache_instance_2"</span>
+</span><span id="line-8"><span class="nt">controller_url</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:9001"</span>
+</span><span id="line-9"><span class="nt">lmcache_worker_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8003</span>
+</span><span id="line-10"><span class="nt">distributed_url</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:8005"</span>
+</span></code></pre></div>
+</div>
+<p>Start two vllm engines:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>instance1.yaml<span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>instance2.yaml<span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p>Start the lmcache controller at port 9000 and the monitor at port 9001:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache_controller<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--monitor-port<span class="w"> </span><span class="m">9001</span>
+</span></code></pre></div>
+</div>
+<p>Send a request to vllm engine 1:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/v1/completions<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-5"><span class="s1">        "prompt": "Explain the significance of KV cache in language models.",</span>
+</span><span id="line-6"><span class="s1">        "max_tokens": 10</span>
+</span><span id="line-7"><span class="s1">      }'</span>
+</span></code></pre></div>
+</div>
+<p>Tokenize the prompt to obtain token ids:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/tokenize<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-5"><span class="s1">        "prompt": "Explain the significance of KV cache in language models."</span>
+</span><span id="line-6"><span class="s1">      }'</span>
+</span></code></pre></div>
+</div>
+<p>Move the KV cache from engine 1’s CPU to engine 2’s CPU using the token ids:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9000/move<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "old_position": ["lmcache_instance_1", "LocalCPUBackend"],</span>
+</span><span id="line-5"><span class="s1">        "new_position": ["lmcache_instance_2", "LocalCPUBackend"],</span>
+</span><span id="line-6"><span class="s1">        "tokens": [128000, 849, 21435, 279, 26431, 315, 85748, 6636, 304, 4221, 4211, 13]</span>
+</span><span id="line-7"><span class="s1">      }'</span>
+</span></code></pre></div>
+</div>
+<p>The controller responds with a message similar to:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">{"num_tokens": 12, "event_id": "xxx"}
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">num_tokens</span></code> indicates how many tokens’ KV cache are being moved. The
+returned <code class="docutils literal notranslate"><span class="pre">event_id</span></code> can be used to query the status of the operation.</p>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="clear.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="lookup.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        Clear the KV cache
+        Lookup the KV cache
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="compress.html">
-        Compress the KV cache
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="pin.html">
+        Pin the KV cache
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#example-usage'" class="reference internal" href="#example-usage">Example usage:</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
