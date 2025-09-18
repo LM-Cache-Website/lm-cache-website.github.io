@@ -168,7 +168,75 @@
 <div id="content" role="main">
 <section id="blending">
 <h1>Blending<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#blending"><span>#</span></a></h1>
-<p>Coming soon…</p>
+<p>CacheBlend enables KV cache reuse for non-prefix positions by recomputing a subset of tokens at non-prefix positions.
+For example, CacheBlend can combine multiple (pre-)computed KV caches, when their corresponding texts are concatenated in the LLM input</p>
+<section id="configuring-cacheblend-in-rag-scenarios">
+<h2>Configuring CacheBlend in RAG scenarios<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuring-cacheblend-in-rag-scenarios" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuring-cacheblend-in-rag-scenarios'"><span>#</span></a></h2>
+<p>Here, we will explain the code in our end-to-end <a class="reference external" href="https://github.com/LMCache/LMCache/tree/dev/examples/blend_kv_v1/blend.py">example</a>&gt;.</p>
+<p>Below are some blending-related configurations (and explanations):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Enable blending in LMCache</span>
+</span><span id="line-2"><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_ENABLE_BLENDING"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"True"</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Separator string between different chunks</span>
+</span><span id="line-5"><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_BLEND_SPECIAL_STR"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">" # # "</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="c1"># Layerwise must be turned on when blending is enabled</span>
+</span><span id="line-8"><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_USE_LAYERWISE"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"True"</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># Determining which tokens to recompute at layer 1</span>
+</span><span id="line-11"><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_BLEND_CHECK_LAYERS"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Ratio of tokens to recompute</span>
+</span><span id="line-14"><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_BLEND_RECOMPUTE_RATIOS"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"0.15"</span>
+</span><span id="line-15">
+</span><span id="line-16"><span class="c1"># Optionally, we can use sparse attention to improve generation quality</span>
+</span><span id="line-17"><span class="c1"># by using more accurate attention mask</span>
+</span><span id="line-18"><span class="k">if</span> <span class="n">enable_sparse</span><span class="p">:</span>
+</span><span id="line-19">    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"VLLM_ATTENTION_BACKEND"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"FLASHINFER"</span>
+</span><span id="line-20">    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"LMCACHE_EXTRA_CONFIG"</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'{"enable_sparse": true}'</span>
+</span></code></pre></div>
+</div>
+<p>Firstly, we preprocess texts into tokens, as tokenizing a concatenated string may produce different tokens than concatenating the results of tokenizing each string individually.
+For example, assume we have a system prompt and three text chunks. We need to preprocess them into tokens before sending to the LLM:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">sys_prompt</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"You are a very helpful assistant."</span><span class="p">)</span>
+</span><span id="line-2"><span class="n">chunk1_prompt</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"Hello, how are you?"</span> <span class="o">*</span> <span class="mi">500</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-3"><span class="n">chunk2_prompt</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"Hello, what's up?"</span> <span class="o">*</span> <span class="mi">500</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-4"><span class="n">chunk3_prompt</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"Hi, what are you up to?"</span> <span class="o">*</span> <span class="mi">500</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-5"><span class="n">blend_special_str</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"LMCACHE_BLEND_SPECIAL_STR"</span><span class="p">))[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-6"><span class="n">first_prompt</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="line-7">    <span class="n">sys_prompt</span>
+</span><span id="line-8">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-9">    <span class="o">+</span> <span class="n">chunk1_prompt</span>
+</span><span id="line-10">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-11">    <span class="o">+</span> <span class="n">chunk2_prompt</span>
+</span><span id="line-12">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-13">    <span class="o">+</span> <span class="n">chunk3_prompt</span>
+</span><span id="line-14">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-15">    <span class="o">+</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"Hello, my name is"</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-16"><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<p>Then, we can send the tokenized prompt to vLLM. Meanwhile, LMCache will store the KV caches of different chunks according to the <code class="docutils literal notranslate"><span class="pre">BLEND_SPECIAL_STR</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompts</span><span class="o">=</span><span class="p">{</span><span class="s2">"prompt_token_ids"</span><span class="p">:</span> <span class="n">first_prompt</span><span class="p">})</span>
+</span></code></pre></div>
+</div>
+<p>Similarly, we build another prompt using the same chunks but with different orders.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">second_prompt</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="line-2">    <span class="n">sys_prompt</span>
+</span><span id="line-3">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-4">    <span class="o">+</span> <span class="n">chunk2_prompt</span>
+</span><span id="line-5">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-6">    <span class="o">+</span> <span class="n">chunk1_prompt</span>
+</span><span id="line-7">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-8">    <span class="o">+</span> <span class="n">chunk3_prompt</span>
+</span><span id="line-9">    <span class="o">+</span> <span class="n">blend_special_str</span>
+</span><span id="line-10">    <span class="o">+</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"Hello, how are you?"</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</span><span id="line-11"><span class="p">)</span>
+</span><span id="line-12"><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompts</span><span class="o">=</span><span class="p">{</span><span class="s2">"prompt_token_ids"</span><span class="p">:</span> <span class="n">second_prompt</span><span class="p">})</span>
+</span></code></pre></div>
+</div>
+<p>Even though the second prompt has a different order of chunks, LMCache can still reuse the KV caches of chunk1, chunk2, and chunk3.</p>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -187,7 +255,13 @@
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#configuring-cacheblend-in-rag-scenarios'" class="reference internal" href="#configuring-cacheblend-in-rag-scenarios">Configuring CacheBlend in RAG scenarios</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
