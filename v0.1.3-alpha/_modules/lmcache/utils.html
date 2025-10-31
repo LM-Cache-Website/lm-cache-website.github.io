@@ -189,7 +189,7 @@
 </span><span id="line-4">
 </span><span id="line-5"><span class="c1"># Standard</span>
 </span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 </span><span id="line-8"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="line-9"><span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 </span><span id="line-10"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
@@ -316,336 +316,355 @@
 </span><span id="line-113"><span class="n">STR_DTYPE_TO_TORCH_DTYPE</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">TORCH_DTYPE_TO_STR_DTYPE</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 </span><span id="line-114">
 </span><span id="line-115">
+<div class="viewcode-block" id="parse_cache_key">
+<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.parse_cache_key">[docs]</a>
+</span><span id="line-116"><span class="k">def</span><span class="w"> </span><span class="nf">parse_cache_key</span><span class="p">(</span><span class="n">key_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">CacheEngineKey</span><span class="p">,</span> <span class="n">LayerCacheEngineKey</span><span class="p">]:</span>
+</span><span id="line-117"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a key string into either a CacheEngineKey or LayerCacheEngineKey.</span>
+</span><span id="line-118">
+</span><span id="line-119"><span class="sd">    Args:</span>
+</span><span id="line-120"><span class="sd">        key_str: String in format:</span>
+</span><span id="line-121"><span class="sd">            fmt@model@world_size@worker_id@chunk_hash[@layer_id][@tag%value...]</span>
+</span><span id="line-122">
+</span><span id="line-123"><span class="sd">    Returns:</span>
+</span><span id="line-124"><span class="sd">        CacheEngineKey if no layer_id, LayerCacheEngineKey if valid layer_id</span>
+</span><span id="line-125"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="line-126">    <span class="n">parts</span> <span class="o">=</span> <span class="n">key_str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
+</span><span id="line-127">    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+</span><span id="line-128">        <span class="k">return</span> <span class="n">LayerCacheEngineKey</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">key_str</span><span class="p">)</span>
+</span><span id="line-129">    <span class="k">return</span> <span class="n">CacheEngineKey</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">key_str</span><span class="p">)</span></div>
+
+</span><span id="line-130">
+</span><span id="line-131">
 <div class="viewcode-block" id="CacheEngineKey">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey">[docs]</a>
-</span><span id="line-116"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="line-117"><span class="k">class</span><span class="w"> </span><span class="nc">CacheEngineKey</span><span class="p">:</span>
-</span><span id="line-118">    <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="line-119">    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="line-120">    <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-121">    <span class="n">worker_id</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-122">    <span class="n">chunk_hash</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-123">    <span class="n">request_configs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-124">
-</span><span id="line-125">    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-126">        <span class="n">tag_list</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-127">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-128">            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="line-129">                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;lmcache.tag.&quot;</span><span class="p">):</span>
-</span><span id="line-130">                    <span class="k">if</span> <span class="n">tag_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-131">                        <span class="n">tag_list</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="line-132">                    <span class="n">tag_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;lmcache.tag.&quot;</span><span class="p">)</span> <span class="p">:],</span> <span class="n">v</span><span class="p">))</span>
-</span><span id="line-133">        <span class="c1"># use tuple to save tags</span>
-</span><span id="line-134">        <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">tag_list</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tag_list</span><span class="p">)</span>
-</span><span id="line-135">
-</span><span id="line-136">    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-137">        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
-</span><span id="line-138">            <span class="p">(</span>
-</span><span id="line-139">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-140">                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-141">                <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-142">                <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-143">                <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-144">                <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span>
-</span><span id="line-145">            <span class="p">)</span>
-</span><span id="line-146">        <span class="p">)</span>
-</span><span id="line-147">
-</span><span id="line-148">    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-</span><span id="line-149">        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
-</span><span id="line-150">            <span class="k">return</span> <span class="p">(</span>
-</span><span id="line-151">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">fmt</span>
-</span><span id="line-152">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">model_name</span>
-</span><span id="line-153">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">world_size</span>
-</span><span id="line-154">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">worker_id</span>
-</span><span id="line-155">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">chunk_hash</span>
-</span><span id="line-156">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">tags</span>
-</span><span id="line-157">            <span class="p">)</span>
-</span><span id="line-158">
-</span><span id="line-159">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="line-160">
+</span><span id="line-132"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="line-133"><span class="k">class</span><span class="w"> </span><span class="nc">CacheEngineKey</span><span class="p">:</span>
+</span><span id="line-134">    <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="line-135">    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="line-136">    <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-137">    <span class="n">worker_id</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-138">    <span class="n">chunk_hash</span><span class="p">:</span> <span class="nb">int</span>
+</span><span id="line-139">    <span class="n">request_configs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="line-140">
+</span><span id="line-141">    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-142">        <span class="n">tag_list</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="line-143">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-144">            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="line-145">                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;lmcache.tag.&quot;</span><span class="p">):</span>
+</span><span id="line-146">                    <span class="k">if</span> <span class="n">tag_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-147">                        <span class="n">tag_list</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="line-148">                    <span class="n">tag_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;lmcache.tag.&quot;</span><span class="p">)</span> <span class="p">:],</span> <span class="n">v</span><span class="p">))</span>
+</span><span id="line-149">        <span class="c1"># use tuple to save tags</span>
+</span><span id="line-150">        <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">tag_list</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tag_list</span><span class="p">)</span>
+</span><span id="line-151">
+</span><span id="line-152">    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-153">        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+</span><span id="line-154">            <span class="p">(</span>
+</span><span id="line-155">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-156">                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-157">                <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-158">                <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-159">                <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-160">                <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span>
+</span><span id="line-161">            <span class="p">)</span>
+</span><span id="line-162">        <span class="p">)</span>
+</span><span id="line-163">
+</span><span id="line-164">    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+</span><span id="line-165">        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+</span><span id="line-166">            <span class="k">return</span> <span class="p">(</span>
+</span><span id="line-167">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">fmt</span>
+</span><span id="line-168">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">model_name</span>
+</span><span id="line-169">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">world_size</span>
+</span><span id="line-170">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">worker_id</span>
+</span><span id="line-171">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">chunk_hash</span>
+</span><span id="line-172">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">tags</span>
+</span><span id="line-173">            <span class="p">)</span>
+</span><span id="line-174">
+</span><span id="line-175">        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="line-176">
 <div class="viewcode-block" id="CacheEngineKey.to_string">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.to_string">[docs]</a>
-</span><span id="line-161">    <span class="k">def</span><span class="w"> </span><span class="nf">to_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-162">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="line-163">            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-164">            <span class="sa">f</span><span class="s2">&quot;@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-165">        <span class="p">)</span>
-</span><span id="line-166">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span id="line-167">            <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">]</span>
-</span><span id="line-168">            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;@&quot;</span> <span class="o">+</span> <span class="s2">&quot;@&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
-</span><span id="line-169">        <span class="k">return</span> <span class="n">s</span></div>
+</span><span id="line-177">    <span class="k">def</span><span class="w"> </span><span class="nf">to_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-178">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="line-179">            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-180">            <span class="sa">f</span><span class="s2">&quot;@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-181">        <span class="p">)</span>
+</span><span id="line-182">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="line-183">            <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">]</span>
+</span><span id="line-184">            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;@&quot;</span> <span class="o">+</span> <span class="s2">&quot;@&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
+</span><span id="line-185">        <span class="k">return</span> <span class="n">s</span></div>
 
-</span><span id="line-170">
+</span><span id="line-186">
 <div class="viewcode-block" id="CacheEngineKey.split_layers">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.split_layers">[docs]</a>
-</span><span id="line-171">    <span class="k">def</span><span class="w"> </span><span class="nf">split_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">]:</span>
-</span><span id="line-172"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the key into multiple keys for each layer&quot;&quot;&quot;</span>
-</span><span id="line-173">        <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="line-174">        <span class="k">for</span> <span class="n">layer_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
-</span><span id="line-175">            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span id="line-176">                <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
-</span><span id="line-177">                    <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-178">                    <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-179">                    <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-180">                    <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-181">                    <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-182">                    <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-183">                    <span class="n">layer_id</span><span class="p">,</span>
-</span><span id="line-184">                <span class="p">)</span>
-</span><span id="line-185">            <span class="p">)</span>
-</span><span id="line-186">        <span class="k">return</span> <span class="n">keys</span></div>
+</span><span id="line-187">    <span class="k">def</span><span class="w"> </span><span class="nf">split_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">]:</span>
+</span><span id="line-188"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the key into multiple keys for each layer&quot;&quot;&quot;</span>
+</span><span id="line-189">        <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="line-190">        <span class="k">for</span> <span class="n">layer_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+</span><span id="line-191">            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span id="line-192">                <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
+</span><span id="line-193">                    <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-194">                    <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-195">                    <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-196">                    <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-197">                    <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-198">                    <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-199">                    <span class="n">layer_id</span><span class="p">,</span>
+</span><span id="line-200">                <span class="p">)</span>
+</span><span id="line-201">            <span class="p">)</span>
+</span><span id="line-202">        <span class="k">return</span> <span class="n">keys</span></div>
 
-</span><span id="line-187">
+</span><span id="line-203">
 <div class="viewcode-block" id="CacheEngineKey.get_first_layer">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.get_first_layer">[docs]</a>
-</span><span id="line-188">    <span class="k">def</span><span class="w"> </span><span class="nf">get_first_layer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">:</span>
-</span><span id="line-189"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the key for the first layer&quot;&quot;&quot;</span>
-</span><span id="line-190">        <span class="n">key</span> <span class="o">=</span> <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
-</span><span id="line-191">            <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-192">            <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-193">            <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-194">            <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-195">            <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-196">            <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-197">            <span class="mi">0</span><span class="p">,</span>
-</span><span id="line-198">        <span class="p">)</span>
-</span><span id="line-199">        <span class="k">return</span> <span class="n">key</span></div>
+</span><span id="line-204">    <span class="k">def</span><span class="w"> </span><span class="nf">get_first_layer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">:</span>
+</span><span id="line-205"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the key for the first layer&quot;&quot;&quot;</span>
+</span><span id="line-206">        <span class="n">key</span> <span class="o">=</span> <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
+</span><span id="line-207">            <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-208">            <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-209">            <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-210">            <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-211">            <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-212">            <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-213">            <span class="mi">0</span><span class="p">,</span>
+</span><span id="line-214">        <span class="p">)</span>
+</span><span id="line-215">        <span class="k">return</span> <span class="n">key</span></div>
 
-</span><span id="line-200">
+</span><span id="line-216">
 <div class="viewcode-block" id="CacheEngineKey.from_string">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.from_string">[docs]</a>
-</span><span id="line-201">    <span class="nd">@staticmethod</span>
-</span><span id="line-202">    <span class="k">def</span><span class="w"> </span><span class="nf">from_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
-</span><span id="line-203">        <span class="n">parts</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
-</span><span id="line-204">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
-</span><span id="line-205">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-206">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-207">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span><span class="p">:</span>
-</span><span id="line-208">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="line-209">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">:]:</span>
-</span><span id="line-210">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span id="line-211">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span id="line-212">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-213">                <span class="n">request_configs</span><span class="p">[</span><span class="s2">&quot;lmcache.tag.&quot;</span> <span class="o">+</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span><span id="line-214">        <span class="k">return</span> <span class="n">CacheEngineKey</span><span class="p">(</span>
-</span><span id="line-215">            <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="line-216">            <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="line-217">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
-</span><span id="line-218">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
-</span><span id="line-219">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">),</span>
-</span><span id="line-220">            <span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-221">        <span class="p">)</span></div>
-
-</span><span id="line-222">
-<div class="viewcode-block" id="CacheEngineKey.to_dict">
-<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.to_dict">[docs]</a>
-</span><span id="line-223">    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-224">        <span class="c1"># Note(Kuntai): this is used for serializing CacheEngineKey via msgpack.</span>
-</span><span id="line-225">        <span class="n">msg</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="line-226">            <span class="s2">&quot;__type__&quot;</span><span class="p">:</span> <span class="s2">&quot;CacheEngineKey&quot;</span><span class="p">,</span>
-</span><span id="line-227">            <span class="s2">&quot;fmt&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-228">            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-229">            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-230">            <span class="s2">&quot;worker_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-231">            <span class="s2">&quot;chunk_hash&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-232">        <span class="p">}</span>
-</span><span id="line-233">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span id="line-234">            <span class="n">msg</span><span class="p">[</span><span class="s2">&quot;request_configs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="line-235">                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-</span><span id="line-236">            <span class="p">]</span>
-</span><span id="line-237">        <span class="k">return</span> <span class="n">msg</span></div>
+</span><span id="line-217">    <span class="nd">@staticmethod</span>
+</span><span id="line-218">    <span class="k">def</span><span class="w"> </span><span class="nf">from_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+</span><span id="line-219">        <span class="n">parts</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
+</span><span id="line-220">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
+</span><span id="line-221">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-222">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="line-223">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span><span class="p">:</span>
+</span><span id="line-224">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="line-225">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">:]:</span>
+</span><span id="line-226">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span id="line-227">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+</span><span id="line-228">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-229">                <span class="n">request_configs</span><span class="p">[</span><span class="s2">&quot;lmcache.tag.&quot;</span> <span class="o">+</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span id="line-230">        <span class="k">return</span> <span class="n">CacheEngineKey</span><span class="p">(</span>
+</span><span id="line-231">            <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="line-232">            <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="line-233">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+</span><span id="line-234">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+</span><span id="line-235">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">),</span>
+</span><span id="line-236">            <span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-237">        <span class="p">)</span></div>
 
 </span><span id="line-238">
+<div class="viewcode-block" id="CacheEngineKey.to_dict">
+<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.to_dict">[docs]</a>
+</span><span id="line-239">    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-240">        <span class="c1"># Note(Kuntai): this is used for serializing CacheEngineKey via msgpack.</span>
+</span><span id="line-241">        <span class="n">msg</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="line-242">            <span class="s2">&quot;__type__&quot;</span><span class="p">:</span> <span class="s2">&quot;CacheEngineKey&quot;</span><span class="p">,</span>
+</span><span id="line-243">            <span class="s2">&quot;fmt&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-244">            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-245">            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-246">            <span class="s2">&quot;worker_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-247">            <span class="s2">&quot;chunk_hash&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-248">        <span class="p">}</span>
+</span><span id="line-249">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="line-250">            <span class="n">msg</span><span class="p">[</span><span class="s2">&quot;request_configs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-251">                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span id="line-252">            <span class="p">]</span>
+</span><span id="line-253">        <span class="k">return</span> <span class="n">msg</span></div>
+
+</span><span id="line-254">
 <div class="viewcode-block" id="CacheEngineKey.from_dict">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.CacheEngineKey.from_dict">[docs]</a>
-</span><span id="line-239">    <span class="nd">@staticmethod</span>
-</span><span id="line-240">    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
-</span><span id="line-241">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-242">        <span class="k">if</span> <span class="n">request_configs_list</span> <span class="o">:=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;request_configs&quot;</span><span class="p">):</span>
-</span><span id="line-243">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="line-244">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">request_configs_list</span><span class="p">:</span>
-</span><span id="line-245">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span id="line-246">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span id="line-247">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key dict: </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-248">                <span class="n">request_configs</span><span class="p">[</span><span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span><span id="line-249">        <span class="k">return</span> <span class="n">CacheEngineKey</span><span class="p">(</span>
-</span><span id="line-250">            <span class="n">fmt</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;fmt&quot;</span><span class="p">],</span>
-</span><span id="line-251">            <span class="n">model_name</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">],</span>
-</span><span id="line-252">            <span class="n">world_size</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">],</span>
-</span><span id="line-253">            <span class="n">worker_id</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">],</span>
-</span><span id="line-254">            <span class="n">chunk_hash</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;chunk_hash&quot;</span><span class="p">],</span>
-</span><span id="line-255">            <span class="n">request_configs</span><span class="o">=</span><span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-256">        <span class="p">)</span></div>
+</span><span id="line-255">    <span class="nd">@staticmethod</span>
+</span><span id="line-256">    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+</span><span id="line-257">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="line-258">        <span class="k">if</span> <span class="n">request_configs_list</span> <span class="o">:=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;request_configs&quot;</span><span class="p">):</span>
+</span><span id="line-259">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="line-260">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">request_configs_list</span><span class="p">:</span>
+</span><span id="line-261">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span id="line-262">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+</span><span id="line-263">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key dict: </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-264">                <span class="n">request_configs</span><span class="p">[</span><span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span id="line-265">        <span class="k">return</span> <span class="n">CacheEngineKey</span><span class="p">(</span>
+</span><span id="line-266">            <span class="n">fmt</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;fmt&quot;</span><span class="p">],</span>
+</span><span id="line-267">            <span class="n">model_name</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">],</span>
+</span><span id="line-268">            <span class="n">world_size</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">],</span>
+</span><span id="line-269">            <span class="n">worker_id</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">],</span>
+</span><span id="line-270">            <span class="n">chunk_hash</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;chunk_hash&quot;</span><span class="p">],</span>
+</span><span id="line-271">            <span class="n">request_configs</span><span class="o">=</span><span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-272">        <span class="p">)</span></div>
 </div>
 
-</span><span id="line-257">
-</span><span id="line-258">
+</span><span id="line-273">
+</span><span id="line-274">
 <div class="viewcode-block" id="LayerCacheEngineKey">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.LayerCacheEngineKey">[docs]</a>
-</span><span id="line-259"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="line-260"><span class="k">class</span><span class="w"> </span><span class="nc">LayerCacheEngineKey</span><span class="p">(</span><span class="n">CacheEngineKey</span><span class="p">):</span>
-</span><span id="line-261"><span class="w">    </span><span class="sd">&quot;&quot;&quot;A key for the layer cache engine&quot;&quot;&quot;</span>
-</span><span id="line-262">
-</span><span id="line-263">    <span class="n">layer_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="line-264">
-</span><span id="line-265">    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-266">        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
-</span><span id="line-267">            <span class="p">(</span>
-</span><span id="line-268">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-269">                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-270">                <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-271">                <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-272">                <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-273">                <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span>
-</span><span id="line-274">                <span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span><span class="p">,</span>
-</span><span id="line-275">            <span class="p">)</span>
-</span><span id="line-276">        <span class="p">)</span>
-</span><span id="line-277">
-</span><span id="line-278">    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-</span><span id="line-279">        <span class="k">if</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
-</span><span id="line-280">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">layer_id</span>
-</span><span id="line-281">
-</span><span id="line-282">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="line-283">
+</span><span id="line-275"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="line-276"><span class="k">class</span><span class="w"> </span><span class="nc">LayerCacheEngineKey</span><span class="p">(</span><span class="n">CacheEngineKey</span><span class="p">):</span>
+</span><span id="line-277"><span class="w">    </span><span class="sd">&quot;&quot;&quot;A key for the layer cache engine&quot;&quot;&quot;</span>
+</span><span id="line-278">
+</span><span id="line-279">    <span class="n">layer_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="line-280">
+</span><span id="line-281">    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-282">        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+</span><span id="line-283">            <span class="p">(</span>
+</span><span id="line-284">                <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-285">                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-286">                <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-287">                <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-288">                <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-289">                <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span>
+</span><span id="line-290">                <span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span><span class="p">,</span>
+</span><span id="line-291">            <span class="p">)</span>
+</span><span id="line-292">        <span class="p">)</span>
+</span><span id="line-293">
+</span><span id="line-294">    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+</span><span id="line-295">        <span class="k">if</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+</span><span id="line-296">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">layer_id</span>
+</span><span id="line-297">
+</span><span id="line-298">        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="line-299">
 <div class="viewcode-block" id="LayerCacheEngineKey.to_string">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.LayerCacheEngineKey.to_string">[docs]</a>
-</span><span id="line-284">    <span class="k">def</span><span class="w"> </span><span class="nf">to_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-285">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="line-286">            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-287">            <span class="sa">f</span><span class="s2">&quot;@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-288">        <span class="p">)</span>
-</span><span id="line-289">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span id="line-290">            <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">]</span>
-</span><span id="line-291">            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;@&quot;</span> <span class="o">+</span> <span class="s2">&quot;@&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
-</span><span id="line-292">        <span class="k">return</span> <span class="n">s</span></div>
+</span><span id="line-300">    <span class="k">def</span><span class="w"> </span><span class="nf">to_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-301">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="line-302">            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-303">            <span class="sa">f</span><span class="s2">&quot;@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">layer_id</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-304">        <span class="p">)</span>
+</span><span id="line-305">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="line-306">            <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">%</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">]</span>
+</span><span id="line-307">            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;@&quot;</span> <span class="o">+</span> <span class="s2">&quot;@&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
+</span><span id="line-308">        <span class="k">return</span> <span class="n">s</span></div>
 
-</span><span id="line-293">
+</span><span id="line-309">
 <div class="viewcode-block" id="LayerCacheEngineKey.split_layers">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.LayerCacheEngineKey.split_layers">[docs]</a>
-</span><span id="line-294">    <span class="k">def</span><span class="w"> </span><span class="nf">split_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">]:</span>
-</span><span id="line-295"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the key into multiple keys for each layer&quot;&quot;&quot;</span>
-</span><span id="line-296">        <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="line-297">        <span class="k">for</span> <span class="n">layer_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
-</span><span id="line-298">            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span id="line-299">                <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
-</span><span id="line-300">                    <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
-</span><span id="line-301">                    <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-</span><span id="line-302">                    <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
-</span><span id="line-303">                    <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
-</span><span id="line-304">                    <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
-</span><span id="line-305">                    <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-306">                    <span class="n">layer_id</span><span class="p">,</span>
-</span><span id="line-307">                <span class="p">)</span>
-</span><span id="line-308">            <span class="p">)</span>
-</span><span id="line-309">        <span class="k">return</span> <span class="n">keys</span></div>
+</span><span id="line-310">    <span class="k">def</span><span class="w"> </span><span class="nf">split_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;LayerCacheEngineKey&quot;</span><span class="p">]:</span>
+</span><span id="line-311"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the key into multiple keys for each layer&quot;&quot;&quot;</span>
+</span><span id="line-312">        <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="line-313">        <span class="k">for</span> <span class="n">layer_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+</span><span id="line-314">            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span id="line-315">                <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
+</span><span id="line-316">                    <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span><span class="p">,</span>
+</span><span id="line-317">                    <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+</span><span id="line-318">                    <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+</span><span id="line-319">                    <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span><span class="p">,</span>
+</span><span id="line-320">                    <span class="bp">self</span><span class="o">.</span><span class="n">chunk_hash</span><span class="p">,</span>
+</span><span id="line-321">                    <span class="bp">self</span><span class="o">.</span><span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-322">                    <span class="n">layer_id</span><span class="p">,</span>
+</span><span id="line-323">                <span class="p">)</span>
+</span><span id="line-324">            <span class="p">)</span>
+</span><span id="line-325">        <span class="k">return</span> <span class="n">keys</span></div>
 
-</span><span id="line-310">
+</span><span id="line-326">
 <div class="viewcode-block" id="LayerCacheEngineKey.from_string">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.LayerCacheEngineKey.from_string">[docs]</a>
-</span><span id="line-311">    <span class="nd">@staticmethod</span>
-</span><span id="line-312">    <span class="k">def</span><span class="w"> </span><span class="nf">from_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
-</span><span id="line-313">        <span class="n">parts</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
-</span><span id="line-314">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
-</span><span id="line-315">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-316">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-317">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">7</span><span class="p">:</span>
-</span><span id="line-318">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="line-319">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[</span><span class="mi">6</span><span class="p">:]:</span>
-</span><span id="line-320">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span id="line-321">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span id="line-322">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-323">                <span class="n">request_configs</span><span class="p">[</span><span class="s2">&quot;lmcache.tag.&quot;</span> <span class="o">+</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span><span id="line-324">        <span class="k">return</span> <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
-</span><span id="line-325">            <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="line-326">            <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="line-327">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
-</span><span id="line-328">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
-</span><span id="line-329">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">),</span>
-</span><span id="line-330">            <span class="n">request_configs</span><span class="p">,</span>
-</span><span id="line-331">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">]),</span>
-</span><span id="line-332">        <span class="p">)</span></div>
+</span><span id="line-327">    <span class="nd">@staticmethod</span>
+</span><span id="line-328">    <span class="k">def</span><span class="w"> </span><span class="nf">from_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+</span><span id="line-329">        <span class="n">parts</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
+</span><span id="line-330">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+</span><span id="line-331">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-332">        <span class="n">request_configs</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="line-333">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">7</span><span class="p">:</span>
+</span><span id="line-334">            <span class="n">request_configs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="line-335">            <span class="k">for</span> <span class="n">kv</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">[</span><span class="mi">6</span><span class="p">:]:</span>
+</span><span id="line-336">                <span class="n">kvs</span> <span class="o">=</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span id="line-337">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kvs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+</span><span id="line-338">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key string: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-339">                <span class="n">request_configs</span><span class="p">[</span><span class="s2">&quot;lmcache.tag.&quot;</span> <span class="o">+</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">kvs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span id="line-340">        <span class="k">return</span> <span class="n">LayerCacheEngineKey</span><span class="p">(</span>
+</span><span id="line-341">            <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="line-342">            <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="line-343">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+</span><span id="line-344">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+</span><span id="line-345">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">),</span>
+</span><span id="line-346">            <span class="n">request_configs</span><span class="p">,</span>
+</span><span id="line-347">            <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">5</span><span class="p">]),</span>
+</span><span id="line-348">        <span class="p">)</span></div>
 </div>
 
-</span><span id="line-333">
-</span><span id="line-334">
-</span><span id="line-335"><span class="c1">##### NVTX annotation #####</span>
-</span><span id="line-336"><span class="n">_NVTX_COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;rapids&quot;</span><span class="p">]</span>
-</span><span id="line-337">
-</span><span id="line-338">
-</span><span id="line-339"><span class="k">def</span><span class="w"> </span><span class="nf">_get_color_for_nvtx</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
-</span><span id="line-340">    <span class="n">m</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
-</span><span id="line-341">    <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-</span><span id="line-342">    <span class="n">hash_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
-</span><span id="line-343">    <span class="n">idx</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">_NVTX_COLORS</span><span class="p">)</span>
-</span><span id="line-344">    <span class="k">return</span> <span class="n">_NVTX_COLORS</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span id="line-345">
-</span><span id="line-346">
-</span><span id="line-347"><span class="k">def</span><span class="w"> </span><span class="nf">_lmcache_nvtx_annotate</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="s2">&quot;lmcache&quot;</span><span class="p">):</span>
-</span><span id="line-348"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorator for applying nvtx annotations to methods in lmcache.&quot;&quot;&quot;</span>
-</span><span id="line-349">    <span class="k">return</span> <span class="n">annotate</span><span class="p">(</span>
-</span><span id="line-350">        <span class="n">message</span><span class="o">=</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span>
-</span><span id="line-351">        <span class="n">color</span><span class="o">=</span><span class="n">_get_color_for_nvtx</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">),</span>
-</span><span id="line-352">        <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
-</span><span id="line-353">    <span class="p">)(</span><span class="n">func</span><span class="p">)</span>
+</span><span id="line-349">
+</span><span id="line-350">
+</span><span id="line-351"><span class="c1">##### NVTX annotation #####</span>
+</span><span id="line-352"><span class="n">_NVTX_COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;rapids&quot;</span><span class="p">]</span>
+</span><span id="line-353">
 </span><span id="line-354">
-</span><span id="line-355">
-</span><span id="line-356"><span class="c1">##### Observability Threading related #####</span>
-</span><span id="line-357"><span class="n">_shared_observability_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-</span><span id="line-358">
-</span><span id="line-359">
-<div class="viewcode-block" id="thread_safe">
-<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.thread_safe">[docs]</a>
-</span><span id="line-360"><span class="k">def</span><span class="w"> </span><span class="nf">thread_safe</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
-</span><span id="line-361">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="line-362">        <span class="k">with</span> <span class="n">_shared_observability_lock</span><span class="p">:</span>
-</span><span id="line-363">            <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="line-364">        <span class="k">return</span> <span class="n">result</span>
-</span><span id="line-365">
-</span><span id="line-366">    <span class="k">return</span> <span class="n">wrapper</span></div>
-
-</span><span id="line-367">
-</span><span id="line-368">
-</span><span id="line-369"><span class="c1">#### Thread/asyncio-related utilities ####</span>
-<div class="viewcode-block" id="handle_thread_exception">
-<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.handle_thread_exception">[docs]</a>
-</span><span id="line-370"><span class="k">def</span><span class="w"> </span><span class="nf">handle_thread_exception</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-</span><span id="line-371">    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-</span><span id="line-372">        <span class="sa">f</span><span class="s2">&quot;Thread </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> crashed: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_value</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-373">    <span class="p">)</span></div>
-
+</span><span id="line-355"><span class="k">def</span><span class="w"> </span><span class="nf">_get_color_for_nvtx</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+</span><span id="line-356">    <span class="n">m</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
+</span><span id="line-357">    <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span><span id="line-358">    <span class="n">hash_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
+</span><span id="line-359">    <span class="n">idx</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">_NVTX_COLORS</span><span class="p">)</span>
+</span><span id="line-360">    <span class="k">return</span> <span class="n">_NVTX_COLORS</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span id="line-361">
+</span><span id="line-362">
+</span><span id="line-363"><span class="k">def</span><span class="w"> </span><span class="nf">_lmcache_nvtx_annotate</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="s2">&quot;lmcache&quot;</span><span class="p">):</span>
+</span><span id="line-364"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorator for applying nvtx annotations to methods in lmcache.&quot;&quot;&quot;</span>
+</span><span id="line-365">    <span class="k">return</span> <span class="n">annotate</span><span class="p">(</span>
+</span><span id="line-366">        <span class="n">message</span><span class="o">=</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span>
+</span><span id="line-367">        <span class="n">color</span><span class="o">=</span><span class="n">_get_color_for_nvtx</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">),</span>
+</span><span id="line-368">        <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+</span><span id="line-369">    <span class="p">)(</span><span class="n">func</span><span class="p">)</span>
+</span><span id="line-370">
+</span><span id="line-371">
+</span><span id="line-372"><span class="c1">##### Observability Threading related #####</span>
+</span><span id="line-373"><span class="n">_shared_observability_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 </span><span id="line-374">
 </span><span id="line-375">
-<div class="viewcode-block" id="start_loop_in_thread_with_exceptions">
-<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.start_loop_in_thread_with_exceptions">[docs]</a>
-</span><span id="line-376"><span class="k">def</span><span class="w"> </span><span class="nf">start_loop_in_thread_with_exceptions</span><span class="p">(</span><span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">):</span>
-</span><span id="line-377">    <span class="c1"># The loop must be set in the *same* thread where it runs.</span>
-</span><span id="line-378">    <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
-</span><span id="line-379">
-</span><span id="line-380">    <span class="c1"># Catch unhandled exceptions from callbacks/tasks in this loop:</span>
-</span><span id="line-381">    <span class="k">def</span><span class="w"> </span><span class="nf">loop_excepthook</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-</span><span id="line-382">        <span class="n">msg</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;Unhandled exception in event loop&quot;</span><span class="p">)</span>
-</span><span id="line-383">        <span class="n">exc</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exception&quot;</span><span class="p">)</span>
-</span><span id="line-384">        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[asyncio] </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-385">        <span class="k">if</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="line-386">            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exception</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="n">exc</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__traceback__</span><span class="p">)</span>
-</span><span id="line-387">
-</span><span id="line-388">    <span class="n">loop</span><span class="o">.</span><span class="n">set_exception_handler</span><span class="p">(</span><span class="n">loop_excepthook</span><span class="p">)</span>
-</span><span id="line-389">    <span class="n">loop</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span></div>
+<div class="viewcode-block" id="thread_safe">
+<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.thread_safe">[docs]</a>
+</span><span id="line-376"><span class="k">def</span><span class="w"> </span><span class="nf">thread_safe</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+</span><span id="line-377">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="line-378">        <span class="k">with</span> <span class="n">_shared_observability_lock</span><span class="p">:</span>
+</span><span id="line-379">            <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="line-380">        <span class="k">return</span> <span class="n">result</span>
+</span><span id="line-381">
+</span><span id="line-382">    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+</span><span id="line-383">
+</span><span id="line-384">
+</span><span id="line-385"><span class="c1">#### Thread/asyncio-related utilities ####</span>
+<div class="viewcode-block" id="handle_thread_exception">
+<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.handle_thread_exception">[docs]</a>
+</span><span id="line-386"><span class="k">def</span><span class="w"> </span><span class="nf">handle_thread_exception</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+</span><span id="line-387">    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+</span><span id="line-388">        <span class="sa">f</span><span class="s2">&quot;Thread </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> crashed: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_value</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-389">    <span class="p">)</span></div>
 
 </span><span id="line-390">
 </span><span id="line-391">
-</span><span id="line-392"><span class="c1">#### Placeholder for dpsk broadcast functionality ####</span>
+<div class="viewcode-block" id="start_loop_in_thread_with_exceptions">
+<a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.start_loop_in_thread_with_exceptions">[docs]</a>
+</span><span id="line-392"><span class="k">def</span><span class="w"> </span><span class="nf">start_loop_in_thread_with_exceptions</span><span class="p">(</span><span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">):</span>
+</span><span id="line-393">    <span class="c1"># The loop must be set in the *same* thread where it runs.</span>
+</span><span id="line-394">    <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+</span><span id="line-395">
+</span><span id="line-396">    <span class="c1"># Catch unhandled exceptions from callbacks/tasks in this loop:</span>
+</span><span id="line-397">    <span class="k">def</span><span class="w"> </span><span class="nf">loop_excepthook</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+</span><span id="line-398">        <span class="n">msg</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;Unhandled exception in event loop&quot;</span><span class="p">)</span>
+</span><span id="line-399">        <span class="n">exc</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exception&quot;</span><span class="p">)</span>
+</span><span id="line-400">        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[asyncio] </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-401">        <span class="k">if</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="line-402">            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exception</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="n">exc</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__traceback__</span><span class="p">)</span>
+</span><span id="line-403">
+</span><span id="line-404">    <span class="n">loop</span><span class="o">.</span><span class="n">set_exception_handler</span><span class="p">(</span><span class="n">loop_excepthook</span><span class="p">)</span>
+</span><span id="line-405">    <span class="n">loop</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span></div>
+
+</span><span id="line-406">
+</span><span id="line-407">
+</span><span id="line-408"><span class="c1">#### Placeholder for dpsk broadcast functionality ####</span>
 <div class="viewcode-block" id="mock_up_broadcast_fn">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.mock_up_broadcast_fn">[docs]</a>
-</span><span id="line-393"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_fn</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-394">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast function&quot;</span><span class="p">)</span></div>
+</span><span id="line-409"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_fn</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-410">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast function&quot;</span><span class="p">)</span></div>
 
-</span><span id="line-395">
-</span><span id="line-396">
+</span><span id="line-411">
+</span><span id="line-412">
 <div class="viewcode-block" id="mock_up_broadcast_object_fn">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.mock_up_broadcast_object_fn">[docs]</a>
-</span><span id="line-397"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_object_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-398">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast object function&quot;</span><span class="p">)</span></div>
+</span><span id="line-413"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_object_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-414">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast object function&quot;</span><span class="p">)</span></div>
 
 </span></code></pre></div>
     </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
