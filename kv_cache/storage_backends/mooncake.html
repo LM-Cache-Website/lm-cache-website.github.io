@@ -255,14 +255,10 @@ The system creates a distributed memory pool by aggregating memory space contrib
 <li><p>vLLM and LMCache installed</p></li>
 </ul>
 <p><strong>Step 1: Start Infrastructure Services</strong></p>
-<p>Start the metadata server:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># HTTP metadata server (recommended for development)</span>
-</span><span id="line-2">mooncake_http_metadata_server
-</span></code></pre></div>
-</div>
-<p>Start the Mooncake master service:</p>
+<p>Start the Mooncake master service (with built‑in HTTP metadata server):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Master service (use -v=1 for verbose logging)</span>
-</span><span id="line-2">mooncake_master
+</span><span id="line-2"><span class="c1"># The flag enables the integrated HTTP metadata server</span>
+</span><span id="line-3">mooncake_master<span class="w"> </span>--enable_http_metadata_server<span class="o">=</span><span class="m">1</span>
 </span></code></pre></div>
 </div>
 <p>Expected output:</p>
@@ -273,29 +269,36 @@ The system creates a distributed memory pool by aggregating memory space contrib
 </div>
 <p><strong>Step 2: Create Configuration File</strong></p>
 <p>Create your <code class="docutils literal notranslate"><span class="pre">mooncake-config.yaml</span></code>:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mooncakestore://127.0.0.1:50051/"</span>
-</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
-</span><span id="line-4"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
-</span><span id="line-5"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="line-6">
-</span><span id="line-7"><span class="nt">extra_config</span><span class="p">:</span>
-</span><span id="line-8"><span class="w">  </span><span class="nt">local_hostname</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost"</span>
-</span><span id="line-9"><span class="w">  </span><span class="nt">metadata_server</span><span class="p">:</span><span class="w"> </span><span class="s">"http://127.0.0.1:8080/metadata"</span>
-</span><span id="line-10"><span class="w">  </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="s">"tcp"</span>
-</span><span id="line-11"><span class="w">  </span><span class="nt">master_server_address</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:50051"</span>
-</span><span id="line-12"><span class="w">  </span><span class="nt">global_segment_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3355443200</span>
-</span><span id="line-13"><span class="w">  </span><span class="nt">local_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1073741824</span>
-</span><span id="line-14"><span class="w">  </span><span class="nt">transfer_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache Configuration</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mooncakestore://localhost:50051/"</span>
+</span><span id="line-4"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">  </span><span class="c1"># small local buffer</span>
+</span><span id="line-5"><span class="nt">numa_mode</span><span class="p">:</span><span class="w"> </span><span class="s">"auto"</span><span class="w">      </span><span class="c1"># reduce tail latency with multi-NUMA/multi-NIC</span>
+</span><span id="line-6"><span class="nt">pre_caching_hash_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sha256_cbor_64bit</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="c1"># Mooncake Configuration (via extra_config)</span>
+</span><span id="line-9"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">use_exists_sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">save_chunk_meta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span><span class="w">  </span><span class="c1"># Enable chunk metadata optimization</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">local_hostname</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost"</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">metadata_server</span><span class="p">:</span><span class="w"> </span><span class="s">"http://localhost:8080/metadata"</span>
+</span><span id="line-14"><span class="w">  </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="s">"rdma"</span>
+</span><span id="line-15"><span class="w">  </span><span class="nt">device_name</span><span class="p">:</span><span class="w"> </span><span class="s">""</span><span class="w">        </span><span class="c1"># leave empty; autodetect device(s)</span>
+</span><span id="line-16"><span class="w">  </span><span class="nt">global_segment_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">21474836480</span><span class="w">   </span><span class="c1"># 20 GiB per worker</span>
+</span><span id="line-17"><span class="w">  </span><span class="nt">master_server_address</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:50051"</span>
+</span><span id="line-18"><span class="w">  </span><span class="nt">local_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">    </span><span class="c1"># rely on LMCache local_cpu as the buffer</span>
+</span><span id="line-19"><span class="w">  </span><span class="nt">mooncake_prefer_local_alloc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># prefer local segment if available</span>
 </span></code></pre></div>
 </div>
 <p><strong>Step 3: Start vLLM with Mooncake</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"mooncake-config.yaml"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-2">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># If you see persistent misses (no Mooncake hits), make sure</span>
+</span><span id="line-2"><span class="c1"># PYTHONHASHSEED is fixed across processes (e.g., export PYTHONHASHSEED=0).</span>
+</span><span id="line-3"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"mooncake-config.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>Step 4: Verify the Setup</strong></p>
@@ -352,7 +355,7 @@ The system creates a distributed memory pool by aggregating memory space contrib
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">remote_url</span></code></p></td>
 <td><p>Required</p></td>
-<td><p>Mooncake store connection URL (format: <code class="docutils literal notranslate"><span class="pre">mooncakestore://host:port/</span></code>)</p></td>
+<td><p>Mooncake store connection URL (format: <code class="docutils literal notranslate"><span class="pre">mooncakestore://host:port/</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">remote_serde</span></code></p></td>
 <td><p>“naive”</p></td>
@@ -365,6 +368,14 @@ The system creates a distributed memory pool by aggregating memory space contrib
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_local_cpu_size</span></code></p></td>
 <td><p>Required</p></td>
 <td><p>Maximum local CPU cache size in GB (required even when local_cpu is False)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">numa_mode</span></code></p></td>
+<td><p>“auto”</p></td>
+<td><p>NUMA binding mode. “auto” is recommended on multi‑NIC/multi‑NUMA systems to reduce tail latency.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pre_caching_hash_algorithm</span></code></p></td>
+<td><p>“sha256_cbor_64bit”</p></td>
+<td><p>Hash used for pre-caching keying. For cross‑process consistency, fix <code class="docutils literal notranslate"><span class="pre">PYTHONHASHSEED</span></code> (e.g., export <code class="docutils literal notranslate"><span class="pre">PYTHONHASHSEED=0</span></code>).</p></td>
 </tr>
 </tbody>
 </table>
@@ -388,27 +399,30 @@ The system creates a distributed memory pool by aggregating memory space contrib
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">metadata_server</span></code></p></td>
 <td><p>Required</p></td>
-<td><p>Address of metadata coordination server (etcd/Redis/HTTP format)</p></td>
+<td><p>HTTP metadata server address. When starting master with <code class="docutils literal notranslate"><span class="pre">--enable_http_metadata_server=1</span></code>, it exposes this endpoint.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">master_server_address</span></code></p></td>
 <td><p>Required</p></td>
 <td><p>Mooncake master service address (host:port format)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">protocol</span></code></p></td>
-<td><p>“tcp”</p></td>
-<td><p>Communication protocol (“rdma” for high performance, “tcp” for compatibility)</p></td>
+<td><p>“rdma”</p></td>
+<td><p>Communication protocol (“rdma” for high performance; “tcp” for compatibility)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">device_name</span></code></p></td>
 <td><p>“”</p></td>
-<td><p>RDMA device specification (e.g., “erdma_0,erdma_1” or “mlx5_0,mlx5_1”)</p></td>
+<td><p>RDMA device specification (e.g., “erdma_0,erdma_1” or “mlx5_0,mlx5_1”). Leave empty for autodetection in most setups.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">global_segment_size</span></code></p></td>
-<td><p>3355443200</p></td>
-<td><p><strong>Memory size contributed by each vLLM worker</strong> in bytes (~3.1GB)</p></td>
+<td><p>21474836480</p></td>
+<td><p><strong>Memory size contributed by each vLLM worker</strong> in bytes (e.g., 20 GiB recommended)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">local_buffer_size</span></code></p></td>
-<td><p>1073741824</p></td>
-<td><p>Local buffer allocation size in bytes (~1GB)</p></td>
+<td><p>0</p></td>
+<td><p>Local buffer size in bytes used by Mooncake. Behavior depends on <code class="docutils literal notranslate"><span class="pre">save_chunk_meta</span></code>:
+- When <code class="docutils literal notranslate"><span class="pre">save_chunk_meta:</span> <span class="pre">False</span></code> (recommended), LMCache uses its local CPU backend for zero‑copy RDMA, so Mooncake’s <code class="docutils literal notranslate"><span class="pre">local_buffer_size</span></code> can be <code class="docutils literal notranslate"><span class="pre">0</span></code>.
+- When <code class="docutils literal notranslate"><span class="pre">save_chunk_meta:</span> <span class="pre">True</span></code>, Mooncake uses its own local buffer; set this to a proper value (e.g., several GiB).
+- Note: Some RDMA NICs have memory registration limits; registering LMCache’s large CPU buffer can fail on constrained devices. In those cases, consider enabling <code class="docutils literal notranslate"><span class="pre">save_chunk_meta:</span> <span class="pre">True</span></code> and sizing <code class="docutils literal notranslate"><span class="pre">local_buffer_size</span></code> instead.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">transfer_timeout</span></code></p></td>
 <td><p>1</p></td>
@@ -418,6 +432,18 @@ The system creates a distributed memory pool by aggregating memory space contrib
 <td><p>“”</p></td>
 <td><p>The root directory for persistence (e.g., “/mnt/mooncake”)</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_chunk_meta</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Whether to save chunk metadata alongside data. Set to <code class="docutils literal notranslate"><span class="pre">False</span></code> to enable the optimized zero‑copy path in LMCache.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_exists_sync</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Use synchronous existence checks to avoid async scheduling overhead in hot paths.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mooncake_prefer_local_alloc</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Prefer allocating on the local segment when possible.</p></td>
+</tr>
 </tbody>
 </table>
 <div class="admonition important">
@@ -426,11 +452,21 @@ The system creates a distributed memory pool by aggregating memory space contrib
 The total cluster memory available for KV cache storage will be: <code class="docutils literal notranslate"><span class="pre">number_of_vllm_workers</span> <span class="pre">×</span> <span class="pre">global_segment_size</span></code>.</p>
 <p>Adjust this value based on your available system memory and expected cache requirements.</p>
 </div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you consistently get misses (no Mooncake hits), ensure all processes use the same hashing seed: <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PYTHONHASHSEED=0</span></code>. This keeps pre‑caching keys consistent across processes.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>RDMA device(s) usually do not need to be specified; leaving <code class="docutils literal notranslate"><span class="pre">device_name</span></code> empty works for most deployments.</p>
+</div>
 </section>
 <section id="additional-resources">
 <h2>Additional Resources<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-resources'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/kvcache-ai/Mooncake/blob/main/doc/en/mooncake-store.md">Mooncake Store Architecture</a></p></li>
+<li><p><a class="reference external" href="https://kvcache-ai.github.io/Mooncake/deployment/mooncake-store-deployment-guide.html">Mooncake Store Deployment Guide</a></p></li>
+<li><p><a class="reference external" href="https://kvcache-ai.github.io/Mooncake/python-api-reference/mooncake-store.html">Mooncake Store Python API Reference</a></p></li>
 <li><p><a class="reference external" href="https://github.com/kvcache-ai/Mooncake/blob/main/doc/en/transfer-engine.md">Transfer Engine Documentation</a></p></li>
 <li><p><a class="reference external" href="https://github.com/kvcache-ai/Mooncake/blob/main/doc/en/build.md">Build Instructions</a></p></li>
 <li><p><a class="reference external" href="https://github.com/kvcache-ai/Mooncake">GitHub Repository</a></p></li>
