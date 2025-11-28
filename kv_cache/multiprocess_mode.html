@@ -292,6 +292,49 @@ will be interconnected to form a distributed KV cache service.</p>
 </span></code></pre></div>
 </div>
 </section>
+<section id="docker-deployment">
+<h2>Docker Deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#docker-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#docker-deployment'"><span>#</span></a></h2>
+<p>You can also run LMCache and vLLM in separate Docker containers. This approach is useful for deployment scenarios where you want to isolate the LMCache server from vLLM instances.</p>
+<p><strong>Step 1: Start the LMCache standalone container</strong></p>
+<p>Run the LMCache server in a Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>lmcache/standalone:nightly<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>/opt/venv/bin/python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--cpu-buffer-size<span class="w"> </span><span class="m">60</span><span class="w"> </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">host</span></code> to allow the vLLM container to connect to the LMCache server on localhost. The <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> flag is needed for shared memory access.</p>
+</div>
+<p><strong>Step 2: Start the vLLM container with LMCache connector</strong></p>
+<p>In a new terminal, start vLLM with the LMCache multi-process connector:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>lmcache/vllm-openai:latest-nightly<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.port": 6555}}'</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It is recommended to use the nightly builds (<code class="docutils literal notranslate"><span class="pre">lmcache/standalone:nightly</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache/vllm-openai:latest-nightly</span></code>) as the multi-process mode interfaces are actively evolving.</p>
+</div>
+<p><strong>Step 3: Send requests to the vLLM instance</strong></p>
+<p>Once both containers are running, you can send requests to vLLM the same way as in the local deployment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/v1/completions<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">-d<span class="w"> </span><span class="s2">"{</span>
+</span><span id="line-4"><span class="s2">    \"model\": \"Qwen/Qwen3-14B\",</span>
+</span><span id="line-5"><span class="s2">    \"prompt\": \"</span><span class="k">$(</span><span class="nb">printf</span><span class="w"> </span><span class="s1">'Explain the significance of KV cache in language models.%.0s'</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..100<span class="o">}</span><span class="k">)</span><span class="s2">\",</span>
+</span><span id="line-6"><span class="s2">    \"max_tokens\": 10</span>
+</span><span id="line-7"><span class="s2">}"</span>
+</span></code></pre></div>
+</div>
+</section>
 <section id="detailed-configuration">
 <h2>Detailed Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#detailed-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#detailed-configuration'"><span>#</span></a></h2>
 <section id="server-configuration">
@@ -358,6 +401,7 @@ will be interconnected to form a distributed KV cache service.</p>
 <ul>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a :data-current="activeSection === '#docker-deployment'" class="reference internal" href="#docker-deployment">Docker Deployment</a></li>
 <li><a :data-current="activeSection === '#detailed-configuration'" class="reference internal" href="#detailed-configuration">Detailed Configuration</a><ul>
 <li><a :data-current="activeSection === '#server-configuration'" class="reference internal" href="#server-configuration">Server Configuration</a></li>
 <li><a :data-current="activeSection === '#vllm-client-configuration'" class="reference internal" href="#vllm-client-configuration">vLLM Client Configuration</a></li>
