@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Layerwise KV Transfer | LMCache</title>
-<meta content="Layerwise KV Transfer | LMCache" property="og:title"/>
-<meta content="Layerwise KV Transfer | LMCache" name="twitter:title"/>
+<title>Controller WebUI | LMCache</title>
+<meta content="Controller WebUI | LMCache" property="og:title"/>
+<meta content="Controller WebUI | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
@@ -19,8 +19,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="../production/docker_deployment.html" rel="next" title="Docker deployment"/>
-<link href="blending.html" rel="prev" title="Blending"/>
+<link href="../developer_guide/contributing.html" rel="next" title="Contributing Guide"/>
+<link href="../internal_api_server/internal_api_server.html" rel="prev" title="Configuring the Internal API Server"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -148,13 +148,13 @@
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">KV Cache Optimizations</span></p>
-<ul class="current">
-<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="compression/index.html">Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
-<li class="toctree-l2"><a class="reference internal" href="compression/cachegen.html">CacheGen</a></li>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/compression/index.html">Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/cachegen.html">CacheGen</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="blending.html">Blending</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Layerwise KV Transfer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache_optimizations/blending.html">Blending</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">Layerwise KV Transfer</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Use LMCache in production</span></p>
 <ul>
@@ -173,8 +173,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../internal_api_server/internal_api_server.html#how-to-extend-the-internal-api-server">How to extend the Internal API Server</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Controller WebUI</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../controller/index.html">Controller WebUI</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Controller WebUI</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul>
@@ -223,129 +223,72 @@
 <path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
 </svg>
 </a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Layerwise KV Transfer</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Controller WebUI</span>
 </nav>
 <div id="content" role="main">
-<section id="layerwise-kv-transfer">
-<h1>Layerwise KV Transfer<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#layerwise-kv-transfer"><span>#</span></a></h1>
-<p>The storage and loading of KV Cache on a layer granularity is a key optimization that allows for forward pass to “stagger” through its computation as each layer’s KV Cache is received instead of only waiting to begin after the entire loading</p>
-<p>CacheBlend is implemented on top of the layerwise codepath in order to pipeline recompute and loading to mask the latency of loading KV Cache.</p>
-<img alt="Basic Codepath" class="scalable" src="../_images/basic_codepath.svg"/>
-<div style="text-align:center; margin:1em 0;">
-<a href="/_static/full_layerwise_diagram.svg" target="_blank">
-<img src="/_static/full_layerwise_diagram.svg" style="display:block; margin:auto; max-width:100%; height:auto;"/>
-</a>
-<div style="font-size:0.9em; color:#555; margin-top:0.5em;">
-    Click to open full-size
-  </div>
-</div><section id="architecture-overview">
-<h2>Architecture Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h2>
-<dl class="simple">
-<dt><strong>CacheEngine</strong></dt><dd><p>The main orchestrator containing two primary generators:</p>
-<ul class="simple">
-<li><p><strong>Retrieval Generator</strong> (N + 2 yields): Handles layer-by-layer KV cache loading with on-demand memory allocation</p></li>
-<li><p><strong>Storage Generator</strong> (N + 1 yields): Manages layer-by-layer KV cache saving with upfront CPU memory allocation</p></li>
-</ul>
-</dd>
-<dt><strong>LayerwiseGPUConnector</strong></dt><dd><p>Manages GPU-CPU memory transfers with dedicated CUDA streams:</p>
-<ul class="simple">
-<li><p><strong>Load GPU Buffer</strong>: Temporary GPU memory for CPU→GPU transfers (<code class="docutils literal notranslate"><span class="pre">use_gpu:</span> <span class="pre">true</span></code>)</p></li>
-<li><p><strong>Store GPU Buffer</strong>: Temporary GPU memory for GPU→CPU transfers (<code class="docutils literal notranslate"><span class="pre">use_gpu:</span> <span class="pre">true</span></code>)</p></li>
-<li><p><strong>Nested Generators</strong>: <code class="docutils literal notranslate"><span class="pre">batched_to_gpu()</span></code> and <code class="docutils literal notranslate"><span class="pre">batched_from_gpu()</span></code> handle actual memory operations</p></li>
-</ul>
-</dd>
-<dt><strong>StorageManager</strong></dt><dd><p>Handles persistent storage operations:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">layerwise_batched_get()</span></code>: Asynchronous retrieval with <code class="docutils literal notranslate"><span class="pre">.result()</span></code> for request-level concurrency</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">batched_put()</span></code>: Stores memory objects to persistent backends</p></li>
-</ul>
-</dd>
-</dl>
-<section id="execution-flow">
-<h3>Execution Flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#execution-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#execution-flow'"><span>#</span></a></h3>
-<p>The layerwise pipeline follows a numbered execution sequence:</p>
-<dl class="simple">
-<dt><strong>1. start_load_kv()</strong></dt><dd><ul class="simple">
-<li><p>Initializes Retrieval Generator via <code class="docutils literal notranslate"><span class="pre">lmcache_engine.retrieve_layer()</span></code></p></li>
-<li><p>Performs setup (1st <code class="docutils literal notranslate"><span class="pre">next()</span></code>) and loads layer 0 (2nd <code class="docutils literal notranslate"><span class="pre">next()</span></code>)</p></li>
-<li><p>Creates <code class="docutils literal notranslate"><span class="pre">layerwise_retrievers</span></code> list for ongoing layer processing</p></li>
-</ul>
-</dd>
-<dt><strong>2. wait_for_layer_load()</strong> (repeated for each layer)</dt><dd><ul class="simple">
-<li><p>Advances Retrieval Generator via <code class="docutils literal notranslate"><span class="pre">next()</span></code> to process layer i</p></li>
-<li><p>Triggers <code class="docutils literal notranslate"><span class="pre">StorageManager.layerwise_batched_get()</span></code> for async cache retrieval</p></li>
-<li><p>Calls GPU Load Generator’s <code class="docutils literal notranslate"><span class="pre">batched_to_gpu()</span></code> to transfer memory objects to GPU</p></li>
-<li><p><strong>Last request in batch</strong>: Synchronizes <code class="docutils literal notranslate"><span class="pre">current_stream.wait_stream(load_stream)</span></code></p></li>
-</ul>
-</dd>
-<dt><strong>3. save_kv_layer()</strong> (repeated for each layer)</dt><dd><ul class="simple">
-<li><p><strong>First call only</strong>: Creates Storage Generator with upfront CPU memory allocation</p></li>
-<li><p>Advances Storage Generator via <code class="docutils literal notranslate"><span class="pre">next()</span></code> to process layer i</p></li>
-<li><p>Calls GPU Store Generator’s <code class="docutils literal notranslate"><span class="pre">batched_from_gpu()</span></code> to transfer GPU data to CPU</p></li>
-<li><p><strong>First request in batch</strong>: Synchronizes <code class="docutils literal notranslate"><span class="pre">store_stream.wait_stream(current_stream)</span></code></p></li>
-</ul>
-</dd>
-<dt><strong>4. wait_for_save()</strong></dt><dd><ul class="simple">
-<li><p>Finalizes Storage Generator with last <code class="docutils literal notranslate"><span class="pre">next()</span></code> call</p></li>
-<li><p>Completes all <code class="docutils literal notranslate"><span class="pre">StorageManager.batched_put()</span></code> operations</p></li>
-<li><p>Performs GPU Store Generator cleanup</p></li>
-</ul>
-</dd>
-</dl>
+<section id="controller-webui">
+<h1>Controller WebUI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#controller-webui"><span>#</span></a></h1>
+<section id="overview">
+<h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>The LMCache Controller provides a web-based dashboard for monitoring your LMCache instances. This web interface allows you to monitor system status, instances, workers, and performance metrics.</p>
 </section>
-<section id="key-optimizations">
-<h3>Key Optimizations<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#key-optimizations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#key-optimizations'"><span>#</span></a></h3>
-<dl class="simple">
-<dt><strong>Pipelined Memory Operations</strong></dt><dd><p>The system overlaps layer N+1 computation with layer N storage.</p>
-</dd>
-<dt><strong>Stream Synchronization</strong></dt><dd><p>Three CUDA streams coordinate operations:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">current_stream</span></code>: vLLM’s forward pass computation</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">load_stream</span></code>: KV cache loading operations</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">store_stream</span></code>: KV cache storing operations</p></li>
-</ul>
-</dd>
-<dt><strong>Batch-Level Coordination</strong></dt><dd><p>Multiple requests are processed together with specialized synchronization:</p>
-<ul class="simple">
-<li><p><strong>First request</strong>: Provides store stream synchronization to prevent GPU buffer corruption</p></li>
-<li><p><strong>Last request</strong>: Provides load stream synchronization to ensure KV cache availability</p></li>
-</ul>
-</dd>
-<dt><strong>Memory Allocation Strategies</strong></dt><dd><ul class="simple">
-<li><p><strong>Retrieval</strong>: Layer-by-layer allocation</p></li>
-<li><p><strong>Storage</strong>: Upfront allocation for all layers</p></li>
-</ul>
-</dd>
-<dt><strong>Cache Key Management</strong></dt><dd><p>Multi-layer cache engine keys use <code class="docutils literal notranslate"><span class="pre">split_layers(N)</span></code> to create per-layer kubernetes_deployment</p>
-</dd>
-</dl>
-</section>
-<section id="configuration">
-<h3>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h3>
-<p>Enable layerwise caching by setting:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">use_layerwise</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<section id="quick-start">
+<h2>Quick Start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h2>
+<p>To enable the Controller WebUI, start your LMCache instance with the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.api_server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--monitor-ports<span class="w"> </span><span class="s1">'{"pull":8300,"reply":8400}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--lmcache-worker-timeout<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--health-check-interval<span class="w"> </span><span class="m">10</span>
 </span></code></pre></div>
 </div>
-<p>The system automatically selects appropriate layerwise GPU connectors based on configuration:</p>
+<p>After starting the controller, access the WebUI at:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">http://localhost:9000/
+</span></code></pre></div>
+</div>
+</section>
+<section id="configuration-options">
+<h2>Configuration Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration-options'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">VLLMPagedMemLayerwiseGPUConnector</span></code>: For standard layerwise operations</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">VLLMBufferLayerwiseGPUConnector</span></code>: When blending is enabled</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--host</span></code>: Bind address for the API server (default: 0.0.0.0)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--port</span></code>: Port for the API server (default: 9000)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--monitor-ports</span></code>: ZMQ ports for controller communication</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--lmcache-worker-timeout</span></code>: Worker timeout in seconds</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>: Health check interval in seconds</p></li>
 </ul>
 </section>
+<section id="dashboard-features">
+<h2>Dashboard Features<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dashboard-features" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dashboard-features'"><span>#</span></a></h2>
+<p>The Controller Dashboard provides:</p>
+<ul class="simple">
+<li><p>System overview and health monitoring</p></li>
+<li><p>Instance and worker management</p></li>
+<li><p>Performance metrics</p></li>
+<li><p>Thread information</p></li>
+<li><p>Environment variables inspection</p></li>
+</ul>
+</section>
+<section id="related-documentation">
+<h2>Related Documentation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#related-documentation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#related-documentation'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../api_reference/configurations.html"><span class="doc">Configuring LMCache</span></a> - Complete configuration reference</p></li>
+<li><p><a class="reference internal" href="../kv_cache_management/index.html"><span class="doc">LMCache Controller</span></a> - KV cache management guide</p></li>
+</ul>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="blending.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../internal_api_server/internal_api_server.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        Blending
+        Configuring the Internal API Server
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../production/docker_deployment.html">
-        Docker deployment
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../developer_guide/contributing.html">
+        Contributing Guide
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -354,12 +297,11 @@
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
-<li><a :data-current="activeSection === '#execution-flow'" class="reference internal" href="#execution-flow">Execution Flow</a></li>
-<li><a :data-current="activeSection === '#key-optimizations'" class="reference internal" href="#key-optimizations">Key Optimizations</a></li>
-<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
-</ul>
-</li>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
+<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a :data-current="activeSection === '#configuration-options'" class="reference internal" href="#configuration-options">Configuration Options</a></li>
+<li><a :data-current="activeSection === '#dashboard-features'" class="reference internal" href="#dashboard-features">Dashboard Features</a></li>
+<li><a :data-current="activeSection === '#related-documentation'" class="reference internal" href="#related-documentation">Related Documentation</a></li>
 </ul>
 </div>
 </aside>
