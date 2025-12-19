@@ -343,6 +343,153 @@ will be interconnected to form a distributed KV cache service.</p>
 </span></code></pre></div>
 </div>
 </section>
+<section id="kubernetes-deployment">
+<h2>Kubernetes Deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kubernetes-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kubernetes-deployment'"><span>#</span></a></h2>
+<p>You can deploy LMCache and vLLM on Kubernetes using a DaemonSet pattern. This approach runs one LMCache server per node that can be shared by multiple vLLM pods on the same node, making it suitable for production deployments.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The DaemonSet deployment does not request GPU resources, allowing GPUs to remain exclusively allocated to vLLM pods. The NVIDIA container runtime automatically provides GPU access to the LMCache server for IPC-based memory transfers.</p>
+</div>
+<section id="id1">
+<h3>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id1" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id1'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p>Kubernetes cluster with GPU support (NVIDIA GPU Operator installed)</p></li>
+<li><p>At least 4 GPUs per node</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kubectl</span></code> configured to access your cluster</p></li>
+</ul>
+<p><strong>Step 1: Create Namespace</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>multi-process
+</span></code></pre></div>
+</div>
+<p><strong>Step 2: Deploy LMCache DaemonSet</strong></p>
+<p>First, deploy the LMCache server as a DaemonSet (one instance per node):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/lmcache-daemonset.yaml
+</span></code></pre></div>
+</div>
+<p><strong>Step 3: Deploy vLLM Application</strong></p>
+<p>Deploy one or more vLLM instances that will connect to the LMCache DaemonSet:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/vllm-deployment.yaml
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The default model is <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-14B</span></code>, which does not require a Hugging Face token. If you want to use a gated model (like Llama), you need to:</p>
+<ol class="arabic simple">
+<li><p>Add a Secret with your Hugging Face token:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>vllm-secrets<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">hf_token</span><span class="o">=</span>your_hf_token_here<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-n<span class="w"> </span>multi-process
+</span></code></pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Add the HF_TOKEN environment variable to the vLLM container in the YAML:</p></li>
+</ol>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">env</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HF_TOKEN</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">valueFrom</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">secretKeyRef</span><span class="p">:</span>
+</span><span id="line-5"><span class="w">        </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hf_token</span>
+</span><span id="line-6"><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm-secrets</span>
+</span></code></pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Update the model name in the args section to your desired gated model.</p></li>
+</ol>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Multiple vLLM pods on the same node will automatically connect to the same LMCache DaemonSet instance via <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code>.</p>
+</div>
+<p><strong>Step 4: Monitor Deployment</strong></p>
+<p>Check DaemonSet status:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>daemonset<span class="w"> </span>-n<span class="w"> </span>multi-process
+</span><span id="line-2">kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>lmcache-server
+</span></code></pre></div>
+</div>
+<p>Check vLLM deployment status:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-deployment<span class="w"> </span>-w
+</span></code></pre></div>
+</div>
+<p>Check vLLM server logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-deployment<span class="w"> </span>-f
+</span></code></pre></div>
+</div>
+<p>Check LMCache server logs (on the same node as a vLLM pod):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Get the node where a vLLM pod is running</span>
+</span><span id="line-2"><span class="nv">VLLM_NODE</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-deployment<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.nodeName}'</span><span class="k">)</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Get the LMCache pod on that node and view its logs</span>
+</span><span id="line-5"><span class="nv">LMCACHE_POD</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>lmcache-server<span class="w"> </span>--field-selector<span class="w"> </span>spec.nodeName<span class="o">=</span><span class="nv">$VLLM_NODE</span><span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span>
+</span><span id="line-6">kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span><span class="nv">$LMCACHE_POD</span><span class="w"> </span>-f
+</span></code></pre></div>
+</div>
+<p>Wait for the pods to be ready (this may take several minutes for model loading).</p>
+<p><strong>Step 5: Send Test Requests</strong></p>
+<p>Forward the port to your local machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>deployment/vllm-deployment<span class="w"> </span><span class="m">8000</span>:8000
+</span></code></pre></div>
+</div>
+<p>Send a test request with repeated prompts:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/v1/completions<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-d<span class="w"> </span><span class="s2">"{</span>
+</span><span id="line-4"><span class="s2">    \"model\": \"Qwen/Qwen3-14B\",</span>
+</span><span id="line-5"><span class="s2">    \"prompt\": \"</span><span class="k">$(</span><span class="nb">printf</span><span class="w"> </span><span class="s1">'Explain the significance of KV cache in language models.%.0s'</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..100<span class="o">}</span><span class="k">)</span><span class="s2">\",</span>
+</span><span id="line-6"><span class="s2">    \"max_tokens\": 10</span>
+</span><span id="line-7"><span class="s2">  }"</span>
+</span></code></pre></div>
+</div>
+<p>On the first request, check LMCache server logs for:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[LMCache INFO] Stored X tokens in Y seconds
+</span></code></pre></div>
+</div>
+<p>On subsequent identical requests, you should see:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[LMCache INFO] Retrieved X tokens in Y seconds
+</span></code></pre></div>
+</div>
+</section>
+<section id="kubernetes-configuration-notes">
+<h3>Kubernetes Configuration Notes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kubernetes-configuration-notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kubernetes-configuration-notes'"><span>#</span></a></h3>
+<p><strong>DaemonSet Architecture:</strong></p>
+<ul class="simple">
+<li><p>One LMCache server runs per node as a DaemonSet</p></li>
+<li><p>Multiple vLLM pods on the same node can share the same LMCache instance</p></li>
+<li><p>LMCache uses <code class="docutils literal notranslate"><span class="pre">hostNetwork:</span> <span class="pre">true</span></code> so vLLM pods can connect via node IP</p></li>
+<li><p>vLLM pods use <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code> to discover the LMCache server on their node</p></li>
+<li><p>Both containers mount the host’s <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> to enable CUDA IPC memory sharing</p></li>
+</ul>
+<p><strong>GPU Access:</strong></p>
+<ul class="simple">
+<li><p>GPUs are NOT requested in the DaemonSet resources section</p></li>
+<li><p>This allows GPUs to remain exclusively allocated to vLLM pods</p></li>
+<li><p>LMCache can still access GPUs for IPC-based memory transfers via the NVIDIA container runtime</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>LMCache pods on nodes without GPUs will crash with CUDA initialization errors. This is expected behavior - LMCache only needs to run successfully on GPU nodes where vLLM pods are scheduled.</p>
+</div>
+<p><strong>Minimal Configuration Requirements:</strong></p>
+<p><strong>vLLM Deployment:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> hostPath mount (required for CUDA IPC shared memory)</p></li>
+</ul>
+<p><strong>LMCache DaemonSet:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hostNetwork:</span> <span class="pre">true</span></code> (required for vLLM to connect via node IP using <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> hostPath mount (required for CUDA IPC shared memory)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> environment variable (optional, for observability)</p></li>
+</ul>
+<p><strong>Key Insight:</strong></p>
+<p>Mounting the same <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> from the host in both containers provides the shared memory space needed for CUDA IPC communication. The NVIDIA container runtime (installed via NVIDIA GPU Operator) automatically provides GPU access to the LMCache server.</p>
+<p><strong>Cleanup:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/vllm-deployment.yaml
+</span><span id="line-2">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/lmcache-daemonset.yaml
+</span><span id="line-3">kubectl<span class="w"> </span>delete<span class="w"> </span>namespace<span class="w"> </span>multi-process
+</span></code></pre></div>
+</div>
+</section>
+</section>
 <section id="detailed-configuration">
 <h2>Detailed Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#detailed-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#detailed-configuration'"><span>#</span></a></h2>
 <section id="server-configuration">
@@ -410,6 +557,11 @@ will be interconnected to form a distributed KV cache service.</p>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
 <li><a :data-current="activeSection === '#docker-deployment'" class="reference internal" href="#docker-deployment">Docker Deployment</a></li>
+<li><a :data-current="activeSection === '#kubernetes-deployment'" class="reference internal" href="#kubernetes-deployment">Kubernetes Deployment</a><ul>
+<li><a :data-current="activeSection === '#id1'" class="reference internal" href="#id1">Prerequisites</a></li>
+<li><a :data-current="activeSection === '#kubernetes-configuration-notes'" class="reference internal" href="#kubernetes-configuration-notes">Kubernetes Configuration Notes</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#detailed-configuration'" class="reference internal" href="#detailed-configuration">Detailed Configuration</a><ul>
 <li><a :data-current="activeSection === '#server-configuration'" class="reference internal" href="#server-configuration">Server Configuration</a></li>
 <li><a :data-current="activeSection === '#vllm-client-configuration'" class="reference internal" href="#vllm-client-configuration">vLLM Client Configuration</a></li>
