@@ -15,7 +15,7 @@
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
-<link href="../_static/custom.css?v=0f06b6ab" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=04f4756a" rel="stylesheet" type="text/css"/>
 <link href="../_static/scroll.css?v=d15ffde1" rel="stylesheet" type="text/css"/>
 <link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
 <link href="../_static/lmcache-logo.png" rel="icon"/>
@@ -238,7 +238,9 @@
 <h2>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><strong>Multi-GPU Setup</strong>: Your server should have at least 2 GPUs</p></li>
+<li><p><strong>NIC</strong>: RDMA is recommended for more performance.</p></li>
 <li><p><strong>NIXL</strong>: Install from <a class="reference external" href="https://github.com/ai-dynamo/nixl">NIXL</a></p></li>
+<li><p><strong>vLLM</strong>: v1 version is required, refer to <a class="reference internal" href="../getting_started/installation.html#installation-guide"><span class="std std-ref">Installation</span></a> for details.</p></li>
 <li><p><strong>LMCache</strong>: Install from <a class="reference internal" href="../getting_started/installation.html#installation-guide"><span class="std std-ref">Installation</span></a></p></li>
 </ul>
 </section>
@@ -249,7 +251,7 @@
 <p><strong>Instance 1 Configuration (example1.yaml)</strong>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
-</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </span><span id="line-4"><span class="nt">enable_async_loading</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
 </span><span id="line-5">
 </span><span id="line-6"><span class="c1"># P2P configurations</span>
@@ -273,7 +275,7 @@
 <p><strong>Instance 2 Configuration (example2.yaml)</strong>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
-</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </span><span id="line-4"><span class="nt">enable_async_loading</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
 </span><span id="line-5">
 </span><span id="line-6"><span class="c1"># P2P configurations</span>
@@ -298,14 +300,24 @@
 <section id="setup-and-usage">
 <h2>Setup and Usage<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-and-usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-and-usage'"><span>#</span></a></h2>
 <p><strong>Step 1: Start the LMCache Controller</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span>lmcache_controller<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--monitor-ports<span class="w"> </span><span class="s1">'{"pull": 8300, "reply": 8400}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span>lmcache_controller<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--monitor-ports<span class="w"> </span><span class="s1">'{"pull": 8300, "reply": 8400, "heartbeat": 8082}'</span>
 </span></code></pre></div>
 </div>
 <p>Make sure that the 8300 and 8400 ports are set up in <strong>controller_pull_url</strong> and <strong>controller_reply_url</strong> in the configuration files.
 Port 9000 is the controller main port, which is arbitrary and can be changed.</p>
+<p>After starting the controller, access the WebUI at:</p>
+<p><a class="reference external" href="http://localhost:9000/">http://localhost:9000/</a></p>
 <p><strong>Step 2: Start vLLM Engines with LMCache Workers</strong></p>
+<p>If the NIC supports RDMA:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">UCX_TLS</span><span class="o">=</span>rc
+</span></code></pre></div>
+</div>
+<p>If the NIC does not support RDMA:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">UCX_TLS</span><span class="o">=</span>tcp
+</span></code></pre></div>
+</div>
 <p>Start vLLM engine 1 at port 8010:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span><span class="nv">UCX_TLS</span><span class="o">=</span>rc<span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>example1.yaml<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w">  </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>/path/to/example1.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Meta-Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8010</span><span class="w"> </span><span class="se">\</span>
@@ -313,7 +325,7 @@ Port 9000 is the controller main port, which is arbitrary and can be changed.</p
 </span></code></pre></div>
 </div>
 <p>Start vLLM engine 2 at port 8011:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w"> </span><span class="nv">UCX_TLS</span><span class="o">=</span>rc<span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>example2.yaml<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">PYTHONHASHSEED</span><span class="o">=</span><span class="m">123</span><span class="w">  </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>/path/to/example2.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Meta-Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8011</span><span class="w"> </span><span class="se">\</span>
@@ -350,6 +362,49 @@ Port 9000 is the controller main port, which is arbitrary and can be changed.</p
 </span></code></pre></div>
 </div>
 <p>These logs indicate successful P2P connection establishment and high-throughput cache retrieval.</p>
+<p><strong>Step 4: Benchmarking P2P Cache Sharing</strong></p>
+<p>Send a request workload to instance 1 to populate the cache:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">--model<span class="w"> </span>meta-llama/Meta-Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--num-documents<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">--document-length<span class="w"> </span><span class="m">10000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">--output-len<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">--repeat-count<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7">--repeat-mode<span class="w"> </span>tile<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8">--port<span class="w"> </span><span class="m">8010</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9">--max-inflight-requests<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+</div>
+<p>Send the same request workload to instance 2 to demonstrate cache retrieval from <strong>instance 1</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">--model<span class="w"> </span>meta-llama/Meta-Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--num-documents<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">--document-length<span class="w"> </span><span class="m">10000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">--output-len<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">--repeat-count<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7">--repeat-mode<span class="w"> </span>tile<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8">--port<span class="w"> </span><span class="m">8011</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9">--max-inflight-requests<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="benchmark-results">
+<h2>Benchmark Results<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#benchmark-results" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#benchmark-results'"><span>#</span></a></h2>
+<p>First instance metrics:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Warmup round mean TTFT: 0.466s
+</span><span id="line-2">Warmup round time: 19.838s
+</span><span id="line-3">Warmup round prompt count: 50
+</span><span id="line-4">Warmup round successful prompt count: 50
+</span></code></pre></div>
+</div>
+<p>Second instance metrics:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Warmup round mean TTFT: 0.360s
+</span><span id="line-2">Warmup round time: 17.896s
+</span><span id="line-3">Warmup round prompt count: 50
+</span><span id="line-4">Warmup round successful prompt count: 50
+</span></code></pre></div>
+</div>
+<p>In this example, the warm-up round metric in long_doc_qa is used because no existing KV cache is reused within an instance. With LMCache P2P sharing enabled, the time to first token (TTFT) is reduced by 22%, from 0.466 s to 0.360 s.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -376,6 +431,7 @@ Port 9000 is the controller main port, which is arbitrary and can be changed.</p
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
 <li><a :data-current="activeSection === '#setup-and-usage'" class="reference internal" href="#setup-and-usage">Setup and Usage</a></li>
 <li><a :data-current="activeSection === '#expected-output'" class="reference internal" href="#expected-output">Expected Output</a></li>
+<li><a :data-current="activeSection === '#benchmark-results'" class="reference internal" href="#benchmark-results">Benchmark Results</a></li>
 </ul>
 </div>
 </aside>

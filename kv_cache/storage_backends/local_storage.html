@@ -15,7 +15,7 @@
 <link href="../../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
-<link href="../../_static/custom.css?v=0f06b6ab" rel="stylesheet" type="text/css"/>
+<link href="../../_static/custom.css?v=04f4756a" rel="stylesheet" type="text/css"/>
 <link href="../../_static/scroll.css?v=d15ffde1" rel="stylesheet" type="text/css"/>
 <link href="../../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
 <link href="../../_static/lmcache-logo.png" rel="icon"/>
@@ -283,6 +283,96 @@ backends have asynchronous put() operations so that the IO latency will not slow
 The local disk backend also has a prefetch() operation that will preemptively move KV caches from the disk to CPU RAM offloading storage
 (i.e. <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOCAL_CPU=True</span></code> should be set, see <a class="reference internal" href="cpu_ram.html"><span class="doc">CPU RAM</span></a>) for specified tokens (these KV caches are also still kept in the disk).</p>
 </section>
+<section id="architecture-overview">
+<h2>Architecture Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h2>
+<p>The following diagram shows the overall architecture of the Local Disk Backend:</p>
+<pre class="mermaid">
+        %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'arial', 'primaryColor': '#e3f2fd', 'primaryTextColor': '#000', 'primaryBorderColor': '#1976d2', 'lineColor': '#424242', 'secondaryColor': '#f5f5f5', 'tertiaryColor': '#ffffff', 'background': '#ffffff', 'clusterBkg': '#f8f9fa', 'clusterBorder': '#495057' }}}%%
+flowchart TB
+    subgraph Engine["&lt;b&gt;LMCache Engine&lt;/b&gt;"]
+        E["&lt;b&gt;Request Save/Load Operations&lt;/b&gt;"]
+    end
+
+    subgraph LDB["&lt;b&gt;LocalDiskBackend&lt;/b&gt;"]
+        subgraph Meta["&lt;b&gt;Metadata Dictionary&lt;/b&gt;"]
+            Dict["&lt;b&gt;self.dict: CacheEngineKey → DiskCacheMetadata&lt;/b&gt;
+            (path, size, shape, dtype, pinned, positions)"]
+        end
+
+        subgraph Policy["&lt;b&gt;Cache Policy&lt;/b&gt;"]
+            CP["&lt;b&gt;Configurable Policy&lt;/b&gt;
+            (LRU, LFU, FIFO, MRU)
+            Decides what to evict"]
+        end
+
+        subgraph Worker["&lt;b&gt;LocalDiskWorker&lt;/b&gt;"]
+            PQ["&lt;b&gt;Priority Queue Executor (4 workers)&lt;/b&gt;"]
+            P0["&lt;b&gt;Priority 0: PREFETCH&lt;/b&gt;"]
+            P1["&lt;b&gt;Priority 1: DELETE&lt;/b&gt;"]
+            P2["&lt;b&gt;Priority 2: PUT&lt;/b&gt;"]
+        end
+
+        CPU["&lt;b&gt;LocalCPUBackend&lt;/b&gt;
+        (memory allocator)"]
+    end
+
+    subgraph Disk["&lt;b&gt;Local Filesystem&lt;/b&gt;"]
+        Files["/cache/vllm@model@...@abc.pt
+        /cache/vllm@model@...@def.pt
+        /cache/vllm@model@...@ghi.pt"]
+    end
+
+    E --&gt; Dict
+    Dict --&gt; CP
+    CP --&gt; PQ
+    PQ --&gt; P0
+    PQ --&gt; P1
+    PQ --&gt; P2
+    Worker --&gt; Files
+    CPU -.-&gt; Worker
+    </pre><p><strong>Key Components:</strong></p>
+<ul class="simple">
+<li><p><strong>Metadata Dictionary</strong>: Maps each <code class="docutils literal notranslate"><span class="pre">CacheEngineKey</span></code> to its disk metadata (file path, size, shape, dtype, pin status)</p></li>
+<li><p><strong>Cache Policy</strong>: Configurable eviction policy (LRU, LFU, FIFO, or MRU) that tracks access patterns and decides which entries to evict when space is needed</p></li>
+<li><p><strong>LocalDiskWorker</strong>: Async task executor with priority queue - prefetch tasks run first (priority 0), then deletes (priority 1), then saves (priority 2)</p></li>
+<li><p><strong>Local Disk</strong>: Filesystem where KV cache chunks are stored as individual <code class="docutils literal notranslate"><span class="pre">.pt</span></code> files</p></li>
+</ul>
+<section id="save-flow-put">
+<h3>Save Flow (PUT)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#save-flow-put" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#save-flow-put'"><span>#</span></a></h3>
+<pre class="mermaid">
+        %%{init: {'theme': 'base', 'flowchart': {'useMaxWidth': false, 'htmlLabels': true, 'nodeSpacing': 30, 'rankSpacing': 30}, 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'arial', 'primaryColor': '#e3f2fd', 'primaryTextColor': '#000', 'primaryBorderColor': '#1976d2', 'lineColor': '#424242', 'secondaryColor': '#f5f5f5', 'tertiaryColor': '#ffffff', 'background': '#ffffff', 'clusterBkg': '#f8f9fa', 'clusterBorder': '#495057' }}}%%
+flowchart LR
+    A["&lt;b&gt;MemoryObj&lt;/b&gt;&lt;br/&gt;(KV cache in CPU memory)"] --&gt; B{&lt;b&gt;Disk space&lt;br/&gt;available?&lt;/b&gt;}
+    B --&gt;|"No"| C["&lt;b&gt;Evict via policy&lt;/b&gt;&lt;br/&gt;Delete .pt files"]
+    C --&gt; B
+    B --&gt;|"Yes"| D["&lt;b&gt;Track in put_tasks&lt;/b&gt;&lt;br/&gt;Queue async write&lt;br/&gt;(Priority 2 - lowest)"]
+    D --&gt; E["&lt;b&gt;LocalDiskWorker&lt;/b&gt;&lt;br/&gt;write_file()"]
+    E --&gt; F[("&lt;b&gt;Disk&lt;/b&gt;&lt;br/&gt;.pt file")]
+    F --&gt; G["&lt;b&gt;Add to metadata dict&lt;/b&gt;"]
+
+    style A fill:#e1f5fe
+    style F fill:#c8e6c9
+    style C fill:#ffcdd2
+    </pre></section>
+<section id="load-flow-get">
+<h3>Load Flow (GET)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#load-flow-get" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#load-flow-get'"><span>#</span></a></h3>
+<pre class="mermaid">
+        %%{init: {'theme': 'base', 'flowchart': {'useMaxWidth': false, 'htmlLabels': true, 'nodeSpacing': 30, 'rankSpacing': 30}, 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'arial', 'primaryColor': '#e3f2fd', 'primaryTextColor': '#000', 'primaryBorderColor': '#1976d2', 'lineColor': '#424242', 'secondaryColor': '#f5f5f5', 'tertiaryColor': '#ffffff', 'background': '#ffffff', 'clusterBkg': '#f8f9fa', 'clusterBorder': '#495057' }}}%%
+flowchart LR
+    A["&lt;b&gt;Request&lt;/b&gt;&lt;br/&gt;(CacheEngineKey)"] --&gt; B{&lt;b&gt;Key exists&lt;br/&gt;in dict?&lt;/b&gt;}
+    B --&gt;|"No"| C["&lt;b&gt;Return None&lt;/b&gt;&lt;br/&gt;(cache miss)"]
+    B --&gt;|"Yes"| D["&lt;b&gt;Update policy&lt;/b&gt;&lt;br/&gt;Mark as accessed"]
+    D --&gt; E["&lt;b&gt;Allocate buffer&lt;/b&gt;&lt;br/&gt;via LocalCPUBackend"]
+    E --&gt; F["&lt;b&gt;Read from disk&lt;/b&gt;&lt;br/&gt;read_file()"]
+    F --&gt; G[("&lt;b&gt;Disk&lt;/b&gt;&lt;br/&gt;.pt file")]
+    G --&gt; F
+    F --&gt; H["&lt;b&gt;MemoryObj&lt;/b&gt;&lt;br/&gt;(KV cache ready)"]
+
+    style A fill:#e1f5fe
+    style H fill:#c8e6c9
+    style C fill:#ffcdd2
+    </pre></section>
+</section>
 <section id="online-inference-example">
 <span id="local-storage-online-inference-example"></span><h2>Online Inference Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#online-inference-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#online-inference-example'"><span>#</span></a></h2>
 <p>This example is almost identical to the <a class="reference internal" href="cpu_ram.html"><span class="doc">CPU RAM</span></a> example.</p>
@@ -506,6 +596,11 @@ subset of the disk’s KV caches.</p>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#two-ways-to-configure-lmcache-disk-offloading'" class="reference internal" href="#two-ways-to-configure-lmcache-disk-offloading">Two ways to configure LMCache Disk Offloading:</a></li>
 <li><a :data-current="activeSection === '#local-storage-explanation'" class="reference internal" href="#local-storage-explanation">Local Storage Explanation:</a></li>
+<li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
+<li><a :data-current="activeSection === '#save-flow-put'" class="reference internal" href="#save-flow-put">Save Flow (PUT)</a></li>
+<li><a :data-current="activeSection === '#load-flow-get'" class="reference internal" href="#load-flow-get">Load Flow (GET)</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#online-inference-example'" class="reference internal" href="#online-inference-example">Online Inference Example</a></li>
 <li><a :data-current="activeSection === '#tips'" class="reference internal" href="#tips">Tips:</a></li>
 </ul>
@@ -528,6 +623,371 @@ subset of the disk’s KV caches.</p>
 <script src="../../_static/design-tabs.js?v=f930bc37"></script>
 <script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
 <script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs" type="module"></script>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+const defaultStyle = document.createElement('style');
+defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+`;
+document.head.appendChild(defaultStyle);
+
+const fullscreenStyle = document.createElement('style');
+fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+document.head.appendChild(fullscreenStyle);
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness < 128;
+    }
+    return false;
+};
+
+const load = async () => {
+    await mermaid.run();
+
+    const all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(load, 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(load, 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(load, 200);
+        return;
+    }
+
+    const darkTheme = isDarkTheme();
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    const modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    const modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    let previousScrollOffset = [window.scrollX, window.scrollY];
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    const allButtons = [];
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        container.appendChild(fullscreenBtn);
+        allButtons.push(fullscreenBtn);
+    });
+
+    // Update theme classes when theme changes
+    const updateTheme = () => {
+        const dark = isDarkTheme();
+        allButtons.forEach(btn => {
+            if (dark) {
+                btn.classList.add('dark-theme');
+            } else {
+                btn.classList.remove('dark-theme');
+            }
+        });
+        if (dark) {
+            modal.classList.add('dark-theme');
+            modalContent.classList.add('dark-theme');
+            closeBtn.classList.add('dark-theme');
+        } else {
+            modal.classList.remove('dark-theme');
+            modalContent.classList.remove('dark-theme');
+            closeBtn.classList.remove('dark-theme');
+        }
+    };
+
+    // Watch for theme changes
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style']
+    });
+};
+
+window.addEventListener("load", load);
+</script>
 <script src="../../_static/custom.js?v=e5cd2227"></script>
 </body>
 </html>

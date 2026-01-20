@@ -20,7 +20,7 @@
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" />
-      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=0f06b6ab" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=04f4756a" />
       <link rel="stylesheet" type="text/css" href="../../_static/scroll.css?v=d15ffde1" />
       <link rel="stylesheet" type="text/css" href="../../_static/awesome-sphinx-design.css?v=15e0fffa" />
       <link rel="icon" href="../../_static/lmcache-logo.png" />
@@ -840,89 +840,95 @@
 </span><span id="line-582">    <span class="n">parent_block_hash</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
 </span><span id="line-583">    <span class="n">token_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
 </span><span id="line-584">    <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-585">    <span class="n">lora_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
-</span><span id="line-586">    <span class="n">medium</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span></div>
+</span><span id="line-585">
+</span><span id="line-586">    <span class="c1"># Deprecated, use lora_name instead</span>
+</span><span id="line-587">    <span class="c1"># Retained for backwards compatibility</span>
+</span><span id="line-588">    <span class="c1"># Remove when vLLM removes it from BlockStored</span>
+</span><span id="line-589">    <span class="n">lora_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+</span><span id="line-590">
+</span><span id="line-591">    <span class="n">medium</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+</span><span id="line-592">    <span class="n">lora_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span></div>
 
-</span><span id="line-587">
-</span><span id="line-588">
-</span><span id="line-589"><span class="c1">##### NVTX annotation #####</span>
-</span><span id="line-590"><span class="n">_NVTX_COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;rapids&quot;</span><span class="p">]</span>
-</span><span id="line-591">
-</span><span id="line-592">
-</span><span id="line-593"><span class="k">def</span><span class="w"> </span><span class="nf">_get_color_for_nvtx</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
-</span><span id="line-594">    <span class="n">m</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
-</span><span id="line-595">    <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-</span><span id="line-596">    <span class="n">hash_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
-</span><span id="line-597">    <span class="n">idx</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">_NVTX_COLORS</span><span class="p">)</span>
-</span><span id="line-598">    <span class="k">return</span> <span class="n">_NVTX_COLORS</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span id="line-599">
-</span><span id="line-600">
-</span><span id="line-601"><span class="k">def</span><span class="w"> </span><span class="nf">_lmcache_nvtx_annotate</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="s2">&quot;lmcache&quot;</span><span class="p">):</span>
-</span><span id="line-602"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorator for applying nvtx annotations to methods in lmcache.&quot;&quot;&quot;</span>
-</span><span id="line-603">    <span class="k">return</span> <span class="n">annotate</span><span class="p">(</span>
-</span><span id="line-604">        <span class="n">message</span><span class="o">=</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span>
-</span><span id="line-605">        <span class="n">color</span><span class="o">=</span><span class="n">_get_color_for_nvtx</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">),</span>
-</span><span id="line-606">        <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
-</span><span id="line-607">    <span class="p">)(</span><span class="n">func</span><span class="p">)</span>
-</span><span id="line-608">
-</span><span id="line-609">
-</span><span id="line-610"><span class="c1">##### Observability Threading related #####</span>
-</span><span id="line-611"><span class="n">_shared_observability_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-</span><span id="line-612">
-</span><span id="line-613">
+</span><span id="line-593">
+</span><span id="line-594">
+</span><span id="line-595"><span class="c1">##### NVTX annotation #####</span>
+</span><span id="line-596"><span class="n">_NVTX_COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;rapids&quot;</span><span class="p">]</span>
+</span><span id="line-597">
+</span><span id="line-598">
+</span><span id="line-599"><span class="k">def</span><span class="w"> </span><span class="nf">_get_color_for_nvtx</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+</span><span id="line-600">    <span class="n">m</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
+</span><span id="line-601">    <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span><span id="line-602">    <span class="n">hash_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
+</span><span id="line-603">    <span class="n">idx</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">_NVTX_COLORS</span><span class="p">)</span>
+</span><span id="line-604">    <span class="k">return</span> <span class="n">_NVTX_COLORS</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span id="line-605">
+</span><span id="line-606">
+</span><span id="line-607"><span class="k">def</span><span class="w"> </span><span class="nf">_lmcache_nvtx_annotate</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="s2">&quot;lmcache&quot;</span><span class="p">):</span>
+</span><span id="line-608"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorator for applying nvtx annotations to methods in lmcache.&quot;&quot;&quot;</span>
+</span><span id="line-609">    <span class="k">return</span> <span class="n">annotate</span><span class="p">(</span>
+</span><span id="line-610">        <span class="n">message</span><span class="o">=</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span>
+</span><span id="line-611">        <span class="n">color</span><span class="o">=</span><span class="n">_get_color_for_nvtx</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">),</span>
+</span><span id="line-612">        <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+</span><span id="line-613">    <span class="p">)(</span><span class="n">func</span><span class="p">)</span>
+</span><span id="line-614">
+</span><span id="line-615">
+</span><span id="line-616"><span class="c1">##### Observability Threading related #####</span>
+</span><span id="line-617"><span class="n">_shared_observability_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+</span><span id="line-618">
+</span><span id="line-619">
 <div class="viewcode-block" id="thread_safe">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.thread_safe">[docs]</a>
-</span><span id="line-614"><span class="k">def</span><span class="w"> </span><span class="nf">thread_safe</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
-</span><span id="line-615">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="line-616">        <span class="k">with</span> <span class="n">_shared_observability_lock</span><span class="p">:</span>
-</span><span id="line-617">            <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="line-618">        <span class="k">return</span> <span class="n">result</span>
-</span><span id="line-619">
-</span><span id="line-620">    <span class="k">return</span> <span class="n">wrapper</span></div>
+</span><span id="line-620"><span class="k">def</span><span class="w"> </span><span class="nf">thread_safe</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+</span><span id="line-621">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="line-622">        <span class="k">with</span> <span class="n">_shared_observability_lock</span><span class="p">:</span>
+</span><span id="line-623">            <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="line-624">        <span class="k">return</span> <span class="n">result</span>
+</span><span id="line-625">
+</span><span id="line-626">    <span class="k">return</span> <span class="n">wrapper</span></div>
 
-</span><span id="line-621">
-</span><span id="line-622">
-</span><span id="line-623"><span class="c1">#### Thread/asyncio-related utilities ####</span>
+</span><span id="line-627">
+</span><span id="line-628">
+</span><span id="line-629"><span class="c1">#### Thread/asyncio-related utilities ####</span>
 <div class="viewcode-block" id="handle_thread_exception">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.handle_thread_exception">[docs]</a>
-</span><span id="line-624"><span class="k">def</span><span class="w"> </span><span class="nf">handle_thread_exception</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-</span><span id="line-625">    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-</span><span id="line-626">        <span class="sa">f</span><span class="s2">&quot;Thread </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> crashed: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_value</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="line-627">    <span class="p">)</span></div>
+</span><span id="line-630"><span class="k">def</span><span class="w"> </span><span class="nf">handle_thread_exception</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+</span><span id="line-631">    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+</span><span id="line-632">        <span class="sa">f</span><span class="s2">&quot;Thread </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> crashed: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">exc_value</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="line-633">    <span class="p">)</span></div>
 
-</span><span id="line-628">
-</span><span id="line-629">
+</span><span id="line-634">
+</span><span id="line-635">
 <div class="viewcode-block" id="start_loop_in_thread_with_exceptions">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.start_loop_in_thread_with_exceptions">[docs]</a>
-</span><span id="line-630"><span class="k">def</span><span class="w"> </span><span class="nf">start_loop_in_thread_with_exceptions</span><span class="p">(</span><span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">):</span>
-</span><span id="line-631">    <span class="c1"># The loop must be set in the *same* thread where it runs.</span>
-</span><span id="line-632">    <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
-</span><span id="line-633">
-</span><span id="line-634">    <span class="c1"># Catch unhandled exceptions from callbacks/tasks in this loop:</span>
-</span><span id="line-635">    <span class="k">def</span><span class="w"> </span><span class="nf">loop_excepthook</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-</span><span id="line-636">        <span class="n">msg</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;Unhandled exception in event loop&quot;</span><span class="p">)</span>
-</span><span id="line-637">        <span class="n">exc</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exception&quot;</span><span class="p">)</span>
-</span><span id="line-638">        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[asyncio] </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="line-639">        <span class="k">if</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="line-640">            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exception</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="n">exc</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__traceback__</span><span class="p">)</span>
-</span><span id="line-641">
-</span><span id="line-642">    <span class="n">loop</span><span class="o">.</span><span class="n">set_exception_handler</span><span class="p">(</span><span class="n">loop_excepthook</span><span class="p">)</span>
-</span><span id="line-643">    <span class="n">loop</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span></div>
+</span><span id="line-636"><span class="k">def</span><span class="w"> </span><span class="nf">start_loop_in_thread_with_exceptions</span><span class="p">(</span><span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">):</span>
+</span><span id="line-637">    <span class="c1"># The loop must be set in the *same* thread where it runs.</span>
+</span><span id="line-638">    <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+</span><span id="line-639">
+</span><span id="line-640">    <span class="c1"># Catch unhandled exceptions from callbacks/tasks in this loop:</span>
+</span><span id="line-641">    <span class="k">def</span><span class="w"> </span><span class="nf">loop_excepthook</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+</span><span id="line-642">        <span class="n">msg</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="s2">&quot;Unhandled exception in event loop&quot;</span><span class="p">)</span>
+</span><span id="line-643">        <span class="n">exc</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exception&quot;</span><span class="p">)</span>
+</span><span id="line-644">        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[asyncio] </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="line-645">        <span class="k">if</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="line-646">            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exception</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="n">exc</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__traceback__</span><span class="p">)</span>
+</span><span id="line-647">
+</span><span id="line-648">    <span class="n">loop</span><span class="o">.</span><span class="n">set_exception_handler</span><span class="p">(</span><span class="n">loop_excepthook</span><span class="p">)</span>
+</span><span id="line-649">    <span class="n">loop</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span></div>
 
-</span><span id="line-644">
-</span><span id="line-645">
-</span><span id="line-646"><span class="c1">#### Placeholder for dpsk broadcast functionality ####</span>
+</span><span id="line-650">
+</span><span id="line-651">
+</span><span id="line-652"><span class="c1">#### Placeholder for dpsk broadcast functionality ####</span>
 <div class="viewcode-block" id="mock_up_broadcast_fn">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.mock_up_broadcast_fn">[docs]</a>
-</span><span id="line-647"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_fn</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-648">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast function&quot;</span><span class="p">)</span></div>
+</span><span id="line-653"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_fn</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-654">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast function&quot;</span><span class="p">)</span></div>
 
-</span><span id="line-649">
-</span><span id="line-650">
+</span><span id="line-655">
+</span><span id="line-656">
 <div class="viewcode-block" id="mock_up_broadcast_object_fn">
 <a class="viewcode-back" href="../../advanced/lmcache.html#lmcache.utils.mock_up_broadcast_object_fn">[docs]</a>
-</span><span id="line-651"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_object_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-652">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast object function&quot;</span><span class="p">)</span></div>
+</span><span id="line-657"><span class="k">def</span><span class="w"> </span><span class="nf">mock_up_broadcast_object_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-658">    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Calling invalid broadcast object function&quot;</span><span class="p">)</span></div>
 
 </span></code></pre></div>
     </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
