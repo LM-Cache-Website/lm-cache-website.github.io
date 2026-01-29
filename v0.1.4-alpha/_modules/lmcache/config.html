@@ -191,135 +191,31 @@
       <h1>Source code for lmcache.config</h1><div class="highlight"><pre>
 <span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 </span><span id="line-2"><span class="c1"># Standard</span>
-</span><span id="line-3"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span id="line-3"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
 </span><span id="line-5">
 </span><span id="line-6"><span class="c1"># Third Party</span>
 </span><span id="line-7"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 </span><span id="line-8">
 </span><span id="line-9"><span class="c1"># First Party</span>
 </span><span id="line-10"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_logger</span>
-</span><span id="line-11"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.kv_layer_groups</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVLayerGroupsManager</span>
-</span><span id="line-12">
-</span><span id="line-13"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="line-11">
+</span><span id="line-12"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="line-13">
 </span><span id="line-14">
-</span><span id="line-15">
-<div class="viewcode-block" id="LMCacheEngineMetadata">
-<a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheEngineMetadata">[docs]</a>
-</span><span id="line-16"><span class="nd">@dataclass</span>
-</span><span id="line-17"><span class="k">class</span><span class="w"> </span><span class="nc">LMCacheEngineMetadata</span><span class="p">:</span>
-</span><span id="line-18"><span class="w">    </span><span class="sd">&quot;&quot;&quot;name of the LLM model&quot;&quot;&quot;</span>
-</span><span id="line-19">
-</span><span id="line-20">    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="line-21"><span class="w">    </span><span class="sd">&quot;&quot;&quot; world size when running under a distributed setting &quot;&quot;&quot;</span>
-</span><span id="line-22">    <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-23"><span class="w">    </span><span class="sd">&quot;&quot;&quot; worker id when running under a distributed setting &quot;&quot;&quot;</span>
-</span><span id="line-24">    <span class="n">worker_id</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="line-25"><span class="w">    </span><span class="sd">&quot;&quot;&quot; the format of kv tensors &quot;&quot;&quot;</span>
-</span><span id="line-26">    <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="line-27"><span class="w">    </span><span class="sd">&quot;&quot;&quot; the data type of kv tensors &quot;&quot;&quot;</span>
-</span><span id="line-28">    <span class="c1"># (Deprecated) Will be replaced by kv_layer_groups_manager in the future</span>
-</span><span id="line-29">    <span class="n">kv_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span>
-</span><span id="line-30"><span class="w">    </span><span class="sd">&quot;&quot;&quot; the shape of kv tensors &quot;&quot;&quot;</span>
-</span><span id="line-31">    <span class="c1"># (Deprecated) Will be replaced by kv_layer_groups_manager in the future</span>
-</span><span id="line-32"><span class="w">    </span><span class="sd">&quot;&quot;&quot; (num_layer, 2, chunk_size, num_kv_head, head_size) &quot;&quot;&quot;</span>
-</span><span id="line-33">    <span class="n">kv_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
-</span><span id="line-34"><span class="w">    </span><span class="sd">&quot;&quot;&quot; whether use MLA&quot;&quot;&quot;</span>
-</span><span id="line-35">    <span class="n">use_mla</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span id="line-36"><span class="w">    </span><span class="sd">&quot;&quot;&quot; the role of the current instance (e.g., &#39;scheduler&#39;, &#39;worker&#39;) &quot;&quot;&quot;</span>
-</span><span id="line-37">    <span class="n">role</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-38"><span class="w">    </span><span class="sd">&quot;&quot;&quot; the first rank of the distributed setting &quot;&quot;&quot;</span>
-</span><span id="line-39">    <span class="c1"># TODO(baoloongmao): first_rank should be configurable</span>
-</span><span id="line-40">    <span class="n">first_rank</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="line-41">    <span class="n">served_model_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-42"><span class="w">    </span><span class="sd">&quot;&quot;&quot;chunk size&quot;&quot;&quot;</span>
-</span><span id="line-43">    <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">256</span>
-</span><span id="line-44"><span class="w">    </span><span class="sd">&quot;&quot;&quot; Manager for groups of layers with identical KV cache structure &quot;&quot;&quot;</span>
-</span><span id="line-45">    <span class="n">kv_layer_groups_manager</span><span class="p">:</span> <span class="n">KVLayerGroupsManager</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
-</span><span id="line-46">        <span class="n">default_factory</span><span class="o">=</span><span class="n">KVLayerGroupsManager</span>
-</span><span id="line-47">    <span class="p">)</span>
-</span><span id="line-48"><span class="w">    </span><span class="sd">&quot;&quot;&quot; engine_id for RPC path (used by lookup client/server) &quot;&quot;&quot;</span>
-</span><span id="line-49">    <span class="n">engine_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-50"><span class="w">    </span><span class="sd">&quot;&quot;&quot; total number of ranks (tensor_parallel_size * pipeline_parallel_size) &quot;&quot;&quot;</span>
-</span><span id="line-51">    <span class="n">num_ranks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="line-52"><span class="w">    </span><span class="sd">&quot;&quot;&quot; extra config from kv_connector (e.g., lmcache_rpc_port) &quot;&quot;&quot;</span>
-</span><span id="line-53">    <span class="n">kv_connector_extra_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-54">
-<div class="viewcode-block" id="LMCacheEngineMetadata.is_first_rank">
-<a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheEngineMetadata.is_first_rank">[docs]</a>
-</span><span id="line-55">    <span class="k">def</span><span class="w"> </span><span class="nf">is_first_rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="line-56"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the current worker is the first rank&quot;&quot;&quot;</span>
-</span><span id="line-57">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_rank</span></div>
-
-</span><span id="line-58">
-</span><span id="line-59">    <span class="c1"># TODO(chunxiaozheng): some uts do not `build_kv_layer_groups`</span>
-<div class="viewcode-block" id="LMCacheEngineMetadata.get_dtypes">
-<a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheEngineMetadata.get_dtypes">[docs]</a>
-</span><span id="line-60">    <span class="k">def</span><span class="w"> </span><span class="nf">get_dtypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
-</span><span id="line-61">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">kv_layer_groups</span><span class="p">:</span>
-</span><span id="line-62">            <span class="k">return</span> <span class="p">[</span>
-</span><span id="line-63">                <span class="n">group</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">kv_layer_groups</span>
-</span><span id="line-64">            <span class="p">]</span>
-</span><span id="line-65">        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">kv_dtype</span><span class="p">]</span></div>
-
-</span><span id="line-66">
-<div class="viewcode-block" id="LMCacheEngineMetadata.get_shapes">
-<a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheEngineMetadata.get_shapes">[docs]</a>
-</span><span id="line-67">    <span class="k">def</span><span class="w"> </span><span class="nf">get_shapes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">]:</span>
-</span><span id="line-68"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the shapes of the KV cache in LMCache&quot;&quot;&quot;</span>
-</span><span id="line-69">        <span class="k">if</span> <span class="n">num_tokens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-70">            <span class="n">num_tokens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span>
-</span><span id="line-71">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">kv_layer_groups</span><span class="p">:</span>
-</span><span id="line-72">            <span class="n">shapes</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="line-73">            <span class="n">kv_size</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_mla</span> <span class="k">else</span> <span class="mi">2</span>
-</span><span id="line-74">            <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">kv_layer_groups</span><span class="p">:</span>
-</span><span id="line-75">                <span class="n">shapes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span id="line-76">                    <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">(</span>
-</span><span id="line-77">                        <span class="p">[</span>
-</span><span id="line-78">                            <span class="n">kv_size</span><span class="p">,</span>
-</span><span id="line-79">                            <span class="n">group</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
-</span><span id="line-80">                            <span class="n">num_tokens</span><span class="p">,</span>
-</span><span id="line-81">                            <span class="n">group</span><span class="o">.</span><span class="n">hidden_dim_size</span><span class="p">,</span>
-</span><span id="line-82">                        <span class="p">]</span>
-</span><span id="line-83">                    <span class="p">)</span>
-</span><span id="line-84">                <span class="p">)</span>
-</span><span id="line-85">            <span class="k">return</span> <span class="n">shapes</span>
-</span><span id="line-86">        <span class="k">else</span><span class="p">:</span>
-</span><span id="line-87">            <span class="k">return</span> <span class="p">[</span>
-</span><span id="line-88">                <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">(</span>
-</span><span id="line-89">                    <span class="p">[</span>
-</span><span id="line-90">                        <span class="bp">self</span><span class="o">.</span><span class="n">kv_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="line-91">                        <span class="bp">self</span><span class="o">.</span><span class="n">kv_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="line-92">                        <span class="n">num_tokens</span><span class="p">,</span>
-</span><span id="line-93">                        <span class="bp">self</span><span class="o">.</span><span class="n">kv_shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_shape</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
-</span><span id="line-94">                    <span class="p">]</span>
-</span><span id="line-95">                <span class="p">)</span>
-</span><span id="line-96">            <span class="p">]</span></div>
-
-</span><span id="line-97">
-<div class="viewcode-block" id="LMCacheEngineMetadata.get_num_groups">
-<a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheEngineMetadata.get_num_groups">[docs]</a>
-</span><span id="line-98">    <span class="k">def</span><span class="w"> </span><span class="nf">get_num_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="line-99">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">kv_layer_groups</span><span class="p">:</span>
-</span><span id="line-100">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kv_layer_groups_manager</span><span class="o">.</span><span class="n">num_groups</span>
-</span><span id="line-101">        <span class="k">return</span> <span class="mi">1</span></div>
-</div>
-
-</span><span id="line-102">
-</span><span id="line-103">
 <div class="viewcode-block" id="LMCacheMemPoolMetadata">
 <a class="viewcode-back" href="../../configuration/config.html#lmcache.config.LMCacheMemPoolMetadata">[docs]</a>
-</span><span id="line-104"><span class="nd">@dataclass</span>
-</span><span id="line-105"><span class="k">class</span><span class="w"> </span><span class="nc">LMCacheMemPoolMetadata</span><span class="p">:</span>
-</span><span id="line-106"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Subset of `LMCacheEngineMetadata` to initialize MemPool&quot;&quot;&quot;</span>
-</span><span id="line-107">
-</span><span id="line-108">    <span class="n">kv_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
-</span><span id="line-109">    <span class="n">kv_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span>
-</span><span id="line-110">    <span class="n">max_local_cache_size</span><span class="p">:</span> <span class="nb">int</span></div>
+</span><span id="line-15"><span class="nd">@dataclass</span>
+</span><span id="line-16"><span class="k">class</span><span class="w"> </span><span class="nc">LMCacheMemPoolMetadata</span><span class="p">:</span>
+</span><span id="line-17"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Subset of `LMCacheMetadata` to initialize MemPool&quot;&quot;&quot;</span>
+</span><span id="line-18">
+</span><span id="line-19">    <span class="n">kv_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+</span><span id="line-20">    <span class="n">kv_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span>
+</span><span id="line-21">    <span class="n">max_local_cache_size</span><span class="p">:</span> <span class="nb">int</span></div>
 
-</span><span id="line-111">
-</span><span id="line-112">
-</span><span id="line-113"><span class="n">blend_default_separator</span> <span class="o">=</span> <span class="s2">&quot;[BLEND_SEP]&quot;</span>
+</span><span id="line-22">
+</span><span id="line-23">
+</span><span id="line-24"><span class="n">blend_default_separator</span> <span class="o">=</span> <span class="s2">&quot;[BLEND_SEP]&quot;</span>
 </span></code></pre></div>
     </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 </div></div>
