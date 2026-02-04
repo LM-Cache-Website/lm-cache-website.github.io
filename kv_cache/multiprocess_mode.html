@@ -242,10 +242,6 @@ will be interconnected to form a distributed KV cache service.</p>
 <p class="admonition-title">Note</p>
 <p>This is an experimental feature and is under active development. Please expect breaking changes in the future.</p>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Currently, the multi-process mode only supports CPU offloading without eviction. It is not recommended for production use.</p>
-</div>
 <section id="prerequisites">
 <h2>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
 <ul class="simple">
@@ -256,8 +252,8 @@ will be interconnected to form a distributed KV cache service.</p>
 <section id="quick-start">
 <h2>Quick Start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h2>
 <p><strong>Step 1: Start the LMCache server</strong></p>
-<p>Run the following command to start the LMCache server with a 100 GB CPU buffer:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span>--cpu-buffer-size<span class="w"> </span><span class="m">100</span>
+<p>Run the following command to start the LMCache server with 100 GB L1 cache and LRU eviction policy:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
 <p>You should see the following log output:</p>
@@ -313,7 +309,7 @@ will be interconnected to form a distributed KV cache service.</p>
 </span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>lmcache/standalone:nightly<span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>/opt/venv/bin/python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--cpu-buffer-size<span class="w"> </span><span class="m">60</span><span class="w"> </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span>
+</span><span id="line-6"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span>
 </span></code></pre></div>
 </div>
 <div class="admonition note">
@@ -498,20 +494,43 @@ will be interconnected to form a distributed KV cache service.</p>
 <section id="server-configuration">
 <h3>Server Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server-configuration'"><span>#</span></a></h3>
 <p>The LMCache multi-process server supports the following command-line arguments:</p>
+<p><strong>Basic Server Options:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">--host</span></code>: Host address to bind the server (default: <code class="docutils literal notranslate"><span class="pre">localhost</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--port</span></code>: Port number to bind the server (default: <code class="docutils literal notranslate"><span class="pre">5555</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>: Chunk size for KV cache operations in tokens (default: <code class="docutils literal notranslate"><span class="pre">256</span></code>)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--cpu-buffer-size</span></code>: CPU buffer size in GB for caching (default: <code class="docutils literal notranslate"><span class="pre">5.0</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>: Maximum number of worker threads for handling requests (default: <code class="docutils literal notranslate"><span class="pre">1</span></code>)</p></li>
+</ul>
+<p><strong>L1 Memory Manager Options:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>: The size of L1 memory in GB (<strong>required</strong>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code>: Whether to use lazy loading for L1 memory (default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-init-size-gb</span></code>: The initial size in GB when using lazy allocation (default: <code class="docutils literal notranslate"><span class="pre">20</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code>: The alignment size in bytes (default: <code class="docutils literal notranslate"><span class="pre">4096</span></code>)</p></li>
+</ul>
+<p><strong>L1 Manager TTL Options:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-write-ttl-seconds</span></code>: Time to live for each object’s write lock in seconds (default: <code class="docutils literal notranslate"><span class="pre">600</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--l1-read-ttl-seconds</span></code>: Time to live for each object’s read lock in seconds (default: <code class="docutils literal notranslate"><span class="pre">300</span></code>)</p></li>
+</ul>
+<p><strong>Eviction Policy Options:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code>: The eviction policy to use. Currently only <code class="docutils literal notranslate"><span class="pre">LRU</span></code> is supported (<strong>required</strong>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span></code>: The memory usage watermark (0.0 to 1.0) to trigger eviction (default: <code class="docutils literal notranslate"><span class="pre">0.8</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>: The fraction of allocated memory to evict when triggered (0.0 to 1.0) (default: <code class="docutils literal notranslate"><span class="pre">0.2</span></code>)</p></li>
 </ul>
 <p>Example with custom configuration:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6000</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--cpu-buffer-size<span class="w"> </span><span class="m">50</span>.0<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--max-workers<span class="w"> </span><span class="m">4</span>
+</span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span>.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--l1-use-lazy<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--l1-init-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--max-workers<span class="w"> </span><span class="m">4</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -529,7 +548,6 @@ will be interconnected to form a distributed KV cache service.</p>
 <h2>Future Work<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#future-work" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#future-work'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p>Thread-safe memory allocator and storage manager.</p></li>
-<li><p>Eviction policy.</p></li>
 <li><p>Plugin the current storage backends.</p></li>
 <li><p>Potential performance improvements (double buffering, new kernels, etc.).</p></li>
 <li><p>Lock and unlock semantics in new storage manager.</p></li>
