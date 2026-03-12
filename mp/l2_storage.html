@@ -257,9 +257,10 @@
 <ul class="simple">
 <li><p><strong>L1 (in-memory)</strong> – Fast CPU memory managed by the L1 Manager.  All KV
 cache chunks live here during active use.</p></li>
-<li><p><strong>L2 (persistent)</strong> – Durable storage backends accessed through NIXL.
-The StoreController asynchronously pushes data from L1 to L2, and the
-PrefetchController loads data from L2 back into L1 on cache misses.</p></li>
+<li><p><strong>L2 (persistent)</strong> – Durable storage backends (NIXL-based or plain
+file-system).  The StoreController asynchronously pushes data from L1
+to L2, and the PrefetchController loads data from L2 back into L1 on
+cache misses.</p></li>
 </ul>
 <nav class="contents local" id="contents">
 <ul class="simple">
@@ -267,11 +268,12 @@ PrefetchController loads data from L2 back into L1 on cache misses.</p></li>
 <li><p><a class="reference internal" href="#adapter-types" id="id2">Adapter Types</a></p>
 <ul>
 <li><p><a class="reference internal" href="#nixl-store-nixl-based-persistent-storage" id="id3"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></p></li>
-<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id4"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
+<li><p><a class="reference internal" href="#fs-file-system-backed-storage" id="id4"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></p></li>
+<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id5"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id5">Multiple Adapters (Cascade)</a></p></li>
-<li><p><a class="reference internal" href="#verifying-l2-storage" id="id6">Verifying L2 Storage</a></p></li>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id6">Multiple Adapters (Cascade)</a></p></li>
+<li><p><a class="reference internal" href="#verifying-l2-storage" id="id7">Verifying L2 Storage</a></p></li>
 </ul>
 </nav>
 <section id="data-flow">
@@ -359,8 +361,38 @@ bypassing the CPU.  Requires NVMe SSDs with GDS support.</p></td>
 </span></code></pre></div>
 </div>
 </section>
+<section id="fs-file-system-backed-storage">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#fs-file-system-backed-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#fs-file-system-backed-storage'"><span>#</span></a></h3>
+<p>A pure file-system L2 adapter using async I/O (<code class="docutils literal notranslate"><span class="pre">aiofiles</span></code>).  Each KV cache
+object is stored as a raw <code class="docutils literal notranslate"><span class="pre">.data</span></code> file whose name encodes the full
+<code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code>.  Does <strong>not</strong> require NIXL – works on any POSIX file system.</p>
+<p><strong>Required fields:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">base_path</span></code>: Directory for storing KV cache files.</p></li>
+</ul>
+<p><strong>Optional fields:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">relative_tmp_dir</span></code>: Relative sub-directory for temporary files during
+writes (atomic rename on completion).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">read_ahead_size</span></code>: Trigger file-system read-ahead by reading this many
+bytes first (positive integer, optional).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>: <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> (default <code class="docutils literal notranslate"><span class="pre">false</span></code>) – bypass the
+page cache via <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>.</p></li>
+</ul>
+<p><strong>Configuration examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Basic FS adapter</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "fs", "base_path": "/data/lmcache/l2"}'</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># With temp directory</span>
+</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "fs", "base_path": "/data/lmcache/l2", "relative_tmp_dir": ".tmp"}'</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="c1"># With O_DIRECT for bypassing page cache</span>
+</span><span id="line-8">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "fs", "base_path": "/data/lmcache/l2", "use_odirect": true}'</span>
+</span></code></pre></div>
+</div>
+</section>
 <section id="mock-mock-adapter-for-testing">
-<h3><a class="toc-backref" href="#id4" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id5" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
 <p>Simulates L2 storage with configurable size and bandwidth.  Useful for testing
 the L2 pipeline without real storage hardware.</p>
 <p><strong>Fields:</strong></p>
@@ -374,7 +406,7 @@ the L2 pipeline without real storage hardware.</p>
 </section>
 </section>
 <section id="multiple-adapters-cascade">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Multiple Adapters (Cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Multiple Adapters (Cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
 <p>You can configure multiple L2 adapters by repeating the <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>
 argument.  Adapters are used in the order they are specified.  The
 <code class="docutils literal notranslate"><span class="pre">StoreController</span></code> pushes data to all configured adapters, and the
@@ -386,7 +418,7 @@ argument.  Adapters are used in the order they are specified.  The
 </div>
 </section>
 <section id="verifying-l2-storage">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
 <p>Set <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> to see L2 activity in the server logs:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -424,6 +456,7 @@ argument.  Adapters are used in the order they are specified.  The
 <li><a :data-current="activeSection === '#data-flow'" class="reference internal" href="#data-flow">Data Flow</a></li>
 <li><a :data-current="activeSection === '#adapter-types'" class="reference internal" href="#adapter-types">Adapter Types</a><ul>
 <li><a :data-current="activeSection === '#nixl-store-nixl-based-persistent-storage'" class="reference internal" href="#nixl-store-nixl-based-persistent-storage"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></li>
+<li><a :data-current="activeSection === '#fs-file-system-backed-storage'" class="reference internal" href="#fs-file-system-backed-storage"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></li>
 <li><a :data-current="activeSection === '#mock-mock-adapter-for-testing'" class="reference internal" href="#mock-mock-adapter-for-testing"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></li>
 </ul>
 </li>
