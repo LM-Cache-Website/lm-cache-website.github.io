@@ -276,8 +276,12 @@ cache misses.</p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id6">Multiple Adapters (Cascade)</a></p></li>
-<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id7">Store and Prefetch Policies</a></p></li>
-<li><p><a class="reference internal" href="#verifying-l2-storage" id="id8">Verifying L2 Storage</a></p></li>
+<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id7">Store and Prefetch Policies</a></p>
+<ul>
+<li><p><a class="reference internal" href="#buffer-only-mode" id="id8">Buffer-Only Mode</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#verifying-l2-storage" id="id9">Verifying L2 Storage</a></p></li>
 </ul>
 </nav>
 <section id="data-flow">
@@ -451,19 +455,38 @@ adapter loads it.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
 <td><p>Store all keys to all adapters.  Never delete from L1.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">noop</span></code></p></td>
+<td><p>Buffer-only mode.  Store all keys to all adapters, then
+<strong>delete them from L1</strong> immediately.  Pair with
+<code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code> to avoid useless LRU overhead.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
 <td><p>For each key, pick the first (lowest-indexed) adapter that has it.</p></td>
 </tr>
 </tbody>
 </table>
+<section id="buffer-only-mode">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Buffer-Only Mode</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
+<p>When L1 is used purely as a write buffer (all data lives in L2), use
+<code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span> <span class="pre">noop</span></code> together with <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code>.
+This combination deletes keys from L1 as soon as they are stored to L2
+and disables the LRU eviction tracker entirely, reducing memory and CPU
+overhead.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--eviction-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">--l2-store-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--l2-prefetch-policy<span class="w"> </span>default
+</span></code></pre></div>
+</div>
 <p>Policies are extensible – new policies can be added by creating a file
 in <code class="docutils literal notranslate"><span class="pre">storage_controllers/</span></code> and calling <code class="docutils literal notranslate"><span class="pre">register_store_policy()</span></code> or
 <code class="docutils literal notranslate"><span class="pre">register_prefetch_policy()</span></code> at import time.  See the design doc
 <code class="docutils literal notranslate"><span class="pre">l2_adapters/design_docs/overall.md</span></code> for details.</p>
 </section>
+</section>
 <section id="verifying-l2-storage">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
 <p>Set <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> to see L2 activity in the server logs:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -506,7 +529,10 @@ in <code class="docutils literal notranslate"><span class="pre">storage_controll
 </ul>
 </li>
 <li><a :data-current="activeSection === '#multiple-adapters-cascade'" class="reference internal" href="#multiple-adapters-cascade">Multiple Adapters (Cascade)</a></li>
-<li><a :data-current="activeSection === '#store-and-prefetch-policies'" class="reference internal" href="#store-and-prefetch-policies">Store and Prefetch Policies</a></li>
+<li><a :data-current="activeSection === '#store-and-prefetch-policies'" class="reference internal" href="#store-and-prefetch-policies">Store and Prefetch Policies</a><ul>
+<li><a :data-current="activeSection === '#buffer-only-mode'" class="reference internal" href="#buffer-only-mode">Buffer-Only Mode</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#verifying-l2-storage'" class="reference internal" href="#verifying-l2-storage">Verifying L2 Storage</a></li>
 </ul>
 </div>
