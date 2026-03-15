@@ -265,23 +265,24 @@ server.  Arguments are grouped by the config module that defines them.</p>
 <li><p><a class="reference internal" href="#l1-memory-manager" id="id3">L1 Memory Manager</a></p></li>
 <li><p><a class="reference internal" href="#l1-manager-ttls" id="id4">L1 Manager TTLs</a></p></li>
 <li><p><a class="reference internal" href="#eviction-policy" id="id5">Eviction Policy</a></p></li>
-<li><p><a class="reference internal" href="#l2-adapters" id="id6">L2 Adapters</a></p>
+<li><p><a class="reference internal" href="#l2-policies" id="id6">L2 Policies</a></p></li>
+<li><p><a class="reference internal" href="#l2-adapters" id="id7">L2 Adapters</a></p>
 <ul>
-<li><p><a class="reference internal" href="#nixl-store-nixl-based-persistent-storage" id="id7"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></p></li>
-<li><p><a class="reference internal" href="#fs-file-system-backed-storage" id="id8"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></p></li>
-<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id9"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id10">Multiple adapters (cascade)</a></p></li>
+<li><p><a class="reference internal" href="#nixl-store-nixl-based-persistent-storage" id="id8"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></p></li>
+<li><p><a class="reference internal" href="#fs-file-system-backed-storage" id="id9"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></p></li>
+<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id10"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id11">Multiple adapters (cascade)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#prometheus-observability" id="id11">Prometheus Observability</a></p></li>
-<li><p><a class="reference internal" href="#telemetry" id="id12">Telemetry</a></p>
+<li><p><a class="reference internal" href="#prometheus-observability" id="id12">Prometheus Observability</a></p></li>
+<li><p><a class="reference internal" href="#telemetry" id="id13">Telemetry</a></p>
 <ul>
-<li><p><a class="reference internal" href="#logging-processor" id="id13"><code class="docutils literal notranslate"><span class="pre">logging</span></code> processor</a></p></li>
+<li><p><a class="reference internal" href="#logging-processor" id="id14"><code class="docutils literal notranslate"><span class="pre">logging</span></code> processor</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#vllm-client-configuration" id="id14">vLLM Client Configuration</a></p></li>
-<li><p><a class="reference internal" href="#environment-variables" id="id15">Environment Variables</a></p></li>
-<li><p><a class="reference internal" href="#full-example" id="id16">Full Example</a></p></li>
+<li><p><a class="reference internal" href="#vllm-client-configuration" id="id15">vLLM Client Configuration</a></p></li>
+<li><p><a class="reference internal" href="#environment-variables" id="id16">Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="#full-example" id="id17">Full Example</a></p></li>
 </ul>
 </nav>
 <section id="mp-server">
@@ -454,15 +455,46 @@ Pass <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy<
 </tbody>
 </table>
 </section>
+<section id="l2-policies">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">L2 Policies</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-policies'"><span>#</span></a></h2>
+<p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
+<td><p>L2 store policy.  Determines which adapters receive each key
+and whether keys are deleted from L1 after L2 store.
+The <code class="docutils literal notranslate"><span class="pre">default</span></code> policy stores all keys to all adapters and keeps L1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
+<td><p>L2 prefetch policy.  Determines which adapter loads each key
+when multiple adapters have it.
+The <code class="docutils literal notranslate"><span class="pre">default</span></code> policy picks the first adapter (lowest index).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="l2-adapters">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">L2 Adapters</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">L2 Adapters</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p>
 <p>L2 adapters are configured via repeatable <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">&lt;JSON&gt;</span></code> arguments.
 Each JSON object must include a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field that selects the adapter type.
 The order of <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> arguments determines the adapter order (cascade).</p>
 <p>Registered adapter types: <code class="docutils literal notranslate"><span class="pre">nixl_store</span></code>, <code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">mock</span></code>.</p>
 <section id="nixl-store-nixl-based-persistent-storage">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#nixl-store-nixl-based-persistent-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#nixl-store-nixl-based-persistent-storage'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#nixl-store-nixl-based-persistent-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#nixl-store-nixl-based-persistent-storage'"><span>#</span></a></h3>
 <p>Fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">backend</span></code> <em>(required)</em>: One of <code class="docutils literal notranslate"><span class="pre">POSIX</span></code>, <code class="docutils literal notranslate"><span class="pre">GDS</span></code>, <code class="docutils literal notranslate"><span class="pre">GDS_MT</span></code>, <code class="docutils literal notranslate"><span class="pre">HF3FS</span></code>, <code class="docutils literal notranslate"><span class="pre">OBJ</span></code>.</p></li>
@@ -490,7 +522,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </div>
 </section>
 <section id="fs-file-system-backed-storage">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#fs-file-system-backed-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#fs-file-system-backed-storage'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#fs-file-system-backed-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#fs-file-system-backed-storage'"><span>#</span></a></h3>
 <p>A pure file-system L2 adapter using async I/O.</p>
 <p>Fields:</p>
 <ul class="simple">
@@ -509,7 +541,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </div>
 </section>
 <section id="mock-mock-adapter-for-testing">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
 <p>Fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">max_size_gb</span></code> <em>(required)</em>: Maximum size of the adapter in GB (&gt; 0).</p></li>
@@ -521,7 +553,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </div>
 </section>
 <section id="multiple-adapters-cascade">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">Multiple adapters (cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Multiple adapters (cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
 <p>Pass <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> multiple times.  Adapters are used in the order given:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/ssd/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "GDS", "backend_params": {"file_path": "/data/nvme/l2", "use_direct_io": "true"}, "pool_size": 128}'</span>
@@ -530,7 +562,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </section>
 </section>
 <section id="prometheus-observability">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Prometheus Observability</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-observability'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Prometheus Observability</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-observability'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -561,7 +593,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </table>
 </section>
 <section id="telemetry">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">Telemetry</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#telemetry" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#telemetry'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Telemetry</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#telemetry" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#telemetry'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/telemetry/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -591,7 +623,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </tbody>
 </table>
 <section id="logging-processor">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">logging</span></code> processor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging-processor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging-processor'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">logging</span></code> processor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging-processor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging-processor'"><span>#</span></a></h3>
 <p>The built-in processor.  Logs telemetry events via LMCache’s logger.</p>
 <p>Fields:</p>
 <ul class="simple">
@@ -606,7 +638,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </section>
 </section>
 <section id="vllm-client-configuration">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">vLLM Client Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">vLLM Client Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
@@ -616,7 +648,7 @@ key-value pairs.  File-based backends (<code class="docutils literal notranslate
 </div>
 </section>
 <section id="environment-variables">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -640,7 +672,7 @@ Set to <code class="docutils literal notranslate"><span class="pre">DEBUG</span>
 </table>
 </section>
 <section id="full-example">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.http_server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
@@ -657,11 +689,13 @@ Set to <code class="docutils literal notranslate"><span class="pre">DEBUG</span>
 </span><span id="line-14"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-15"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span><span class="se">\</span>
 </span><span id="line-16"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
-</span><span id="line-17"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-18"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9090</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-19"><span class="w">    </span>--prometheus-log-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-20"><span class="w">    </span>--enable-telemetry<span class="w"> </span><span class="se">\</span>
-</span><span id="line-21"><span class="w">    </span>--telemetry-processor<span class="w"> </span><span class="s1">'{"type": "logging", "log_level": "DEBUG"}'</span>
+</span><span id="line-17"><span class="w">    </span>--l2-store-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+</span><span id="line-18"><span class="w">    </span>--l2-prefetch-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+</span><span id="line-19"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-20"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-21"><span class="w">    </span>--prometheus-log-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-22"><span class="w">    </span>--enable-telemetry<span class="w"> </span><span class="se">\</span>
+</span><span id="line-23"><span class="w">    </span>--telemetry-processor<span class="w"> </span><span class="s1">'{"type": "logging", "log_level": "DEBUG"}'</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -691,6 +725,7 @@ Set to <code class="docutils literal notranslate"><span class="pre">DEBUG</span>
 <li><a :data-current="activeSection === '#l1-memory-manager'" class="reference internal" href="#l1-memory-manager">L1 Memory Manager</a></li>
 <li><a :data-current="activeSection === '#l1-manager-ttls'" class="reference internal" href="#l1-manager-ttls">L1 Manager TTLs</a></li>
 <li><a :data-current="activeSection === '#eviction-policy'" class="reference internal" href="#eviction-policy">Eviction Policy</a></li>
+<li><a :data-current="activeSection === '#l2-policies'" class="reference internal" href="#l2-policies">L2 Policies</a></li>
 <li><a :data-current="activeSection === '#l2-adapters'" class="reference internal" href="#l2-adapters">L2 Adapters</a><ul>
 <li><a :data-current="activeSection === '#nixl-store-nixl-based-persistent-storage'" class="reference internal" href="#nixl-store-nixl-based-persistent-storage"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></li>
 <li><a :data-current="activeSection === '#fs-file-system-backed-storage'" class="reference internal" href="#fs-file-system-backed-storage"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></li>
