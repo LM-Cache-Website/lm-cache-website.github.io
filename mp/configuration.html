@@ -318,7 +318,19 @@ server.  Arguments are grouped by the config module that defines them.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
-<td><p>Maximum number of worker threads for handling ZMQ requests.</p></td>
+<td><p>Base number of worker threads. Sets the default for both the GPU
+(affinity) pool and the CPU (normal) pool. Can be overridden
+per-pool with <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
+<td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
+<td><p>Worker threads for the GPU affinity pool (STORE/RETRIEVE).
+Requests from the same vLLM instance are always dispatched to the
+same thread, eliminating GPU transfer lock contention.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
+<td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
+<td><p>Worker threads for the normal CPU pool (LOOKUP, etc.).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
@@ -687,24 +699,25 @@ Set to <code class="docutils literal notranslate"><span class="pre">DEBUG</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--hash-algorithm<span class="w"> </span>blake3<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>--engine-type<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
-</span><span id="line-8"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-9"><span class="w">    </span>--l1-use-lazy<span class="w"> </span><span class="se">\</span>
-</span><span id="line-10"><span class="w">    </span>--l1-init-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-11"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-12"><span class="w">    </span>--l1-write-ttl-seconds<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-13"><span class="w">    </span>--l1-read-ttl-seconds<span class="w"> </span><span class="m">300</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-14"><span class="w">    </span>--eviction-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
-</span><span id="line-15"><span class="w">    </span>--l2-store-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
-</span><span id="line-16"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span><span class="se">\</span>
-</span><span id="line-17"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
-</span><span id="line-18"><span class="w">    </span>--l2-prefetch-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
-</span><span id="line-19"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-20"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9090</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-21"><span class="w">    </span>--prometheus-log-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-22"><span class="w">    </span>--enable-telemetry<span class="w"> </span><span class="se">\</span>
-</span><span id="line-23"><span class="w">    </span>--telemetry-processor<span class="w"> </span><span class="s1">'{"type": "logging", "log_level": "DEBUG"}'</span>
+</span><span id="line-6"><span class="w">    </span>--max-gpu-workers<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--hash-algorithm<span class="w"> </span>blake3<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--engine-type<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--l1-use-lazy<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--l1-init-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-12"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-13"><span class="w">    </span>--l1-write-ttl-seconds<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-14"><span class="w">    </span>--l1-read-ttl-seconds<span class="w"> </span><span class="m">300</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-15"><span class="w">    </span>--eviction-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
+</span><span id="line-16"><span class="w">    </span>--l2-store-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
+</span><span id="line-17"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span><span class="se">\</span>
+</span><span id="line-18"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-19"><span class="w">    </span>--l2-prefetch-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+</span><span id="line-20"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-21"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-22"><span class="w">    </span>--prometheus-log-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-23"><span class="w">    </span>--enable-telemetry<span class="w"> </span><span class="se">\</span>
+</span><span id="line-24"><span class="w">    </span>--telemetry-processor<span class="w"> </span><span class="s1">'{"type": "logging", "log_level": "DEBUG"}'</span>
 </span></code></pre></div>
 </div>
 </section>
