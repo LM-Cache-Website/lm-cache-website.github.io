@@ -271,7 +271,8 @@
 <p>This backend will work with any file system, whether local, remote, and remote
 with GDS-based optimizations. Remote file systems allow for multiple LMCache
 instances to share data seamlessly. The GDS (GPU-Direct Storage) optimizations
-are used for for zero-copy I/O from GPU memory to storage systems.</p>
+are used for zero-copy I/O from GPU memory to storage systems. Supports both
+NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </section>
 <section id="ways-to-configure-lmcache-gds-backend">
 <h2>Ways to configure LMCache GDS Backend<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#ways-to-configure-lmcache-gds-backend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#ways-to-configure-lmcache-gds-backend'"><span>#</span></a></h2>
@@ -308,6 +309,49 @@ is registered in VRAM so options like <code class="docutils literal notranslate"
 when setting it. For example, a good rule of thumb for H100 which generally has 80GiBs of VRAM would
 be to start with 8GiB and set <code class="docutils literal notranslate"><span class="pre">--gpu-memory-utilization</span> <span class="pre">0.85</span></code> and depending on your workflow fine-tune
 it from there.</p>
+</section>
+<section id="using-amd-hipfile">
+<h2>Using AMD hipFile<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-amd-hipfile" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-amd-hipfile'"><span>#</span></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>hipFile is alpha software and has been tested on limited hardware.
+For full installation details, see the
+<a class="reference external" href="https://github.com/ROCm/hipFile/blob/develop/INSTALL.md">hipFile install guide</a>.</p>
+</div>
+<p><strong>Prerequisites:</strong></p>
+<ul class="simple">
+<li><p><strong>ROCm &gt;= 7.2</strong> with <code class="docutils literal notranslate"><span class="pre">amdgpu-dkms</span> <span class="pre">&gt;=</span> <span class="pre">30.20.1</span></code>
+(see the <a class="reference external" href="https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html">ROCm quick start installation guide</a>)</p></li>
+<li><p><strong>Supported storage:</strong> local NVMe drives only</p></li>
+<li><p><strong>Supported filesystems:</strong> ext4 (mounted with <code class="docutils literal notranslate"><span class="pre">data=ordered</span></code>) and xfs</p></li>
+<li><p><strong>Kernel:</strong> <code class="docutils literal notranslate"><span class="pre">CONFIG_PCI_P2PDMA</span></code> must be enabled</p></li>
+</ul>
+<p><strong>Quick install (Ubuntu 24.04):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>libmount-dev<span class="w"> </span>wget
+</span><span id="line-2">
+</span><span id="line-3"><span class="c1"># Install nightly hipFile packages</span>
+</span><span id="line-4">wget<span class="w"> </span>https://github.com/ROCm/hipFile/releases/download/nightly/hipfile_0.2.0.70200-nightly.9999.24.04_amd64.deb
+</span><span id="line-5">wget<span class="w"> </span>https://github.com/ROCm/hipFile/releases/download/nightly/hipfile-dev_0.2.0.70200-nightly.9999.24.04_amd64.deb
+</span><span id="line-6">sudo<span class="w"> </span>dpkg<span class="w"> </span>-i<span class="w"> </span>hipfile-dev_0.2.0.70200-nightly.9999.24.04_amd64.deb<span class="w"> </span>hipfile_0.2.0.70200-nightly.9999.24.04_amd64.deb
+</span></code></pre></div>
+</div>
+<p>You can verify that the HIP libraries and kernel support AIS (AMD Infinity Storage) by running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">/opt/rocm/bin/ais-check
+</span></code></pre></div>
+</div>
+<p>Successful output will show <code class="docutils literal notranslate"><span class="pre">True</span></code> for <code class="docutils literal notranslate"><span class="pre">Kernel</span> <span class="pre">P2PDMA</span> <span class="pre">support</span></code>, <code class="docutils literal notranslate"><span class="pre">HIP</span> <span class="pre">runtime</span></code>, and <code class="docutils literal notranslate"><span class="pre">amdgpu</span></code>.</p>
+<p><strong>LMCache configuration:</strong></p>
+<p>To use AMD hipFile instead of NVIDIA cuFile, add the following to your configuration:</p>
+<p><strong>Environment Variables:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{"use_hipfile": true}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Configuration File:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">    </span><span class="nt">use_hipfile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+</div>
+<p>Note: The <code class="docutils literal notranslate"><span class="pre">cufile_buffer_size</span></code> configuration is used for both cuFile and hipFile buffers.</p>
 </section>
 <section id="setup-example">
 <h2>Setup Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-example'"><span>#</span></a></h2>
@@ -395,6 +439,7 @@ e.g:</p>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#ways-to-configure-lmcache-gds-backend'" class="reference internal" href="#ways-to-configure-lmcache-gds-backend">Ways to configure LMCache GDS Backend</a></li>
 <li><a :data-current="activeSection === '#cufile-buffer-size-explanation'" class="reference internal" href="#cufile-buffer-size-explanation">CuFile Buffer Size Explanation</a></li>
+<li><a :data-current="activeSection === '#using-amd-hipfile'" class="reference internal" href="#using-amd-hipfile">Using AMD hipFile</a></li>
 <li><a :data-current="activeSection === '#setup-example'" class="reference internal" href="#setup-example">Setup Example</a></li>
 <li><a :data-current="activeSection === '#posix-fallback'" class="reference internal" href="#posix-fallback">POSIX fallback</a></li>
 </ul>
