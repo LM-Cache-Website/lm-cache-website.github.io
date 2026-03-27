@@ -302,6 +302,49 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </span></code></pre></div>
 </div>
 </section>
+<section id="multi-path-multi-device-support">
+<h2>Multi-Path (Multi-Device) Support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-path-multi-device-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multi-path-multi-device-support'"><span>#</span></a></h2>
+<p>When a system has multiple NVMe drives, you can distribute GDS I/O across them
+by specifying a comma-separated list of paths in <code class="docutils literal notranslate"><span class="pre">gds_path</span></code>. Each GPU worker
+automatically selects one path based on its device index (<code class="docutils literal notranslate"><span class="pre">device_id</span> <span class="pre">%</span> <span class="pre">num_paths</span></code>),
+so traffic is spread evenly across the drives without any manual pinning.</p>
+<p><strong>Why this helps:</strong> a single PCIe Gen 4 x4 NVMe tops out at ~7 GB/s. With four
+drives the aggregate bandwidth can reach ~28 GB/s, matching what multi-GPU
+systems need for KV cache eviction and prefetch.</p>
+<p><strong>Environment variables:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_PATH</span><span class="o">=</span><span class="s2">"/mnt/nvme0/cache,/mnt/nvme1/cache,/mnt/nvme2/cache,/mnt/nvme3/cache"</span>
+</span></code></pre></div>
+</div>
+<p><strong>YAML config:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/nvme0/cache,/mnt/nvme1/cache,/mnt/nvme2/cache,/mnt/nvme3/cache"</span>
+</span></code></pre></div>
+</div>
+<p>With the above configuration on a 4-GPU node:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:0</span></code> writes to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme0/cache</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:1</span></code> writes to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme1/cache</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:2</span></code> writes to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme2/cache</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:3</span></code> writes to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme3/cache</span></code></p></li>
+</ul>
+<p>If there are more GPUs than paths, the assignment wraps around (e.g. <code class="docutils literal notranslate"><span class="pre">cuda:4</span></code>
+maps back to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme0/cache</span></code>). A single path (no commas) works exactly as
+before.</p>
+<p>All directories are created automatically at startup. Every path in the list
+must reside on a filesystem that the rest of the GDS configuration expects
+(e.g., all paths on GDS-capable mounts when using cuFile).</p>
+<p><strong>Read behavior:</strong> on startup the backend scans <strong>all</strong> configured paths for
+previously-stored KV cache entries, regardless of GPU affinity.  This means a
+<code class="docutils literal notranslate"><span class="pre">cuda:0</span></code> worker whose write affinity is <code class="docutils literal notranslate"><span class="pre">/mnt/nvme0/cache</span></code> will still
+discover entries that were written to <code class="docutils literal notranslate"><span class="pre">/mnt/nvme1/cache</span></code> by <code class="docutils literal notranslate"><span class="pre">cuda:1</span></code> in a
+prior run.  Writes, however, always go to the single affinity-selected path.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Startup scan (read):   iterate ALL gds_paths → populate hot_cache
+</span><span id="line-2">Runtime writes:        only the affinity path  (device_id % num_paths)
+</span><span id="line-3">Runtime reads:         look up hot_cache first; on miss, check ALL
+</span><span id="line-4">                       gds_paths on disk → load from whichever path
+</span><span id="line-5">                       the entry lives on
+</span></code></pre></div>
+</div>
+</section>
 <section id="cufile-buffer-size-explanation">
 <h2>CuFile Buffer Size Explanation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cufile-buffer-size-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cufile-buffer-size-explanation'"><span>#</span></a></h2>
 <p>The backend currently pre-registers buffer space to speed up cuFile operations. This buffer space
@@ -438,6 +481,7 @@ e.g:</p>
 <ul>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#ways-to-configure-lmcache-gds-backend'" class="reference internal" href="#ways-to-configure-lmcache-gds-backend">Ways to configure LMCache GDS Backend</a></li>
+<li><a :data-current="activeSection === '#multi-path-multi-device-support'" class="reference internal" href="#multi-path-multi-device-support">Multi-Path (Multi-Device) Support</a></li>
 <li><a :data-current="activeSection === '#cufile-buffer-size-explanation'" class="reference internal" href="#cufile-buffer-size-explanation">CuFile Buffer Size Explanation</a></li>
 <li><a :data-current="activeSection === '#using-amd-hipfile'" class="reference internal" href="#using-amd-hipfile">Using AMD hipFile</a></li>
 <li><a :data-current="activeSection === '#setup-example'" class="reference internal" href="#setup-example">Setup Example</a></li>
