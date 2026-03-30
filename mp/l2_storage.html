@@ -292,7 +292,14 @@ cache misses.</p></li>
 <li><p><a class="reference internal" href="#buffer-only-mode" id="id8">Buffer-Only Mode</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#verifying-l2-storage" id="id9">Verifying L2 Storage</a></p></li>
+<li><p><a class="reference internal" href="#eviction" id="id9">Eviction</a></p>
+<ul>
+<li><p><a class="reference internal" href="#l1-eviction" id="id10">L1 Eviction</a></p></li>
+<li><p><a class="reference internal" href="#l2-eviction" id="id11">L2 Eviction</a></p></li>
+<li><p><a class="reference internal" href="#combined-l1-l2-eviction-example" id="id12">Combined L1 + L2 Eviction Example</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#verifying-l2-storage" id="id13">Verifying L2 Storage</a></p></li>
 </ul>
 </nav>
 <section id="data-flow">
@@ -496,8 +503,169 @@ in <code class="docutils literal notranslate"><span class="pre">storage_controll
 <code class="docutils literal notranslate"><span class="pre">l2_adapters/design_docs/overall.md</span></code> for details.</p>
 </section>
 </section>
+<section id="eviction">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h2>
+<p>LMCache supports eviction at both storage tiers so that each tier
+can operate within a fixed capacity budget.</p>
+<section id="l1-eviction">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">L1 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-eviction'"><span>#</span></a></h3>
+<p>L1 eviction runs a single background thread that monitors overall L1
+memory usage. When usage exceeds <code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code>, the eviction
+policy evicts a fraction of the least-recently-used keys.</p>
+<p><strong>CLI flags:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code></p></td>
+<td><p><em>(required)</em></p></td>
+<td><p>Policy name: <code class="docutils literal notranslate"><span class="pre">LRU</span></code> or <code class="docutils literal notranslate"><span class="pre">noop</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.8</span></code></p></td>
+<td><p>L1 usage fraction [0, 1] above which eviction is triggered.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>Fraction of currently allocated L1 memory to evict per cycle.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--eviction-ratio<span class="w"> </span><span class="m">0</span>.2
+</span></code></pre></div>
+</div>
+</section>
+<section id="l2-eviction">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">L2 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-eviction'"><span>#</span></a></h3>
+<p>L2 eviction is <strong>per-adapter</strong> and <strong>opt-in</strong>. Each adapter can
+independently declare an eviction policy by adding an <code class="docutils literal notranslate"><span class="pre">"eviction"</span></code>
+sub-object to its <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON spec. Adapters without an
+<code class="docutils literal notranslate"><span class="pre">"eviction"</span></code> key have no eviction controller.</p>
+<p>When L2 eviction is enabled for an adapter, a dedicated background
+thread monitors that adapter’s <code class="docutils literal notranslate"><span class="pre">get_usage()</span></code> value. Once usage
+exceeds <code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code>, the policy evicts keys until usage
+drops by <code class="docutils literal notranslate"><span class="pre">eviction_ratio</span></code>.</p>
+<p><strong>``”eviction”`` sub-object fields:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">eviction_policy</span></code></p></td>
+<td><p><em>(required)</em></p></td>
+<td><p>Policy name: <code class="docutils literal notranslate"><span class="pre">"LRU"</span></code> or <code class="docutils literal notranslate"><span class="pre">"noop"</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.8</span></code></p></td>
+<td><p>Adapter usage fraction [0, 1] above which eviction is triggered.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">eviction_ratio</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>Fraction of used capacity to evict per cycle.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example — nixl_store with LRU eviction:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-2"><span class="s1">  "type": "nixl_store",</span>
+</span><span id="line-3"><span class="s1">  "backend": "POSIX",</span>
+</span><span id="line-4"><span class="s1">  "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"},</span>
+</span><span id="line-5"><span class="s1">  "pool_size": 128,</span>
+</span><span id="line-6"><span class="s1">  "eviction": {</span>
+</span><span id="line-7"><span class="s1">    "eviction_policy": "LRU",</span>
+</span><span id="line-8"><span class="s1">    "trigger_watermark": 0.8,</span>
+</span><span id="line-9"><span class="s1">    "eviction_ratio": 0.2</span>
+</span><span id="line-10"><span class="s1">  }</span>
+</span><span id="line-11"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Adapter support:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Adapter</p></th>
+<th class="head"><p>L2 Eviction Support</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code></p></td>
+<td><p>Full support. <code class="docutils literal notranslate"><span class="pre">delete</span></code> frees pool slots; pinned keys (in-flight
+loads) are skipped and retried on the next cycle.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mock</span></code></p></td>
+<td><p>Full support. Useful for testing eviction behaviour without
+real storage hardware.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
+<td><p>No eviction support (<code class="docutils literal notranslate"><span class="pre">delete</span></code> and <code class="docutils literal notranslate"><span class="pre">get_usage</span></code> are no-ops).</p></td>
+</tr>
+<tr class="row-odd"><td><p>native connectors</p></td>
+<td><p>No eviction support.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Each L2 adapter instance gets its own independent eviction
+controller and policy.  Two adapters of the same type can have
+different watermarks or policies.</p>
+</div>
+</section>
+<section id="combined-l1-l2-eviction-example">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Combined L1 + L2 Eviction Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#combined-l1-l2-eviction-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#combined-l1-l2-eviction-example'"><span>#</span></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2">--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">--eviction-ratio<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-6"><span class="s1">  "type": "nixl_store",</span>
+</span><span id="line-7"><span class="s1">  "backend": "GDS",</span>
+</span><span id="line-8"><span class="s1">  "backend_params": {"file_path": "/data/nvme/l2", "use_direct_io": "true"},</span>
+</span><span id="line-9"><span class="s1">  "pool_size": 256,</span>
+</span><span id="line-10"><span class="s1">  "eviction": {</span>
+</span><span id="line-11"><span class="s1">    "eviction_policy": "LRU",</span>
+</span><span id="line-12"><span class="s1">    "trigger_watermark": 0.9,</span>
+</span><span id="line-13"><span class="s1">    "eviction_ratio": 0.1</span>
+</span><span id="line-14"><span class="s1">  }</span>
+</span><span id="line-15"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<p>In this setup:</p>
+<ul class="simple">
+<li><p>L1 evicts from memory when it is 80 % full, reclaiming 20 % of
+allocated memory per cycle.</p></li>
+<li><p>L2 (NIXL/GDS) evicts from the storage pool when 90 % of pool slots
+are occupied, reclaiming 10 % per cycle.</p></li>
+<li><p>Both tiers use independent LRU policies, so each evicts its own
+least-recently-used keys.</p></li>
+</ul>
+</section>
+</section>
 <section id="verifying-l2-storage">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
 <p>Set <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> to see L2 activity in the server logs:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -542,6 +710,12 @@ in <code class="docutils literal notranslate"><span class="pre">storage_controll
 <li><a :data-current="activeSection === '#multiple-adapters-cascade'" class="reference internal" href="#multiple-adapters-cascade">Multiple Adapters (Cascade)</a></li>
 <li><a :data-current="activeSection === '#store-and-prefetch-policies'" class="reference internal" href="#store-and-prefetch-policies">Store and Prefetch Policies</a><ul>
 <li><a :data-current="activeSection === '#buffer-only-mode'" class="reference internal" href="#buffer-only-mode">Buffer-Only Mode</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#eviction'" class="reference internal" href="#eviction">Eviction</a><ul>
+<li><a :data-current="activeSection === '#l1-eviction'" class="reference internal" href="#l1-eviction">L1 Eviction</a></li>
+<li><a :data-current="activeSection === '#l2-eviction'" class="reference internal" href="#l2-eviction">L2 Eviction</a></li>
+<li><a :data-current="activeSection === '#combined-l1-l2-eviction-example'" class="reference internal" href="#combined-l1-l2-eviction-example">Combined L1 + L2 Eviction Example</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#verifying-l2-storage'" class="reference internal" href="#verifying-l2-storage">Verifying L2 Storage</a></li>
