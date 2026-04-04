@@ -307,18 +307,22 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 <section id="multi-path-multi-device-support">
 <h2>Multi-Path (Multi-Device) Support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-path-multi-device-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multi-path-multi-device-support'"><span>#</span></a></h2>
 <p>When a system has multiple NVMe drives, you can distribute GDS I/O across them
-by specifying a comma-separated list of paths in <code class="docutils literal notranslate"><span class="pre">gds_path</span></code>. Each GPU worker
-automatically selects one path based on its device index (<code class="docutils literal notranslate"><span class="pre">device_id</span> <span class="pre">%</span> <span class="pre">num_paths</span></code>),
-so traffic is spread evenly across the drives without any manual pinning.</p>
+by specifying a comma-separated list of paths in <code class="docutils literal notranslate"><span class="pre">gds_path</span></code>. The
+<code class="docutils literal notranslate"><span class="pre">gds_path_sharding</span></code> option controls how each GPU worker selects its path.
+Currently only <code class="docutils literal notranslate"><span class="pre">"by_gpu"</span></code> is supported (the default), which selects a path
+based on the device index (<code class="docutils literal notranslate"><span class="pre">device_id</span> <span class="pre">%</span> <span class="pre">num_paths</span></code>), so traffic is spread
+evenly across the drives without any manual pinning.</p>
 <p><strong>Why this helps:</strong> a single PCIe Gen 4 x4 NVMe tops out at ~7 GB/s. With four
 drives the aggregate bandwidth can reach ~28 GB/s, matching what multi-GPU
 systems need for KV cache eviction and prefetch.</p>
 <p><strong>Environment variables:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_PATH</span><span class="o">=</span><span class="s2">"/mnt/nvme0/cache,/mnt/nvme1/cache,/mnt/nvme2/cache,/mnt/nvme3/cache"</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_PATH_SHARDING</span><span class="o">=</span><span class="s2">"by_gpu"</span>
 </span></code></pre></div>
 </div>
 <p><strong>YAML config:</strong></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/nvme0/cache,/mnt/nvme1/cache,/mnt/nvme2/cache,/mnt/nvme3/cache"</span>
+</span><span id="line-2"><span class="nt">gds_path_sharding</span><span class="p">:</span><span class="w"> </span><span class="s">"by_gpu"</span>
 </span></code></pre></div>
 </div>
 <p>With the above configuration on a 4-GPU node:</p>
