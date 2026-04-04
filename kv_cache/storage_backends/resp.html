@@ -447,16 +447,82 @@ are needed per chunk to reach the 4 MB sweet spot.</p>
 </div>
 </section>
 </section>
+<section id="environment-variable-configuration">
+<h2>Environment Variable Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variable-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variable-configuration'"><span>#</span></a></h2>
+<p>Sensitive credentials (and optionally host/port) can be provided via environment
+variables instead of config files or CLI arguments. This prevents secrets from
+appearing in logged configuration at startup.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 65.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_USERNAME</span></code></p></td>
+<td><p>Redis ACL username. Used as default when <code class="docutils literal notranslate"><span class="pre">username</span></code> is not set in config/JSON.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_PASSWORD</span></code></p></td>
+<td><p>Redis AUTH password. Used as default when <code class="docutils literal notranslate"><span class="pre">password</span></code> is not set in config/JSON.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_HOST</span></code></p></td>
+<td><p>Redis hostname or IP. Used as default when <code class="docutils literal notranslate"><span class="pre">host</span></code> is not set in config/JSON/URL.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_PORT</span></code></p></td>
+<td><p>Redis port. Used as default when <code class="docutils literal notranslate"><span class="pre">port</span></code> is not set in config/JSON/URL.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Config files (non-MP) and <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON (MP) take precedence over
+environment variables. Environment variables serve as defaults — they are used
+when the corresponding config value is empty or unset. They are read at adapter
+creation time inside the adapter itself, so they are <strong>never stored in the
+config object</strong> and <strong>never printed in startup logs</strong>.</p>
+<p><strong>Example — MP mode with env vars:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_RESP_USERNAME</span><span class="o">=</span><span class="s2">"default"</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_RESP_PASSWORD</span><span class="o">=</span><span class="s2">"secret"</span>
+</span><span id="line-3">
+</span><span id="line-4">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "resp", "host": "localhost", "port": 6379, "num_workers": 8}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span>
+</span></code></pre></div>
+</div>
+<p><strong>Example — Non-MP mode with env vars:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_RESP_USERNAME</span><span class="o">=</span><span class="s2">"default"</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_RESP_PASSWORD</span><span class="o">=</span><span class="s2">"secret"</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>resp-config.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--no-enable-prefix-caching<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--load-format<span class="w"> </span>dummy
+</span></code></pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For production deployments, always use environment variables for credentials
+rather than embedding them in config files or CLI arguments.</p>
+</div>
+</section>
 <section id="non-mp-mode-single-process">
 <h2>Non-MP Mode (Single Process)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#non-mp-mode-single-process" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#non-mp-mode-single-process'"><span>#</span></a></h2>
 <p>In non-MP mode, the RESP connector is used directly as a remote storage backend
 via the <code class="docutils literal notranslate"><span class="pre">RESPClient</span></code> asyncio wrapper.</p>
 <p><strong>Configuration file</strong> (<code class="docutils literal notranslate"><span class="pre">resp-config.yaml</span></code>):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
-</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://localhost:6379"</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"resp://localhost:6379"</span>
 </span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
 </span></code></pre></div>
 </div>
+<p>Credentials can be set via environment variables (recommended) or in the config file
+under <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> (see <a class="reference internal" href="#environment-variable-configuration">Environment Variable Configuration</a> above).</p>
 <p><strong>Launch vLLM:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>resp-config.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">vllm<span class="w"> </span>serve<span class="w"> </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
@@ -542,12 +608,12 @@ ZMQ. The RESP connector serves as an L2 adapter with variable-size chunk support
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">username</span></code></p></td>
 <td><p>str</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
-<td><p>Redis ACL username (leave empty for no auth)</p></td>
+<td><p>Redis ACL username (leave empty for no auth). Falls back to <code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_USERNAME</span></code> env var if empty.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">password</span></code></p></td>
 <td><p>str</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
-<td><p>Redis AUTH password (leave empty for no auth)</p></td>
+<td><p>Redis AUTH password (leave empty for no auth). Falls back to <code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_PASSWORD</span></code> env var if empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code></p></td>
 <td><p>float</p></td>
@@ -624,7 +690,7 @@ match or be slightly below your Redis server’s available memory.</p>
 <li><p>Use Redis 8.2+ with <code class="docutils literal notranslate"><span class="pre">--io-threads</span> <span class="pre">4</span></code> (or more, matching available cores)</p></li>
 <li><p>Disable persistence (<code class="docutils literal notranslate"><span class="pre">--save</span> <span class="pre">''</span> <span class="pre">--appendonly</span> <span class="pre">no</span></code>) for KV cache workloads</p></li>
 <li><p>Pin Redis to its own NUMA node if running on multi-socket systems</p></li>
-<li><p>For production, enable authentication with <code class="docutils literal notranslate"><span class="pre">--requirepass</span></code> and use the <code class="docutils literal notranslate"><span class="pre">username</span></code>/<code class="docutils literal notranslate"><span class="pre">password</span></code> config fields</p></li>
+<li><p>For production, enable authentication with <code class="docutils literal notranslate"><span class="pre">--requirepass</span></code> and supply credentials via <code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_USERNAME</span></code> / <code class="docutils literal notranslate"><span class="pre">LMCACHE_RESP_PASSWORD</span></code> environment variables to keep them out of logs</p></li>
 </ul>
 <p><strong>Client tuning:</strong></p>
 <ul class="simple">
@@ -682,6 +748,7 @@ match or be slightly below your Redis server’s available memory.</p>
 <li><a :data-current="activeSection === '#throughput-sweep'" class="reference internal" href="#throughput-sweep">Throughput Sweep</a></li>
 </ul>
 </li>
+<li><a :data-current="activeSection === '#environment-variable-configuration'" class="reference internal" href="#environment-variable-configuration">Environment Variable Configuration</a></li>
 <li><a :data-current="activeSection === '#non-mp-mode-single-process'" class="reference internal" href="#non-mp-mode-single-process">Non-MP Mode (Single Process)</a></li>
 <li><a :data-current="activeSection === '#mp-mode-multiprocess'" class="reference internal" href="#mp-mode-multiprocess">MP Mode (Multiprocess)</a><ul>
 <li><a :data-current="activeSection === '#l2-adapter-configuration'" class="reference internal" href="#l2-adapter-configuration">L2 Adapter Configuration</a></li>
