@@ -270,6 +270,11 @@
 <h1>Remote Storage Plugins<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#remote-storage-plugins"><span>#</span></a></h1>
 <p>LMCache supports built-in remote storage connectors for Redis, InfiniStore, MooncakeStore, S3, and more.
 The remote storage plugin system provides the ability to add custom storage connectors through dynamic loading. This enables extending remote storage capabilities without modifying core code.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">remote_url</span></code> configuration is <strong>deprecated</strong> and will be removed in a future release.
+Please use <code class="docutils literal notranslate"><span class="pre">remote_storage_plugins</span></code> instead.</p>
+</div>
 <section id="connector-definition-requirements">
 <h2>Connector Definition Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-definition-requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-definition-requirements'"><span>#</span></a></h2>
 <p>A custom remote storage connector requires two classes:</p>
@@ -291,11 +296,46 @@ The remote storage plugin system provides the ability to add custom storage conn
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">ConnectorAdapter</span></code> constructor receives no arguments from LMCache. The scheme should be set by calling the parent constructor with the scheme string.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">create_connector</span></code> method receives a <code class="docutils literal notranslate"><span class="pre">ConnectorContext</span></code> object containing the URL, event loop, local CPU backend, config, and metadata.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">create_connector</span></code> method receives a <code class="docutils literal notranslate"><span class="pre">ConnectorContext</span></code> object containing the URL, event loop, local CPU backend, config, metadata, and <code class="docutils literal notranslate"><span class="pre">plugin_name</span></code>.</p>
 </div>
 </section>
-<section id="how-to-integrate-remote-storage-with-lmcache">
-<h2>How to Integrate Remote Storage with LMCache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-to-integrate-remote-storage-with-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-to-integrate-remote-storage-with-lmcache'"><span>#</span></a></h2>
+<section id="plugin-naming-convention">
+<h2>Plugin Naming Convention<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#plugin-naming-convention" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#plugin-naming-convention'"><span>#</span></a></h2>
+<p>Plugin names follow the format <code class="docutils literal notranslate"><span class="pre">{type}</span></code> or <code class="docutils literal notranslate"><span class="pre">{type}.{instance}</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{type}</span></code> — a single instance of that connector type (e.g. <code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncakestore</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{type}.{instance}</span></code> — a named instance, allowing <strong>multiple instances of the same type</strong> (e.g. <code class="docutils literal notranslate"><span class="pre">fs.primary</span></code>, <code class="docutils literal notranslate"><span class="pre">fs.backup</span></code>)</p></li>
+</ul>
+<p>The framework extracts the <em>type</em> portion (everything before the first <code class="docutils literal notranslate"><span class="pre">.</span></code>) to locate the matching <code class="docutils literal notranslate"><span class="pre">ConnectorAdapter</span></code>. The full plugin name is used as the configuration key prefix.</p>
+</section>
+<section id="using-built-in-connectors-via-plugins">
+<h2>Using Built-in Connectors via Plugins<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-built-in-connectors-via-plugins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-built-in-connectors-via-plugins'"><span>#</span></a></h2>
+<p>Built-in connectors (<code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncakestore</span></code>, etc.) can be used directly via <code class="docutils literal notranslate"><span class="pre">remote_storage_plugins</span></code> without specifying <code class="docutils literal notranslate"><span class="pre">module_path</span></code> or <code class="docutils literal notranslate"><span class="pre">class_name</span></code>. Their configuration is placed under <code class="docutils literal notranslate"><span class="pre">extra_config</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="line-4"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"fs"</span><span class="p p-Indicator">]</span>
+</span><span id="line-5"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">remote_storage_plugin.fs.base_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/tmp/lmcache</span>
+</span></code></pre></div>
+</div>
+<p>Multiple instances of the same connector type:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"fs.primary"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"fs.backup"</span><span class="p p-Indicator">]</span>
+</span><span id="line-2"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">remote_storage_plugin.fs.primary.base_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/cache1</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">remote_storage_plugin.fs.backup.base_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/cache2</span>
+</span></code></pre></div>
+</div>
+<p>Mixing different connector types:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"fs.local"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"mooncakestore"</span><span class="p p-Indicator">]</span>
+</span><span id="line-2"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">remote_storage_plugin.fs.local.base_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/cache</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">remote_storage_plugin.mooncakestore.master_server_address</span><span class="p">:</span><span class="w"> </span><span class="s">"localhost:50051"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="how-to-integrate-custom-remote-storage-with-lmcache">
+<h2>How to Integrate Custom Remote Storage with LMCache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-to-integrate-custom-remote-storage-with-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-to-integrate-custom-remote-storage-with-lmcache'"><span>#</span></a></h2>
 <ol class="arabic simple">
 <li><p>Install your connector package in the LMCache environment</p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">remote_storage_plugins</span></code> and its related <code class="docutils literal notranslate"><span class="pre">module_path</span></code> and <code class="docutils literal notranslate"><span class="pre">class_name</span></code> to the <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> section of LMCache configuration as follows:</p></li>
@@ -303,30 +343,38 @@ The remote storage plugin system provides the ability to add custom storage conn
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
 </span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mystore://localhost:8080"</span>
-</span><span id="line-5"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mystore"</span><span class="p p-Indicator">]</span>
-</span><span id="line-6"><span class="nt">extra_config</span><span class="p">:</span>
-</span><span id="line-7"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;module_path&gt;</span>
-</span><span id="line-8"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;adapter_class_name&gt;</span>
+</span><span id="line-4"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mystore"</span><span class="p p-Indicator">]</span>
+</span><span id="line-5"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;module_path&gt;</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;adapter_class_name&gt;</span>
 </span></code></pre></div>
 </div>
-<p>An example configuration for a custom remote storage connector is as follows:</p>
+<p>An example configuration for a custom remote storage connector:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
 </span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mystore://localhost:8080/data"</span>
-</span><span id="line-5"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mystore"</span><span class="p p-Indicator">]</span>
-</span><span id="line-6"><span class="nt">extra_config</span><span class="p">:</span>
-</span><span id="line-7"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package.my_connector</span>
-</span><span id="line-8"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyStoreConnectorAdapter</span>
+</span><span id="line-4"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mystore"</span><span class="p p-Indicator">]</span>
+</span><span id="line-5"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package.my_connector</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyStoreConnectorAdapter</span>
+</span></code></pre></div>
+</div>
+<p>Multiple instances of a custom connector:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">remote_storage_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mystore.region_a"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"mystore.region_b"</span><span class="p p-Indicator">]</span>
+</span><span id="line-2"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.region_a.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package.my_connector</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.region_a.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyStoreConnectorAdapter</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.region_b.module_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package.my_connector</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">remote_storage_plugin.mystore.region_b.class_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyStoreConnectorAdapter</span>
 </span></code></pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">remote_url</span></code> scheme must match the scheme registered by your <code class="docutils literal notranslate"><span class="pre">ConnectorAdapter</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">remote_storage_plugin.&lt;connector_name&gt;</span></code> distinguishes different dynamically loaded connectors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">remote_url</span></code> is <strong>deprecated</strong>; use <code class="docutils literal notranslate"><span class="pre">remote_storage_plugins</span></code> instead</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">remote_storage_plugin.&lt;plugin_name&gt;</span></code> uses the full plugin name (including instance suffix) as the key prefix</p></li>
 <li><p>Multiple remote storage plugins can be loaded simultaneously</p></li>
+<li><p>Built-in connectors do not require <code class="docutils literal notranslate"><span class="pre">module_path</span></code> / <code class="docutils literal notranslate"><span class="pre">class_name</span></code></p></li>
 </ul>
 </div>
 </section>
@@ -343,21 +391,40 @@ The remote storage plugin system provides the ability to add custom storage conn
 </span><span id="line-4"><span class="p">)</span>
 </span><span id="line-5"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.storage_backend.connector.base_connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteConnector</span>
 </span><span id="line-6">
-</span><span id="line-7"><span class="k">class</span><span class="w"> </span><span class="nc">MyStoreConnectorAdapter</span><span class="p">(</span><span class="n">ConnectorAdapter</span><span class="p">):</span>
-</span><span id="line-8"><span class="w">    </span><span class="sd">"""Adapter for MyStore remote storage."""</span>
-</span><span id="line-9">
-</span><span id="line-10">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-11">        <span class="c1"># Register the URL scheme this adapter handles</span>
-</span><span id="line-12">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"mystore://"</span><span class="p">)</span>
+</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.storage_backend.connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_plugin_type</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="n">PLUGIN_TYPE</span> <span class="o">=</span> <span class="s2">"mystore"</span>
+</span><span id="line-10">
+</span><span id="line-11"><span class="k">class</span><span class="w"> </span><span class="nc">MyStoreConnectorAdapter</span><span class="p">(</span><span class="n">ConnectorAdapter</span><span class="p">):</span>
+</span><span id="line-12"><span class="w">    </span><span class="sd">"""Adapter for MyStore remote storage."""</span>
 </span><span id="line-13">
-</span><span id="line-14">    <span class="k">def</span><span class="w"> </span><span class="nf">create_connector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">ConnectorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RemoteConnector</span><span class="p">:</span>
-</span><span id="line-15"><span class="w">        </span><span class="sd">"""Create and return a MyStoreConnector instance."""</span>
-</span><span id="line-16">        <span class="c1"># Access context properties as needed:</span>
-</span><span id="line-17">        <span class="c1"># - context.url: the full remote URL</span>
-</span><span id="line-18">        <span class="c1"># - context.loop: asyncio event loop</span>
-</span><span id="line-19">        <span class="c1"># - context.config: LMCacheEngineConfig</span>
-</span><span id="line-20">        <span class="c1"># - context.metadata: LMCacheEngineMetadata</span>
-</span><span id="line-21">        <span class="k">return</span> <span class="n">MyStoreConnector</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+</span><span id="line-14">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-15">        <span class="c1"># Register the URL scheme this adapter handles</span>
+</span><span id="line-16">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"mystore://"</span><span class="p">)</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">can_parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="line-19"><span class="w">        </span><span class="sd">"""Match legacy URL or plugin://{type}[.{instance}] format."""</span>
+</span><span id="line-20">        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">):</span>
+</span><span id="line-21">            <span class="k">return</span> <span class="kc">True</span>
+</span><span id="line-22">        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"plugin://"</span><span class="p">):</span>
+</span><span id="line-23">            <span class="n">pname</span> <span class="o">=</span> <span class="n">url</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">"plugin://"</span><span class="p">):]</span>
+</span><span id="line-24">            <span class="k">return</span> <span class="n">extract_plugin_type</span><span class="p">(</span><span class="n">pname</span><span class="p">)</span> <span class="o">==</span> <span class="n">PLUGIN_TYPE</span>
+</span><span id="line-25">        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="line-26">
+</span><span id="line-27">    <span class="k">def</span><span class="w"> </span><span class="nf">create_connector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">ConnectorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RemoteConnector</span><span class="p">:</span>
+</span><span id="line-28"><span class="w">        </span><span class="sd">"""Create and return a MyStoreConnector instance."""</span>
+</span><span id="line-29">        <span class="c1"># Access context properties as needed:</span>
+</span><span id="line-30">        <span class="c1"># - context.url: the full remote URL</span>
+</span><span id="line-31">        <span class="c1"># - context.loop: asyncio event loop</span>
+</span><span id="line-32">        <span class="c1"># - context.config: LMCacheEngineConfig</span>
+</span><span id="line-33">        <span class="c1"># - context.metadata: LMCacheEngineMetadata</span>
+</span><span id="line-34">        <span class="c1"># - context.plugin_name: plugin instance name</span>
+</span><span id="line-35">        <span class="c1">#   (e.g. "mystore", "mystore.region_a")</span>
+</span><span id="line-36">        <span class="k">return</span> <span class="n">MyStoreConnector</span><span class="p">(</span>
+</span><span id="line-37">            <span class="n">context</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+</span><span id="line-38">            <span class="n">context</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+</span><span id="line-39">            <span class="n">plugin_name</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">plugin_name</span><span class="p">,</span>
+</span><span id="line-40">        <span class="p">)</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -432,20 +499,31 @@ The remote storage plugin system provides the ability to add custom storage conn
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.storage_backend.connector</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span id="line-2">    <span class="n">ConnectorAdapter</span><span class="p">,</span>
 </span><span id="line-3">    <span class="n">ConnectorContext</span><span class="p">,</span>
-</span><span id="line-4"><span class="p">)</span>
-</span><span id="line-5"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.storage_backend.connector.base_connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteConnector</span>
-</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">.connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStoreConnector</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="k">class</span><span class="w"> </span><span class="nc">MyStoreConnectorAdapter</span><span class="p">(</span><span class="n">ConnectorAdapter</span><span class="p">):</span>
-</span><span id="line-9">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-10">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"mystore://"</span><span class="p">)</span>
-</span><span id="line-11">
-</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">create_connector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">ConnectorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RemoteConnector</span><span class="p">:</span>
-</span><span id="line-13">        <span class="k">return</span> <span class="n">MyStoreConnector</span><span class="p">(</span>
-</span><span id="line-14">            <span class="n">context</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
-</span><span id="line-15">            <span class="n">context</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
-</span><span id="line-16">            <span class="n">context</span><span class="o">.</span><span class="n">metadata</span>
-</span><span id="line-17">        <span class="p">)</span>
+</span><span id="line-4">    <span class="n">extract_plugin_type</span><span class="p">,</span>
+</span><span id="line-5"><span class="p">)</span>
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.storage_backend.connector.base_connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteConnector</span>
+</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">.connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStoreConnector</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="n">PLUGIN_TYPE</span> <span class="o">=</span> <span class="s2">"mystore"</span>
+</span><span id="line-10">
+</span><span id="line-11"><span class="k">class</span><span class="w"> </span><span class="nc">MyStoreConnectorAdapter</span><span class="p">(</span><span class="n">ConnectorAdapter</span><span class="p">):</span>
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-13">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"mystore://"</span><span class="p">)</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">can_parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">):</span>
+</span><span id="line-17">            <span class="k">return</span> <span class="kc">True</span>
+</span><span id="line-18">        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"plugin://"</span><span class="p">):</span>
+</span><span id="line-19">            <span class="n">pname</span> <span class="o">=</span> <span class="n">url</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">"plugin://"</span><span class="p">):]</span>
+</span><span id="line-20">            <span class="k">return</span> <span class="n">extract_plugin_type</span><span class="p">(</span><span class="n">pname</span><span class="p">)</span> <span class="o">==</span> <span class="n">PLUGIN_TYPE</span>
+</span><span id="line-21">        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="line-22">
+</span><span id="line-23">    <span class="k">def</span><span class="w"> </span><span class="nf">create_connector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">ConnectorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RemoteConnector</span><span class="p">:</span>
+</span><span id="line-24">        <span class="k">return</span> <span class="n">MyStoreConnector</span><span class="p">(</span>
+</span><span id="line-25">            <span class="n">context</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+</span><span id="line-26">            <span class="n">context</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+</span><span id="line-27">            <span class="n">plugin_name</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">plugin_name</span><span class="p">,</span>
+</span><span id="line-28">        <span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p>Configuration would then reference the adapter:</p>
@@ -478,7 +556,9 @@ The remote storage plugin system provides the ability to add custom storage conn
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#connector-definition-requirements'" class="reference internal" href="#connector-definition-requirements">Connector Definition Requirements</a></li>
-<li><a :data-current="activeSection === '#how-to-integrate-remote-storage-with-lmcache'" class="reference internal" href="#how-to-integrate-remote-storage-with-lmcache">How to Integrate Remote Storage with LMCache</a></li>
+<li><a :data-current="activeSection === '#plugin-naming-convention'" class="reference internal" href="#plugin-naming-convention">Plugin Naming Convention</a></li>
+<li><a :data-current="activeSection === '#using-built-in-connectors-via-plugins'" class="reference internal" href="#using-built-in-connectors-via-plugins">Using Built-in Connectors via Plugins</a></li>
+<li><a :data-current="activeSection === '#how-to-integrate-custom-remote-storage-with-lmcache'" class="reference internal" href="#how-to-integrate-custom-remote-storage-with-lmcache">How to Integrate Custom Remote Storage with LMCache</a></li>
 <li><a :data-current="activeSection === '#connectoradapter-implementation'" class="reference internal" href="#connectoradapter-implementation">ConnectorAdapter Implementation</a></li>
 <li><a :data-current="activeSection === '#remoteconnector-implementation'" class="reference internal" href="#remoteconnector-implementation">RemoteConnector Implementation</a></li>
 <li><a :data-current="activeSection === '#optional-methods'" class="reference internal" href="#optional-methods">Optional Methods</a></li>
