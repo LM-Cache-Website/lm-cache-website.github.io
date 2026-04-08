@@ -306,6 +306,50 @@ memory of the same machine that is running inference.</p>
 </span></code></pre></div>
 </div>
 </section>
+<section id="multi-path-multi-device-disk-offloading">
+<h2>Multi-Path (Multi-Device) Disk Offloading<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-path-multi-device-disk-offloading" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multi-path-multi-device-disk-offloading'"><span>#</span></a></h2>
+<p>If you have <strong>multiple NVMe devices</strong> (or any independent mount points), you can
+assign each GPU its own disk path so that each device writes to a dedicated drive.</p>
+<p>Specify a <strong>comma-separated list</strong> of paths in <code class="docutils literal notranslate"><span class="pre">local_disk</span></code>.
+Each path can optionally use the <code class="docutils literal notranslate"><span class="pre">file://</span></code> prefix.  The
+<code class="docutils literal notranslate"><span class="pre">local_disk_path_sharding</span></code> option controls how each GPU worker selects its
+path.  Currently only <code class="docutils literal notranslate"><span class="pre">"by_gpu"</span></code> is supported (the default), which selects a
+path based on the device index (<code class="docutils literal notranslate"><span class="pre">device_id</span> <span class="pre">%</span> <span class="pre">num_paths</span></code>), so all KV cache
+files from a given GPU land on the same NVMe.  This is especially useful when
+GPUs and NVMe devices share a PCIe switch or NUMA node.</p>
+<p>For example, with two GPUs and two paths:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:0</span></code> → <code class="docutils literal notranslate"><span class="pre">/mnt/nvme0/kvcache/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cuda:1</span></code> → <code class="docutils literal notranslate"><span class="pre">/mnt/nvme1/kvcache/</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">max_local_disk_size</span></code> is the <strong>total budget</strong> shared across all paths.</p>
+<p><strong>Environment variable example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_LOCAL_DISK</span><span class="o">=</span><span class="s2">"file:///mnt/nvme0/kvcache/,file:///mnt/nvme1/kvcache/"</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_LOCAL_DISK_PATH_SHARDING</span><span class="o">=</span><span class="s2">"by_gpu"</span>
+</span><span id="line-3"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_MAX_LOCAL_DISK_SIZE</span><span class="o">=</span><span class="m">20</span>.0<span class="w">   </span><span class="c1"># combined budget (GB)</span>
+</span></code></pre></div>
+</div>
+<p><strong>YAML example:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">local_disk</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/nvme0/kvcache/,/mnt/nvme1/kvcache/"</span>
+</span><span id="line-2"><span class="nt">local_disk_path_sharding</span><span class="p">:</span><span class="w"> </span><span class="s">"by_gpu"</span>
+</span><span id="line-3"><span class="nt">max_local_disk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20.0</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Each GPU worker uses only its assigned path, so O_DIRECT alignment
+is determined by that path’s filesystem block size.  Different
+devices may have different block sizes without issue.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you are able to use kernel-level RAID 0 (e.g. <code class="docutils literal notranslate"><span class="pre">mdadm</span> <span class="pre">--level=0</span></code>)
+you will get true block-level striping (even a single large file can
+use bandwidth from both devices simultaneously).  The multi-path
+feature is most useful when you cannot or do not want to reconfigure
+the block devices — for example, when they already have other data.</p>
+</div>
+</section>
 <section id="local-storage-explanation">
 <h2>Local Storage Explanation:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#local-storage-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#local-storage-explanation'"><span>#</span></a></h2>
 <p>Unlike CPU RAM offloading, disk offloading is <em>disabled</em> by default (<code class="docutils literal notranslate"><span class="pre">local_disk</span></code> is set to <code class="docutils literal notranslate"><span class="pre">None</span></code>) and the
@@ -634,6 +678,7 @@ subset of the disk’s KV caches.</p>
 <ul>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#two-ways-to-configure-lmcache-disk-offloading'" class="reference internal" href="#two-ways-to-configure-lmcache-disk-offloading">Two ways to configure LMCache Disk Offloading:</a></li>
+<li><a :data-current="activeSection === '#multi-path-multi-device-disk-offloading'" class="reference internal" href="#multi-path-multi-device-disk-offloading">Multi-Path (Multi-Device) Disk Offloading</a></li>
 <li><a :data-current="activeSection === '#local-storage-explanation'" class="reference internal" href="#local-storage-explanation">Local Storage Explanation:</a></li>
 <li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
 <li><a :data-current="activeSection === '#save-flow-put'" class="reference internal" href="#save-flow-put">Save Flow (PUT)</a></li>
