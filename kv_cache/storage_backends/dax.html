@@ -292,8 +292,49 @@ Reads copy data back into CPU-backed memory objects.</p>
 </span><span id="line-8">
 </span><span id="line-9"><span class="w">  </span><span class="nt">dax.device_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/dev/dax1.0"</span>
 </span><span id="line-10"><span class="w">  </span><span class="nt">dax.max_dax_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">dax.restore_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">dax.restore_max_regions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">dax.retrieve_staging_slab_bytes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">268435456</span>
 </span></code></pre></div>
 </div>
+</section>
+<section id="using-the-batched-restore-path">
+<h2>Using The Batched Restore Path<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-batched-restore-path" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-batched-restore-path'"><span>#</span></a></h2>
+<p>The current DAX optimization is a staged batched restore path for retrieval.
+It is enabled automatically whenever the DAX backend is configured. No extra
+feature flag is required.</p>
+<p>The retrieve flow is:</p>
+<ol class="arabic simple">
+<li><p>Reserve a batched set of readable DAX chunks.</p></li>
+<li><p>Allocate CPU restore buffers from <code class="docutils literal notranslate"><span class="pre">LocalCPUBackend</span></code>.</p></li>
+<li><p>Copy DAX data into a backend-owned pinned staging slab in coalesced regions.</p></li>
+<li><p>Copy from the staging slab into the final CPU <code class="docutils literal notranslate"><span class="pre">MemoryObj</span></code> outputs.</p></li>
+<li><p>Upload those CPU outputs through the normal GPU connector path.</p></li>
+</ol>
+<p>The store flow is unchanged: KV data is still staged through CPU memory before
+being written into the DAX arena.</p>
+<p>The new DAX tuning knobs control the batched restore path:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.restore_workers</span></code>: number of persistent worker threads used to execute
+restore regions in parallel.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.restore_max_regions</span></code>: maximum number of restore regions in one wave.
+Larger values increase parallelism but also increase slab space requirements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.retrieve_staging_slab_bytes</span></code>: total size in bytes of the reusable
+pinned retrieve slab. This must be large enough to hold one full chunk per
+configured restore region.</p></li>
+</ul>
+<p>For a first pass, start with:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.restore_workers</span></code> equal to the number of CPU workers you want devoted
+to DAX restores</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.restore_max_regions</span></code> equal to <code class="docutils literal notranslate"><span class="pre">dax.restore_workers</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dax.retrieve_staging_slab_bytes</span></code> at least
+<code class="docutils literal notranslate"><span class="pre">dax.restore_max_regions</span> <span class="pre">*</span> <span class="pre">full_chunk_size</span></code>, then scale upward if larger
+batched restores are common</p></li>
+</ul>
+<p>If retrieve throughput is low, increase the slab size first, then increase
+worker and region counts together. If CPU pressure is high, reduce
+<code class="docutils literal notranslate"><span class="pre">dax.restore_workers</span></code> and <code class="docutils literal notranslate"><span class="pre">dax.restore_max_regions</span></code>.</p>
 </section>
 <section id="runtime-requirements">
 <h2>Runtime Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-requirements'"><span>#</span></a></h2>
@@ -313,6 +354,12 @@ memory objects.</p></li>
 (<code class="docutils literal notranslate"><span class="pre">metadata.world_size</span> <span class="pre">==</span> <span class="pre">1</span></code>).</p></li>
 <li><p>Only single-tensor chunk layouts are supported. Multi-tensor put
 requests are rejected.</p></li>
+<li><p>Batched restore uses a backend-owned retrieve staging slab and persistent
+restore executors. The slab and region count can be tuned with
+<code class="docutils literal notranslate"><span class="pre">dax.restore_workers</span></code>, <code class="docutils literal notranslate"><span class="pre">dax.restore_max_regions</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">dax.retrieve_staging_slab_bytes</span></code>.</p></li>
+<li><p>Blocking batched restore preserves positional output semantics, while
+asynchronous batched restore returns only the consecutive hit prefix.</p></li>
 </ul>
 </section>
 </section>
@@ -338,6 +385,7 @@ requests are rejected.</p></li>
 <ul>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#using-the-batched-restore-path'" class="reference internal" href="#using-the-batched-restore-path">Using The Batched Restore Path</a></li>
 <li><a :data-current="activeSection === '#runtime-requirements'" class="reference internal" href="#runtime-requirements">Runtime Requirements</a></li>
 <li><a :data-current="activeSection === '#validation-and-current-limits'" class="reference internal" href="#validation-and-current-limits">Validation and Current Limits</a></li>
 </ul>
