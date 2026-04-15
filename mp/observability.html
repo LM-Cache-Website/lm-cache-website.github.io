@@ -282,11 +282,15 @@ producers (L1Manager, StorageManager, MPCacheEngine) from subscribers.</p>
 <ul>
 <li><p><a class="reference internal" href="#storagemanager-metrics" id="id4">StorageManager Metrics</a></p></li>
 <li><p><a class="reference internal" href="#l1-metrics" id="id5">L1 Metrics</a></p></li>
-<li><p><a class="reference internal" href="#prometheus-scrape-configuration" id="id6">Prometheus Scrape Configuration</a></p></li>
+<li><p><a class="reference internal" href="#l1-chunk-lifecycle-histograms" id="id6">L1 Chunk Lifecycle Histograms</a></p></li>
+<li><p><a class="reference internal" href="#l2-metrics" id="id7">L2 Metrics</a></p></li>
+<li><p><a class="reference internal" href="#l0-gpu-block-lifecycle-histograms" id="id8">L0 (GPU) Block Lifecycle Histograms</a></p></li>
+<li><p><a class="reference internal" href="#observable-gauges" id="id9">Observable Gauges</a></p></li>
+<li><p><a class="reference internal" href="#prometheus-scrape-configuration" id="id10">Prometheus Scrape Configuration</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#logging" id="id7">Logging</a></p></li>
-<li><p><a class="reference internal" href="#tracing" id="id8">Tracing</a></p></li>
+<li><p><a class="reference internal" href="#logging" id="id11">Logging</a></p></li>
+<li><p><a class="reference internal" href="#tracing" id="id12">Tracing</a></p></li>
 </ul>
 </nav>
 <section id="quick-start">
@@ -348,6 +352,11 @@ exporting metrics (push mode) and traces.</p></td>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">9090</span></code></p></td>
 <td><p>Port for the Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> HTTP endpoint.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--metrics-sample-rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.01</span></code></p></td>
+<td><p>Fraction of chunks/blocks to track for lifecycle histograms
+(0, 1.0]. Counters always count all events. Default is 1%.</p></td>
 </tr>
 </tbody>
 </table>
@@ -454,8 +463,172 @@ dots are converted to underscores and counters get a <code class="docutils liter
 </tbody>
 </table>
 </section>
+<section id="l1-chunk-lifecycle-histograms">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">L1 Chunk Lifecycle Histograms</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-chunk-lifecycle-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-chunk-lifecycle-histograms'"><span>#</span></a></h3>
+<p>Sampled (default 1%) chunk-level lifecycle tracking via
+<code class="docutils literal notranslate"><span class="pre">L1LifecycleSubscriber</span></code>. Only sampled chunks contribute to histograms;
+counters above always count all events. Sampling is deterministic
+(hash-based), so the same key always gets the same decision with zero
+memory overhead.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_lifetime_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from allocation to eviction per sampled chunk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_idle_before_evict_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from last access to eviction per sampled chunk.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time gap between consecutive touches (read or write) of the same chunk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_evict_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from eviction to next reuse (capped at 300 s).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l2-metrics">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">L2 Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-metrics'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_tasks</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 store tasks submitted.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 store.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_completed</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 store tasks completed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_succeeded_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully stored to L2.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to store to L2.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_lookups</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 prefetch lookup requests.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_lookup_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 prefetch lookup.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_hit_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of prefix keys found in L2 lookup.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_load_tasks</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 prefetch load tasks submitted.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_load_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 load.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_loaded_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully loaded from L2.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to load from L2.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l0-gpu-block-lifecycle-histograms">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">L0 (GPU) Block Lifecycle Histograms</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l0-gpu-block-lifecycle-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l0-gpu-block-lifecycle-histograms'"><span>#</span></a></h3>
+<p>Sampled (default 1%) GPU KV cache block lifecycle tracking via
+<code class="docutils literal notranslate"><span class="pre">L0LifecycleSubscriber</span></code>. Eviction is detected at reallocation time
+(when a block is assigned different tokens). Sampling is deterministic
+(hash-based).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_lifetime_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from allocation to eviction per sampled GPU block.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_idle_before_evict_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from last access to eviction per sampled GPU block.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time gaps between consecutive accesses of the same GPU block.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="observable-gauges">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Observable Gauges</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observable-gauges" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observable-gauges'"><span>#</span></a></h3>
+<p>Point-in-time state snapshots registered via <code class="docutils literal notranslate"><span class="pre">register_gauge</span></code>
+(pull-based OTel observable gauges).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.active_prefetch_jobs</span></code></p></td>
+<td><p>ObservableGauge</p></td>
+<td><p>Number of prefetch jobs currently in-flight. A sustained high
+value may indicate slow L2 backends or polling delays.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="prometheus-scrape-configuration">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Prometheus Scrape Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Prometheus Scrape Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h3>
 <p>Add the LMCache server as a Prometheus scrape target:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">scrape_configs</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-mp"</span>
@@ -466,7 +639,7 @@ dots are converted to underscores and counters get a <code class="docutils liter
 </section>
 </section>
 <section id="logging">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Logging</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Logging</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging'"><span>#</span></a></h2>
 <p>Logging subscribers emit debug-level messages for store, retrieve, lookup,
 L1, and StorageManager events via Python’s standard <code class="docutils literal notranslate"><span class="pre">logging</span></code> module.</p>
 <p>When OpenTelemetry is installed, <code class="docutils literal notranslate"><span class="pre">init_logger</span></code> automatically attaches an
@@ -507,7 +680,7 @@ environment variable.</p>
 </table>
 </section>
 <section id="tracing">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">Tracing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tracing'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Tracing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tracing'"><span>#</span></a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> <strong>requires</strong> <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> to be set.
@@ -563,6 +736,10 @@ the tracing subscriber creates OTel spans from START/END event pairs:</p>
 <li><a :data-current="activeSection === '#metrics'" class="reference internal" href="#metrics">Metrics</a><ul>
 <li><a :data-current="activeSection === '#storagemanager-metrics'" class="reference internal" href="#storagemanager-metrics">StorageManager Metrics</a></li>
 <li><a :data-current="activeSection === '#l1-metrics'" class="reference internal" href="#l1-metrics">L1 Metrics</a></li>
+<li><a :data-current="activeSection === '#l1-chunk-lifecycle-histograms'" class="reference internal" href="#l1-chunk-lifecycle-histograms">L1 Chunk Lifecycle Histograms</a></li>
+<li><a :data-current="activeSection === '#l2-metrics'" class="reference internal" href="#l2-metrics">L2 Metrics</a></li>
+<li><a :data-current="activeSection === '#l0-gpu-block-lifecycle-histograms'" class="reference internal" href="#l0-gpu-block-lifecycle-histograms">L0 (GPU) Block Lifecycle Histograms</a></li>
+<li><a :data-current="activeSection === '#observable-gauges'" class="reference internal" href="#observable-gauges">Observable Gauges</a></li>
 <li><a :data-current="activeSection === '#prometheus-scrape-configuration'" class="reference internal" href="#prometheus-scrape-configuration">Prometheus Scrape Configuration</a></li>
 </ul>
 </li>
