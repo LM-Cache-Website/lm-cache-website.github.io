@@ -283,8 +283,8 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_CHUNK_SIZE</span><span class="o">=</span><span class="m">256</span>
 </span><span id="line-3"><span class="c1"># Path to store files</span>
 </span><span id="line-4"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_PATH</span><span class="o">=</span><span class="s2">"/mnt/gds/cache"</span>
-</span><span id="line-5"><span class="c1"># CuFile Buffer Size in MiB</span>
-</span><span id="line-6"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_CUFILE_BUFFER_SIZE</span><span class="o">=</span><span class="s2">"8192"</span>
+</span><span id="line-5"><span class="c1"># GDS Buffer Size in MiB</span>
+</span><span id="line-6"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_BUFFER_SIZE</span><span class="o">=</span><span class="s2">"8192"</span>
 </span><span id="line-7"><span class="c1"># Disabling CPU RAM offload is sometimes recommended as the</span>
 </span><span id="line-8"><span class="c1"># CPU can get in the way of GPUDirect operations</span>
 </span><span id="line-9"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_LOCAL_CPU</span><span class="o">=</span>False
@@ -299,8 +299,8 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </span><span id="line-4"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span><span id="line-5"><span class="c1"># Path to file system, local, remote or GDS-enabled mount</span>
 </span><span id="line-6"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/gds/cache"</span>
-</span><span id="line-7"><span class="c1"># CuFile Buffer Size in MiB</span>
-</span><span id="line-8"><span class="nt">cufile_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
+</span><span id="line-7"><span class="c1"># GDS Buffer Size in MiB</span>
+</span><span id="line-8"><span class="nt">gds_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -351,9 +351,9 @@ prior run.  Writes, however, always go to the single affinity-selected path.</p>
 </span></code></pre></div>
 </div>
 </section>
-<section id="cufile-buffer-size-explanation">
-<h2>CuFile Buffer Size Explanation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cufile-buffer-size-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cufile-buffer-size-explanation'"><span>#</span></a></h2>
-<p>The backend currently pre-registers buffer space to speed up cuFile operations. This buffer space
+<section id="gds-buffer-size-explanation">
+<h2>GDS Buffer Size Explanation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-buffer-size-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-buffer-size-explanation'"><span>#</span></a></h2>
+<p>The backend currently pre-registers buffer space to speed up GDS operations. This buffer space
 is registered in VRAM so options like <code class="docutils literal notranslate"><span class="pre">--gpu-memory-utilization</span></code> from <code class="docutils literal notranslate"><span class="pre">vllm</span></code> should be considered
 when setting it. For example, a good rule of thumb for H100 which generally has 80GiBs of VRAM would
 be to start with 8GiB and set <code class="docutils literal notranslate"><span class="pre">--gpu-memory-utilization</span> <span class="pre">0.85</span></code> and depending on your workflow fine-tune
@@ -390,17 +390,16 @@ For full installation details, see the
 </div>
 <p>Successful output will show <code class="docutils literal notranslate"><span class="pre">True</span></code> for <code class="docutils literal notranslate"><span class="pre">Kernel</span> <span class="pre">P2PDMA</span> <span class="pre">support</span></code>, <code class="docutils literal notranslate"><span class="pre">HIP</span> <span class="pre">runtime</span></code>, and <code class="docutils literal notranslate"><span class="pre">amdgpu</span></code>.</p>
 <p><strong>LMCache configuration:</strong></p>
-<p>To use AMD hipFile instead of NVIDIA cuFile, add the following to your configuration:</p>
+<p>To use AMD hipFile instead of NVIDIA cuFile, set the GDS backend:</p>
 <p><strong>Environment Variables:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{"use_hipfile": true}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_GDS_BACKEND</span><span class="o">=</span>hipfile
 </span></code></pre></div>
 </div>
 <p><strong>Configuration File:</strong></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">extra_config</span><span class="p">:</span>
-</span><span id="line-2"><span class="w">    </span><span class="nt">use_hipfile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">gds_backend</span><span class="p">:</span><span class="w"> </span><span class="s">"hipfile"</span>
 </span></code></pre></div>
 </div>
-<p>Note: The <code class="docutils literal notranslate"><span class="pre">cufile_buffer_size</span></code> configuration is used for both cuFile and hipFile buffers.</p>
+<p>Note: The <code class="docutils literal notranslate"><span class="pre">gds_buffer_size</span></code> configuration is used for both cuFile and hipFile buffers.</p>
 </section>
 <section id="setup-example">
 <h2>Setup Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-example'"><span>#</span></a></h2>
@@ -434,7 +433,7 @@ vendor-specific instructions will be added here in the future).</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-3"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/gds/cache"</span>
-</span><span id="line-4"><span class="nt">cufile_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
+</span><span id="line-4"><span class="nt">gds_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
 </span></code></pre></div>
 </div>
 <p>If you don’t want to use a config file, uncomment the first three environment variables
@@ -442,7 +441,7 @@ and then comment out the <code class="docutils literal notranslate"><span class=
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCACHE_LOCAL_CPU=False \</span>
 </span><span id="line-2"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
 </span><span id="line-3"><span class="c1"># LMCACHE_GDS_PATH="/mnt/gds/cache" \</span>
-</span><span id="line-4"><span class="c1"># LMCACHE_CUFILE_BUFFER_SIZE=8192 \</span>
+</span><span id="line-4"><span class="c1"># LMCACHE_GDS_BUFFER_SIZE=8192 \</span>
 </span><span id="line-5"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"gds-backend.yaml"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
 </span><span id="line-7"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
@@ -456,10 +455,19 @@ and then comment out the <code class="docutils literal notranslate"><span class=
 <h2>POSIX fallback<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#posix-fallback" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#posix-fallback'"><span>#</span></a></h2>
 <p>In some cases, libcufile implements its own internal POSIX fallback without <cite>GdsBackend</cite> being aware.
 In others, an error such as <cite>RuntimeError: cuFileHandleRegister failed (cuFile err=5030, cuda_err=0)</cite> may be throwned.
-Thus, backend can be configured to fallback to its own POSIX implementation when the usage of the libcufile APIs is not successful.</p>
-<p>To force <cite>GdsBackend</cite> not use libcufile APIs for any reason, you can override its behavior via <cite>extra_config</cite>,
-e.g:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="l l-Scalar l-Scalar-Plain">LMCACHE_EXTRA_CONFIG='{"use_cufile"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false}'</span>
+Thus, backend can be configured to fallback to its own POSIX implementation when the usage of the GDS APIs is not successful.</p>
+<p>To force <cite>GdsBackend</cite> not use GDS APIs for any reason, you can override its behavior via configuration:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">use_gds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span></code></pre></div>
+</div>
+<p>Or via environment variable:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_USE_GDS</span><span class="o">=</span>False
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">gds_backend</span></code> field (default: <code class="docutils literal notranslate"><span class="pre">cufile</span></code>) selects which GDS library to use. Supported
+backends are <code class="docutils literal notranslate"><span class="pre">cufile</span></code> (NVIDIA cuFile) and <code class="docutils literal notranslate"><span class="pre">hipfile</span></code> (AMD hipFile):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">use_gds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-2"><span class="nt">gds_backend</span><span class="p">:</span><span class="w"> </span><span class="s">"cufile"</span><span class="w">   </span><span class="c1"># or "hipfile"</span>
 </span></code></pre></div>
 </div>
 <p>Note that under this mode it would still use CUDA APIs to map and do operations the pre-registered GPU memory.</p>
@@ -488,7 +496,7 @@ e.g:</p>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#ways-to-configure-lmcache-gds-backend'" class="reference internal" href="#ways-to-configure-lmcache-gds-backend">Ways to configure LMCache GDS Backend</a></li>
 <li><a :data-current="activeSection === '#multi-path-multi-device-support'" class="reference internal" href="#multi-path-multi-device-support">Multi-Path (Multi-Device) Support</a></li>
-<li><a :data-current="activeSection === '#cufile-buffer-size-explanation'" class="reference internal" href="#cufile-buffer-size-explanation">CuFile Buffer Size Explanation</a></li>
+<li><a :data-current="activeSection === '#gds-buffer-size-explanation'" class="reference internal" href="#gds-buffer-size-explanation">GDS Buffer Size Explanation</a></li>
 <li><a :data-current="activeSection === '#using-amd-hipfile'" class="reference internal" href="#using-amd-hipfile">Using AMD hipFile</a></li>
 <li><a :data-current="activeSection === '#setup-example'" class="reference internal" href="#setup-example">Setup Example</a></li>
 <li><a :data-current="activeSection === '#posix-fallback'" class="reference internal" href="#posix-fallback">POSIX fallback</a></li>
