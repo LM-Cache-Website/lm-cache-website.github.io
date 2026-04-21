@@ -296,7 +296,7 @@ It is aimed at developers who want to understand, debug, or extend the system.</
 <li><p><a class="reference internal" href="#how-to-extend" id="id15">How to Extend</a></p>
 <ul>
 <li><p><a class="reference internal" href="#adding-a-new-l2-adapter" id="id16">Adding a new L2 adapter</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-telemetry-processor" id="id17">Adding a telemetry processor</a></p></li>
+<li><p><a class="reference internal" href="#adding-an-observability-subscriber" id="id17">Adding an observability subscriber</a></p></li>
 <li><p><a class="reference internal" href="#adding-a-new-request-type" id="id18">Adding a new request type</a></p></li>
 </ul>
 </li>
@@ -329,7 +329,7 @@ It is aimed at developers who want to understand, debug, or extend the system.</
 </span><span id="line-22">     |--- EvictionController ----&gt; L1Manager (watermark-triggered eviction)
 </span><span id="line-23">     |
 </span><span id="line-24">     v
-</span><span id="line-25">PrometheusController + TelemetryController (observability)
+</span><span id="line-25">EventBus + OTel providers (observability)
 </span></code></pre></div>
 </div>
 </section>
@@ -451,8 +451,7 @@ The ZMQ server runs as part of the same process.</p>
 </span><span id="line-2"><span class="n">add_mp_server_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>        <span class="c1"># from multiprocess/config.py</span>
 </span><span id="line-3"><span class="n">add_storage_manager_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>  <span class="c1"># from distributed/config.py</span>
 </span><span id="line-4">  <span class="c1"># which internally calls add_l2_adapters_args(parser)</span>
-</span><span id="line-5"><span class="n">add_prometheus_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>       <span class="c1"># from mp_observability/config.py</span>
-</span><span id="line-6"><span class="n">add_telemetry_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>        <span class="c1"># from mp_observability/telemetry/config.py</span>
+</span><span id="line-5"><span class="n">add_observability_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>    <span class="c1"># from mp_observability/config.py</span>
 </span></code></pre></div>
 </div>
 <p>Both <code class="docutils literal notranslate"><span class="pre">blend_server_v2.py</span></code> and <code class="docutils literal notranslate"><span class="pre">http_server.py</span></code> reuse this pattern, adding
@@ -575,14 +574,24 @@ found data back into L1.</p>
 </section>
 <section id="observability-internals">
 <h2><a class="toc-backref" href="#id14" role="doc-backlink">Observability Internals</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability-internals" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observability-internals'"><span>#</span></a></h2>
-<p><strong>PrometheusController</strong> is a global singleton (initialized at server startup).
-It runs a daemon thread that periodically calls <code class="docutils literal notranslate"><span class="pre">log_prometheus()</span></code> on all
-registered loggers (<code class="docutils literal notranslate"><span class="pre">StorageManagerStatsLogger</span></code>, <code class="docutils literal notranslate"><span class="pre">L1ManagerStatsLogger</span></code>).
-Each logger atomically snapshots its stats, resets to zero, and pushes values
-to Prometheus counters.</p>
-<p><strong>TelemetryController</strong> is also a global singleton.  It maintains an in-memory
-event queue (bounded by <code class="docutils literal notranslate"><span class="pre">--telemetry-max-queue-size</span></code>).  A drain thread reads
-events and dispatches them to registered processors (e.g., <code class="docutils literal notranslate"><span class="pre">LoggingProcessor</span></code>).</p>
+<p><strong>EventBus</strong> (<code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code>) is a global
+singleton initialized at server startup by <code class="docutils literal notranslate"><span class="pre">init_observability()</span></code>.
+Producers (L1Manager, StorageManager, MPCacheEngine) publish <code class="docutils literal notranslate"><span class="pre">Event</span></code>
+objects to a bounded queue (<code class="docutils literal notranslate"><span class="pre">--event-bus-queue-size</span></code>, default 10000,
+tail-drop on overflow).  A background drain thread dispatches each
+event to all registered subscribers.</p>
+<p><strong>Subscribers</strong> live under <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code>
+and are grouped by concern: <code class="docutils literal notranslate"><span class="pre">metrics/</span></code> (OTel counters and lifecycle
+histograms), <code class="docutils literal notranslate"><span class="pre">logging/</span></code> (Python logging handlers, lookup-hash JSONL),
+and <code class="docutils literal notranslate"><span class="pre">tracing/</span></code> (OTel spans built from START/END event pairs).
+<code class="docutils literal notranslate"><span class="pre">init_observability()</span></code> registers the set selected by CLI flags
+(<code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code>, <code class="docutils literal notranslate"><span class="pre">--disable-logging</span></code>, <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code>).</p>
+<p><strong>OTel providers</strong> are set up via <code class="docutils literal notranslate"><span class="pre">otel_init.py</span></code> before subscribers
+are constructed, so module-level <code class="docutils literal notranslate"><span class="pre">get_meter()</span></code> / <code class="docutils literal notranslate"><span class="pre">get_tracer()</span></code>
+calls bind to the real provider. Metrics are exported both to an
+in-process Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint (<code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code>,
+default 9090) and, when <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> is set, pushed to an OTel
+collector.</p>
 </section>
 <section id="how-to-extend">
 <h2><a class="toc-backref" href="#id15" role="doc-backlink">How to Extend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-to-extend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-to-extend'"><span>#</span></a></h2>
@@ -598,16 +607,22 @@ level.</p></li>
 (<code class="docutils literal notranslate"><span class="pre">l2_adapters/__init__.py</span></code>).</p></li>
 </ol>
 </section>
-<section id="adding-a-telemetry-processor">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding a telemetry processor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-a-telemetry-processor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-a-telemetry-processor'"><span>#</span></a></h3>
+<section id="adding-an-observability-subscriber">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding an observability subscriber</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-an-observability-subscriber" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-an-observability-subscriber'"><span>#</span></a></h3>
 <ol class="arabic simple">
-<li><p>Create a config class subclassing <code class="docutils literal notranslate"><span class="pre">TelemetryProcessorConfig</span></code> with
-<code class="docutils literal notranslate"><span class="pre">from_dict()</span></code> and <code class="docutils literal notranslate"><span class="pre">help()</span></code> methods.</p></li>
-<li><p>Call <code class="docutils literal notranslate"><span class="pre">register_telemetry_processor_type("my_proc",</span> <span class="pre">MyProcConfig)</span></code> at
-module level.</p></li>
-<li><p>Create a processor class implementing <code class="docutils literal notranslate"><span class="pre">TelemetryProcessor</span></code>
-(<code class="docutils literal notranslate"><span class="pre">on_new_event()</span></code>, <code class="docutils literal notranslate"><span class="pre">shutdown()</span></code>).</p></li>
-<li><p>Add a factory branch in the telemetry controller’s processor creation code.</p></li>
+<li><p>Create a subscriber class subclassing <code class="docutils literal notranslate"><span class="pre">EventSubscriber</span></code> (defined
+in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code>): implement
+<code class="docutils literal notranslate"><span class="pre">get_subscriptions()</span></code> to return an <code class="docutils literal notranslate"><span class="pre">{EventType:</span> <span class="pre">callback}</span></code>
+mapping; optionally override <code class="docutils literal notranslate"><span class="pre">shutdown()</span></code> for cleanup.</p></li>
+<li><p>Place the class under the appropriate concern group
+(<code class="docutils literal notranslate"><span class="pre">subscribers/metrics/</span></code>, <code class="docutils literal notranslate"><span class="pre">subscribers/logging/</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">subscribers/tracing/</span></code>) and export it from that package’s
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>.</p></li>
+<li><p>Register the subscriber in <code class="docutils literal notranslate"><span class="pre">init_observability()</span></code>
+(<code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code>) via
+<code class="docutils literal notranslate"><span class="pre">bus.register_subscriber(...)</span></code> inside the branch matching its
+concern (metrics / logging / tracing), gated on the corresponding
+CLI flag if needed.</p></li>
 </ol>
 </section>
 <section id="adding-a-new-request-type">
@@ -674,16 +689,22 @@ module level.</p></li>
 <td><p>PrefetchController (L2-&gt;L1 on miss)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p></td>
-<td><p>PrometheusConfig</p></td>
+<td><p>ObservabilityConfig + <code class="docutils literal notranslate"><span class="pre">init_observability()</span></code> entry point</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/prometheus_controller.py</span></code></p></td>
-<td><p>PrometheusController singleton</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code></p></td>
+<td><p>EventBus singleton and <code class="docutils literal notranslate"><span class="pre">EventSubscriber</span></code> base class</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/telemetry/config.py</span></code></p></td>
-<td><p>TelemetryConfig</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Event</span></code> / <code class="docutils literal notranslate"><span class="pre">EventType</span></code> definitions</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/telemetry/controller.py</span></code></p></td>
-<td><p>TelemetryController singleton</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/otel_init.py</span></code></p></td>
+<td><p>OTel metrics / tracing provider setup</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code></p></td>
+<td><p>Metrics, logging, and tracing subscribers</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/trace/</span></code></p></td>
+<td><p>Trace recording (<code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code>) capture stack</p></td>
 </tr>
 </tbody>
 </table>
@@ -729,7 +750,7 @@ module level.</p></li>
 <li><a :data-current="activeSection === '#observability-internals'" class="reference internal" href="#observability-internals">Observability Internals</a></li>
 <li><a :data-current="activeSection === '#how-to-extend'" class="reference internal" href="#how-to-extend">How to Extend</a><ul>
 <li><a :data-current="activeSection === '#adding-a-new-l2-adapter'" class="reference internal" href="#adding-a-new-l2-adapter">Adding a new L2 adapter</a></li>
-<li><a :data-current="activeSection === '#adding-a-telemetry-processor'" class="reference internal" href="#adding-a-telemetry-processor">Adding a telemetry processor</a></li>
+<li><a :data-current="activeSection === '#adding-an-observability-subscriber'" class="reference internal" href="#adding-an-observability-subscriber">Adding an observability subscriber</a></li>
 <li><a :data-current="activeSection === '#adding-a-new-request-type'" class="reference internal" href="#adding-a-new-request-type">Adding a new request type</a></li>
 </ul>
 </li>
