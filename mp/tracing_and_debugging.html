@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Deployment Guide | LMCache</title>
-<meta content="Deployment Guide | LMCache" property="og:title"/>
-<meta content="Deployment Guide | LMCache" name="twitter:title"/>
+<title>Tracing and Debugging | LMCache</title>
+<meta content="Tracing and Debugging | LMCache" property="og:title"/>
+<meta content="Tracing and Debugging | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -21,8 +21,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="operator.html" rel="next" title="Kubernetes Operator"/>
-<link href="l2_storage.html" rel="prev" title="L2 Storage (Persistent Cache)"/>
+<link href="architecture.html" rel="next" title="Architecture &amp; Developer Guide"/>
+<link href="observability.html" rel="prev" title="Observability"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -135,10 +135,10 @@
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
 <li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="l2_storage.html">L2 Storage (Persistent Cache)</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html">Deployment Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="observability.html">Observability</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tracing_and_debugging.html">Tracing and Debugging</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tracing and Debugging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture &amp; Developer Guide</a></li>
 </ul>
 </li>
@@ -264,229 +264,340 @@
 </svg>
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Multiprocess Mode</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Deployment Guide</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Tracing and Debugging</span>
 </nav>
 <div id="content" role="main">
-<section id="deployment-guide">
-<h1>Deployment Guide<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deployment-guide"><span>#</span></a></h1>
-<p>This page covers deploying LMCache multiprocess mode in Docker and Kubernetes
-environments, along with production best practices.</p>
-<nav class="contents local" id="contents">
+<section id="tracing-and-debugging">
+<h1>Tracing and Debugging<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing-and-debugging"><span>#</span></a></h1>
+<p>LMCache MP mode can record every <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> public-API call to a
+binary <strong>trace file</strong> and reissue those calls later against a fresh
+server via <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code>. The feature is designed for:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#docker" id="id1">Docker</a></p></li>
-<li><p><a class="reference internal" href="#kubernetes" id="id2">Kubernetes</a></p>
-<ul>
-<li><p><a class="reference internal" href="#prerequisites" id="id3">Prerequisites</a></p></li>
-<li><p><a class="reference internal" href="#step-by-step" id="id4">Step-by-Step</a></p></li>
-<li><p><a class="reference internal" href="#architecture-notes" id="id5">Architecture Notes</a></p></li>
-<li><p><a class="reference internal" href="#health-checking-http-server" id="id6">Health Checking (HTTP Server)</a></p></li>
-<li><p><a class="reference internal" href="#monitoring-integration" id="id7">Monitoring Integration</a></p></li>
-<li><p><a class="reference internal" href="#cleanup" id="id8">Cleanup</a></p></li>
+<li><p><strong>Regression hunting</strong> — capture a production workload, then replay it
+against a build under investigation to reproduce a bug offline.</p></li>
+<li><p><strong>Performance characterization</strong> — measure L1/L2 latency distributions
+under a realistic storage-level access pattern, without needing vLLM
+or a GPU.</p></li>
+<li><p><strong>Configuration tuning</strong> — replay the same trace against different
+L1 sizes, eviction policies, and L2 adapters to compare their
+behavior on identical input.</p></li>
 </ul>
-</li>
-<li><p><a class="reference internal" href="#production-best-practices" id="id9">Production Best Practices</a></p></li>
-</ul>
-</nav>
-<section id="docker">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Docker</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#docker" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#docker'"><span>#</span></a></h2>
-<p><strong>LMCache container:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>lmcache/standalone:nightly<span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>/opt/venv/bin/lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Trace recording is <strong>independent</strong> from <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code>
+(OTel spans). OTel tracing exports <em>live</em> spans to an OTLP
+endpoint for online observability; trace recording persists a
+replayable binary file for offline analysis. Both can be enabled
+simultaneously.</p>
+</div>
+<section id="recording-a-trace">
+<span id="trace-recording-guide"></span><h2>Recording a Trace<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#recording-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#recording-a-trace'"><span>#</span></a></h2>
+<p>Recording is <strong>off by default</strong>. Enable it by adding
+<code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code> to <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Explicit output path</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--trace-level<span class="w"> </span>storage<span class="w"> </span>--trace-output<span class="w"> </span>/tmp/run.lct
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Implicit timestamped path under $TMPDIR</span>
+</span><span id="line-7">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--trace-level<span class="w"> </span>storage
+</span><span id="line-10"><span class="c1"># → INFO log: "trace recording enabled (level=storage); no</span>
+</span><span id="line-11"><span class="c1">#   --trace-output given, writing to</span>
+</span><span id="line-12"><span class="c1">#   /tmp/lmcache-trace-&lt;pid&gt;-&lt;UTC&gt;.lct"</span>
 </span></code></pre></div>
 </div>
-<p><strong>vLLM container:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>lmcache/vllm-openai:latest-nightly<span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.port": 6555}}'</span>
-</span></code></pre></div>
-</div>
-<p>Required Docker flags:</p>
+<p>Drive traffic through the server as usual (vLLM requests, benchmark
+scripts, etc.). The trace file is closed cleanly on <code class="docutils literal notranslate"><span class="pre">SIGTERM</span></code> via
+the EventBus stop path — no <code class="docutils literal notranslate"><span class="pre">--stop-tracing</span></code> command needed.</p>
+<p><strong>What is captured:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">host</span></code> – Allows the vLLM container to reach LMCache on localhost.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> – Required for CUDA IPC shared memory transfers between
-containers.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--runtime</span> <span class="pre">nvidia</span> <span class="pre">--gpus</span> <span class="pre">all</span></code> – GPU access via the NVIDIA container
-runtime.</p></li>
+<li><p>The fully-qualified name of every decorated <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call
+(e.g. <code class="docutils literal notranslate"><span class="pre">StorageManager.reserve_write</span></code>,
+<code class="docutils literal notranslate"><span class="pre">StorageManager.submit_prefetch_task</span></code>).</p></li>
+<li><p>Each call’s input arguments (<code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">layout_desc</span></code>, <code class="docutils literal notranslate"><span class="pre">mode</span></code>,
+<code class="docutils literal notranslate"><span class="pre">extra_count</span></code>, <code class="docutils literal notranslate"><span class="pre">external_request_id</span></code>, …).</p></li>
+<li><p>Wall-clock and monotonic timestamps per call.</p></li>
+<li><p>A header with the file format version, trace schema version, start
+timestamps, and a SHA-256 digest of the active
+<code class="docutils literal notranslate"><span class="pre">StorageManagerConfig</span></code> so replay can flag mismatched
+configurations.</p></li>
 </ul>
-<p><strong>HTTP server variant:</strong></p>
-<p>For health-check and cache management API support (useful with container
-orchestrators), use the HTTP server entry point:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--ipc<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>lmcache/standalone:nightly<span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>/opt/venv/bin/lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span>
-</span></code></pre></div>
-</div>
+<p><strong>What is not captured:</strong></p>
+<ul class="simple">
+<li><p><strong>KV tensor bytes.</strong> Replay exercises bookkeeping and controller
+logic; payloads at replay time are zeros. The trace file stays
+bounded even for long runs.</p></li>
+<li><p>Calls inside <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code>, the message queue, or GPU-copy code.
+Those layers are out of scope for the <code class="docutils literal notranslate"><span class="pre">storage</span></code> trace level.</p></li>
+</ul>
+<p><strong>Overhead:</strong></p>
+<ul class="simple">
+<li><p>Off: a single boolean check per <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call. Effectively free.</p></li>
+<li><p>On: encoding and file I/O happen on the EventBus drain thread, off
+the request path. In practice this has no visible impact on
+request latency.</p></li>
+</ul>
 </section>
-<section id="kubernetes">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Kubernetes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kubernetes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kubernetes'"><span>#</span></a></h2>
-<p>LMCache is designed for a <strong>DaemonSet + Deployment</strong> pattern: one LMCache
-server per node (DaemonSet) shared by multiple vLLM pods (Deployment).</p>
-<p>Example YAML files are provided in <code class="docutils literal notranslate"><span class="pre">examples/multi_process/</span></code>.</p>
-<section id="prerequisites">
-<h3><a class="toc-backref" href="#id3" role="doc-backlink">Prerequisites</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
-<ul class="simple">
-<li><p>Kubernetes cluster with GPU support (NVIDIA GPU Operator installed)</p></li>
-<li><p>At least 4 GPUs per node</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">kubectl</span></code> configured to access your cluster</p></li>
-</ul>
+<section id="inspecting-a-trace">
+<h2>Inspecting a Trace<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#inspecting-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#inspecting-a-trace'"><span>#</span></a></h2>
+<p>Before replaying, <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">info</span></code> prints a one-screen summary:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>info<span class="w"> </span>/tmp/run.lct
+</span></code></pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Trace file: /tmp/run.lct
+</span><span id="line-2">  level:                storage
+</span><span id="line-3">  format_version:       1
+</span><span id="line-4">  trace_schema_version: 1
+</span><span id="line-5">  duration:             226.691s
+</span><span id="line-6">  sm_config_digest:     0f685d8a...
+</span><span id="line-7">  total_records:        1318
+</span><span id="line-8">  ops:
+</span><span id="line-9">    lmcache.v1.distributed.storage_manager.StorageManager.finish_read_prefetched: 133
+</span><span id="line-10">    lmcache.v1.distributed.storage_manager.StorageManager.finish_write: 349
+</span><span id="line-11">    lmcache.v1.distributed.storage_manager.StorageManager.read_prefetched_results.__enter__: 96
+</span><span id="line-12">    lmcache.v1.distributed.storage_manager.StorageManager.read_prefetched_results.__exit__: 96
+</span><span id="line-13">    lmcache.v1.distributed.storage_manager.StorageManager.reserve_write: 349
+</span><span id="line-14">    lmcache.v1.distributed.storage_manager.StorageManager.submit_prefetch_task: 295
+</span></code></pre></div>
+</div>
+<p>Use this to sanity-check that the trace you intend to replay covers
+the expected operation mix and duration.</p>
 </section>
-<section id="step-by-step">
-<h3><a class="toc-backref" href="#id4" role="doc-backlink">Step-by-Step</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-by-step" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-by-step'"><span>#</span></a></h3>
-<p><strong>Step 1: Create namespace</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>multi-process
+<section id="replaying-a-trace">
+<h2>Replaying a Trace<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replaying-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replaying-a-trace'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span> <span class="pre">FILE</span></code> reissues every recorded call against a
+<strong>fresh</strong> <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> built from CLI flags you supply. The
+replay-side config is <strong>chosen by you</strong>, not copied from the
+recording. This is the feature’s main value — you can compare
+different L1/L2 setups on identical input.</p>
+<p>Minimal invocation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
-<p><strong>Step 2: Deploy LMCache DaemonSet</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/lmcache-daemonset.yaml
+<p><code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> and <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code> are required, just like on
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>. Any storage-manager flag accepted by the server
+also works here (<code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>, <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span></code>, …); run <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span> <span class="pre">--help</span></code> for the
+full list.</p>
+<p><strong>Pacing.</strong> The driver always honors the recorded inter-call timings
+by sleeping to align each dispatch with its recorded <code class="docutils literal notranslate"><span class="pre">t_mono</span></code>
+offset. There is <strong>no</strong> as-fast-as-possible mode: <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code>
+reads and writes are asynchronous and carry cross-call dependencies
+(for example, a retrieve may depend on an earlier L2 load completing),
+so collapsing the recorded gaps races the internal queues and causes
+non-deterministic retrieve misses. If the replay host is slower than
+the recording host, the loop simply lags the recorded schedule.</p>
+<p><strong>Output.</strong> Every replay prints a terminal metrics table and writes
+a per-qualname CSV by default:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">=================== Trace Replay Result ======================
+</span><span id="line-2">--------------------------- Overall --------------------------
+</span><span id="line-3">Trace level:                                         storage
+</span><span id="line-4">Records replayed:                                       1318
+</span><span id="line-5">Records skipped:                                           0
+</span><span id="line-6">Records failed:                                            0
+</span><span id="line-7">Replay duration (s):                                  226.69
+</span><span id="line-8">Config digest:                          match (0f685d8a)
+</span><span id="line-9">--------------------- Per-Op Latency (ms) --------------------
+</span><span id="line-10">reserve_write count:                                     349
+</span><span id="line-11">reserve_write mean:                                     0.16
+</span><span id="line-12">reserve_write p50:                                      0.13
+</span><span id="line-13">reserve_write p99:                                      0.93
+</span><span id="line-14">...
 </span></code></pre></div>
 </div>
-<p><strong>Step 3: Deploy vLLM</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/vllm-deployment.yaml
+<p>Additional per-record output is controlled by:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p>Directory for aggregated summary files. Default: current dir.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-csv</span></code></p></td>
+<td><p>Skip the <code class="docutils literal notranslate"><span class="pre">trace_replay_ops.csv</span></code> export.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--json</span></code></p></td>
+<td><p>Also write <code class="docutils literal notranslate"><span class="pre">trace_replay_summary.json</span></code> (per-qualname
+count / mean / p50 / p90 / p99 / min / max, plus total
+duration).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<td><p>Print one <code class="docutils literal notranslate"><span class="pre">[N/total]</span> <span class="pre">OK|FAIL</span> <span class="pre">&lt;qualname&gt;</span> <span class="pre">(Xms)</span></code> line per
+record to stdout in addition to the INFO log.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--jsonl-out</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Write one JSON object per replayed record to <code class="docutils literal notranslate"><span class="pre">PATH</span></code>
+(<code class="docutils literal notranslate"><span class="pre">{qualname,</span> <span class="pre">latency_ms,</span> <span class="pre">failed}</span></code>) for post-hoc
+analysis.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>Suppress the terminal metrics table. The aggregated
+files are still written.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Even without <code class="docutils literal notranslate"><span class="pre">--verbose</span></code>, the driver logs each dispatch at INFO:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[1/1318] OK lmcache...StorageManager.reserve_write (0.252ms)
+</span><span id="line-2">[2/1318] OK lmcache...StorageManager.finish_write (0.032ms)
+</span><span id="line-3">...
+</span></code></pre></div>
+</div>
+<p>Progress numbers come from a cheap pre-scan of the trace file, so you
+always see <code class="docutils literal notranslate"><span class="pre">[N/total]</span></code> rather than just a running counter.</p>
+</section>
+<section id="monitoring-during-replay">
+<h2>Monitoring During Replay<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#monitoring-during-replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#monitoring-during-replay'"><span>#</span></a></h2>
+<p>The replay driver initializes the full observability EventBus
+<strong>before</strong> constructing the replay-side <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code>. Internal
+events (L1/L2 lifecycle, eviction ticks, store/retrieve publishes,
+etc.) therefore flow through a live bus during replay and the
+standard subscribers — logging, metrics, OTel tracing — can attach
+to them.</p>
+<p>The same observability CLI flags that the server accepts are
+available on <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code>:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 65.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-observability</span></code></p></td>
+<td><p>Turn the EventBus off entirely. No subscribers fire.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code></p></td>
+<td><p>Skip OTel metrics init and metrics subscribers. Useful to
+avoid binding the Prometheus port when you only want logs.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-logging</span></code></p></td>
+<td><p>Skip logging subscribers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code></p></td>
+<td><p>Enable OTel span subscribers. Requires <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span> <span class="pre">URL</span></code></p></td>
+<td><p>Export metrics/traces to an OTLP gRPC collector (e.g.
+<code class="docutils literal notranslate"><span class="pre">http://localhost:4317</span></code>). When unset, metrics fall back
+to the in-process Prometheus pull endpoint.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--prometheus-port</span> <span class="pre">PORT</span></code></p></td>
+<td><p>Port for the Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint in pull mode.
+Default <code class="docutils literal notranslate"><span class="pre">9090</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--metrics-sample-rate</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Sampling rate for lifecycle histograms. Counters always
+count all events.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Typical monitoring setups:</p>
+<p><strong>Raw log trail (SM/L1/L2 events to stdout):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--disable-metrics
+</span></code></pre></div>
+</div>
+<p><strong>Prometheus metrics in pull mode:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9095</span>
+</span><span id="line-4"><span class="c1"># scrape http://localhost:9095/metrics from another terminal</span>
+</span></code></pre></div>
+</div>
+<p><strong>OTel metrics + traces to a collector:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--otlp-endpoint<span class="w"> </span>http://localhost:4317<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--enable-tracing
 </span></code></pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The default model is <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-14B</span></code>.  For gated models (e.g., Llama),
-create a Secret with your Hugging Face token:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>vllm-secrets<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span>--from-literal<span class="o">=</span><span class="nv">hf_token</span><span class="o">=</span>your_hf_token_here<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">  </span>-n<span class="w"> </span>multi-process
-</span></code></pre></div>
-</div>
-<p>Then add the <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> environment variable to the vLLM container spec.</p>
-</div>
-<p><strong>Step 4: Monitor deployment</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># DaemonSet status</span>
-</span><span id="line-2">kubectl<span class="w"> </span>get<span class="w"> </span>daemonset<span class="w"> </span>-n<span class="w"> </span>multi-process
-</span><span id="line-3">kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>lmcache-server
-</span><span id="line-4">
-</span><span id="line-5"><span class="c1"># vLLM status</span>
-</span><span id="line-6">kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-deployment<span class="w"> </span>-w
-</span><span id="line-7">
-</span><span id="line-8"><span class="c1"># LMCache logs (for a specific node)</span>
-</span><span id="line-9"><span class="nv">VLLM_NODE</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-deployment<span class="w"> </span><span class="se">\</span>
-</span><span id="line-10"><span class="w">    </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.nodeName}'</span><span class="k">)</span>
-</span><span id="line-11"><span class="nv">LMCACHE_POD</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>lmcache-server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-12"><span class="w">    </span>--field-selector<span class="w"> </span>spec.nodeName<span class="o">=</span><span class="nv">$VLLM_NODE</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-13"><span class="w">    </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span>
-</span><span id="line-14">kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span><span class="nv">$LMCACHE_POD</span><span class="w"> </span>-f
-</span></code></pre></div>
-</div>
-<p><strong>Step 5: Send test requests</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>multi-process<span class="w"> </span>deployment/vllm-deployment<span class="w"> </span><span class="m">8000</span>:8000
-</span><span id="line-2">
-</span><span id="line-3">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/v1/completions<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>-d<span class="w"> </span><span class="s2">"{</span>
-</span><span id="line-6"><span class="s2">        \"model\": \"Qwen/Qwen3-14B\",</span>
-</span><span id="line-7"><span class="s2">        \"prompt\": \"</span><span class="k">$(</span><span class="nb">printf</span><span class="w"> </span><span class="s1">'Explain the significance of KV cache in language models.%.0s'</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..100<span class="o">}</span><span class="k">)</span><span class="s2">\",</span>
-</span><span id="line-8"><span class="s2">        \"max_tokens\": 10</span>
-</span><span id="line-9"><span class="s2">    }"</span>
-</span></code></pre></div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--trace-level</span></code> and <code class="docutils literal notranslate"><span class="pre">--trace-output</span></code> flags are <strong>recording-only</strong>
+and are not accepted by <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code>. A replay never
+writes a new trace file.</p>
 </div>
 </section>
-<section id="architecture-notes">
-<h3><a class="toc-backref" href="#id5" role="doc-backlink">Architecture Notes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-notes'"><span>#</span></a></h3>
+<section id="notes-hints-and-caveats">
+<h2>Notes, Hints, and Caveats<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes-hints-and-caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes-hints-and-caveats'"><span>#</span></a></h2>
+<p><strong>Retrieve misses are expected when the replay environment differs.</strong>
+At replay start, the CLI prints a visible warning banner:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">==============================================================================
+</span><span id="line-2">  !! REPLAY ENVIRONMENT MISMATCH MAY CAUSE RETRIEVE MISSES !!
+</span><span id="line-3">==============================================================================
+</span></code></pre></div>
+</div>
+<p>Because KV payloads are not captured and the replay-side config and
+host speed may differ from recording, retrieve calls that hit at
+record time can miss at replay time — for instance, an async L2 load
+that had finished by the time the recorded retrieve was issued may
+still be in flight when the replayed retrieve fires. Treat
+retrieve-miss counts as a signal about the replay environment, <strong>not</strong>
+as a defect in the trace.</p>
+<p><strong>Config-digest mismatch is informational, not fatal.</strong> The replay
+always runs whether the digests match or not. A mismatch simply tells
+you the replay-side <code class="docutils literal notranslate"><span class="pre">StorageManagerConfig</span></code> differs from what was
+recorded — often exactly what you intended (comparing two configs
+on the same trace).</p>
+<p><strong>Prometheus port binding.</strong> The server’s <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code>
+defaults to <code class="docutils literal notranslate"><span class="pre">9090</span></code>. Running <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code> concurrently
+with the server — or running two replays at once — on the same port
+will fail. Either pass a different <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code> or
+<code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code> on the secondary runs.</p>
+<p><strong>Trace-recording overhead.</strong> Recording happens on the EventBus drain
+thread, not the request-handling threads. The gate is a single
+boolean check when disabled (default), so production builds with
+recording off pay no measurable cost.</p>
+<p><strong>Trace files are not encrypted.</strong> Arguments such as <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code>
+chunk hashes are written in plaintext. Treat trace files with the
+same care as cache hash logs.</p>
+<p><strong>Forward compatibility.</strong> The header carries a format version and a
+trace schema version. Readers reject files with unknown versions
+rather than silently producing garbage. Captured API surface
+changes (new arguments on a traced method, new codec tags) bump the
+schema version; framing changes bump the format version.</p>
+<p><strong>Extensibility.</strong> The format is designed to accommodate future
+trace <strong>levels</strong> (<code class="docutils literal notranslate"><span class="pre">mq</span></code>, <code class="docutils literal notranslate"><span class="pre">gpu</span></code>). Adding a new traced method in an
+existing level requires only decorating it on the recording side and
+registering a handler on the replay side — no format changes.</p>
+</section>
+<section id="see-also">
+<h2>See Also<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><strong>DaemonSet uses ``hostNetwork: true``</strong> so vLLM pods discover the LMCache
-server via <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code>.</p></li>
-<li><p><strong>Both containers mount ``/dev/shm``</strong> from the host to enable CUDA IPC
-memory sharing.</p></li>
-<li><p><strong>GPUs are NOT requested in the DaemonSet</strong> – this allows GPUs to remain
-exclusively allocated to vLLM pods.  The NVIDIA container runtime
-automatically provides GPU access for IPC-based memory transfers.</p></li>
-<li><p><strong>Multiple vLLM pods</strong> on the same node automatically connect to the same
-LMCache DaemonSet instance.</p></li>
+<li><p><a class="reference internal" href="observability.html#trace-recording"><span class="std std-ref">Trace Recording</span></a> — the short <code class="docutils literal notranslate"><span class="pre">Trace</span> <span class="pre">Recording</span></code> section in
+the Observability page focuses on the recording-side flags.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/trace.md</span></code> in the source tree —
+full design doc: architecture, replay dispatcher, context-manager
+pairing, stats collector, and test matrix.</p></li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>LMCache pods on nodes without GPUs will crash with CUDA initialization
-errors.  This is expected – LMCache only needs to run on GPU nodes where
-vLLM pods are scheduled.</p>
-</div>
-</section>
-<section id="health-checking-http-server">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Health Checking (HTTP Server)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#health-checking-http-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#health-checking-http-server'"><span>#</span></a></h3>
-<p>For Kubernetes liveness/readiness probes, deploy the HTTP server variant
-instead.  Use the <code class="docutils literal notranslate"><span class="pre">/api/healthcheck</span></code> endpoint:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">livenessProbe</span><span class="p">:</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-</span><span id="line-3"><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/healthcheck</span>
-</span><span id="line-4"><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
-</span><span id="line-5"><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-</span><span id="line-6"><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
-</span><span id="line-7"><span class="nt">readinessProbe</span><span class="p">:</span>
-</span><span id="line-8"><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-</span><span id="line-9"><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/healthcheck</span>
-</span><span id="line-10"><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
-</span><span id="line-11"><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="line-12"><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-</span></code></pre></div>
-</div>
-</section>
-<section id="monitoring-integration">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink">Monitoring Integration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#monitoring-integration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#monitoring-integration'"><span>#</span></a></h3>
-<p>Prometheus metrics are enabled by default on port 9090.  Add a
-<code class="docutils literal notranslate"><span class="pre">ServiceMonitor</span></code> or Prometheus scrape annotation to collect metrics from the
-LMCache DaemonSet pods.  See <a class="reference internal" href="observability.html"><span class="doc">Observability</span></a> for metric details.</p>
-</section>
-<section id="cleanup">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink">Cleanup</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cleanup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cleanup'"><span>#</span></a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/vllm-deployment.yaml
-</span><span id="line-2">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/lmcache-daemonset.yaml
-</span><span id="line-3">kubectl<span class="w"> </span>delete<span class="w"> </span>namespace<span class="w"> </span>multi-process
-</span></code></pre></div>
-</div>
-</section>
-</section>
-<section id="production-best-practices">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Production Best Practices</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-best-practices" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-best-practices'"><span>#</span></a></h2>
-<p><strong>Worker count (``–max-workers``, ``–max-gpu-workers``, ``–max-cpu-workers``):</strong>
-<code class="docutils literal notranslate"><span class="pre">--max-workers</span></code> sets both the GPU affinity pool and CPU normal pool sizes
-(default 1).  Use <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> to override the GPU pool independently
-— set it to at least the number of vLLM instances sharing the cache server so
-each instance gets its own dedicated thread.  Use <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code> to
-override the CPU pool for lookup and other non-GPU operations.</p>
-<p><strong>L1 memory sizing (``–l1-size-gb``):</strong>
-Allocate as much CPU memory as available after accounting for the OS and vLLM.
-A larger L1 cache means fewer L2 round-trips.</p>
-<p><strong>Eviction tuning:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span> <span class="pre">0.8</span></code> (default) triggers eviction when L1 is
-80% full.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">0.2</span></code> (default) frees 20% of allocated memory per
-eviction cycle.</p></li>
-<li><p>Lower the watermark or increase the ratio if you observe frequent evictions
-under steady load.</p></li>
-</ul>
-<p><strong>Logging:</strong>
-Use <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> during initial setup to verify L2 store/load
-activity.  Switch to <code class="docutils literal notranslate"><span class="pre">INFO</span></code> (default) for production to reduce log volume.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="l2_storage.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="observability.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        L2 Storage (Persistent Cache)
+        Observability
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="operator.html">
-        Kubernetes Operator
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="architecture.html">
+        Architecture &amp; Developer Guide
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -495,17 +606,12 @@ activity.  Switch to <code class="docutils literal notranslate"><span class="pre
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#docker'" class="reference internal" href="#docker">Docker</a></li>
-<li><a :data-current="activeSection === '#kubernetes'" class="reference internal" href="#kubernetes">Kubernetes</a><ul>
-<li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
-<li><a :data-current="activeSection === '#step-by-step'" class="reference internal" href="#step-by-step">Step-by-Step</a></li>
-<li><a :data-current="activeSection === '#architecture-notes'" class="reference internal" href="#architecture-notes">Architecture Notes</a></li>
-<li><a :data-current="activeSection === '#health-checking-http-server'" class="reference internal" href="#health-checking-http-server">Health Checking (HTTP Server)</a></li>
-<li><a :data-current="activeSection === '#monitoring-integration'" class="reference internal" href="#monitoring-integration">Monitoring Integration</a></li>
-<li><a :data-current="activeSection === '#cleanup'" class="reference internal" href="#cleanup">Cleanup</a></li>
-</ul>
-</li>
-<li><a :data-current="activeSection === '#production-best-practices'" class="reference internal" href="#production-best-practices">Production Best Practices</a></li>
+<li><a :data-current="activeSection === '#recording-a-trace'" class="reference internal" href="#recording-a-trace">Recording a Trace</a></li>
+<li><a :data-current="activeSection === '#inspecting-a-trace'" class="reference internal" href="#inspecting-a-trace">Inspecting a Trace</a></li>
+<li><a :data-current="activeSection === '#replaying-a-trace'" class="reference internal" href="#replaying-a-trace">Replaying a Trace</a></li>
+<li><a :data-current="activeSection === '#monitoring-during-replay'" class="reference internal" href="#monitoring-during-replay">Monitoring During Replay</a></li>
+<li><a :data-current="activeSection === '#notes-hints-and-caveats'" class="reference internal" href="#notes-hints-and-caveats">Notes, Hints, and Caveats</a></li>
+<li><a :data-current="activeSection === '#see-also'" class="reference internal" href="#see-also">See Also</a></li>
 </ul>
 </div>
 </aside>
