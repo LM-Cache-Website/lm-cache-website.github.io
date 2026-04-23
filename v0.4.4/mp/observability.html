@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Observability | LMCache</title>
+<meta content="Observability | LMCache" property="og:title"/>
+<meta content="Observability | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=04f4756a" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=1a89b264" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="Search"/>
+<link href="../genindex.html" rel="index" title="Index"/>
+<link href="tracing_and_debugging.html" rel="next" title="Tracing and Debugging"/>
+<link href="operator.html" rel="prev" title="Kubernetes Operator"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<p class="caption" role="heading"><span class="caption-text">Welcome to LMCache</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Welcome to LMCache!</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/quickstart/index.html">More Examples<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/offload_kv_cache.html">Example: Offload KV cache to CPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/share_kv_cache.html">Example: Share KV cache across multiple LLMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/disaggregated_prefill.html">Example: Disaggregated prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/multimodality.html">Example: Multimodal KV Cache Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/standalone_starter.html">Standalone Starter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/benchmarking.html">Benchmarking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache Size Calculator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/troubleshoot.html">TroubleShoot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quickstart/standalone_starter.html">Standalone Starter</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">KV Cache offloading and sharing</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache/storage_backends/index.html">Using Different Storage Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/cpu_ram.html">CPU RAM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/custom_backend.html">Custom Storage Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/dax.html">Device-DAX (/dev/dax)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/eic.html">EIC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/gds.html">GDS Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/infinistore.html">InfiniStore</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/local_storage.html">Local storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/maru.html">Maru</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/mock.html">Mock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/mooncake.html">Mooncake</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/nixl.html">Nixl</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/redis.html">Redis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/resp.html">RESP (Native Redis/Valkey)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/s3.html">S3 Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/sagemaker_hyperpod.html">SageMaker Hyperpod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/valkey.html">Valkey</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/weka.html">Weka</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache/async_loading.html">Async Loading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV Cache Sharing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Multiprocess Mode</span></p>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">Multiprocess Mode<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="l2_storage.html">L2 Storage (Persistent Cache)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deployment.html">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Observability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tracing_and_debugging.html">Tracing and Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture &amp; Developer Guide</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Disaggregated prefill</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../disaggregated_prefill/nixl/index.html">Using NIXL<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/1p1d.html">1p1d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/xpyd.html">XpYd</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">KV Cache management</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_management/index.html">LMCache Controller<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/clear.html">Clear the KV cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/compress.html">Compress and Decompress the KV cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/health.html">Check controller health</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/lookup.html">Lookup the KV cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/move.html">Move the KV cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/pin.html">Pin the KV cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/check_finish.html">Check finish of a control event</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/query_worker_info.html">Query Worker Info</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">KV Cache Optimizations</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/compression/index.html">Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache_optimizations/blending.html">Blending</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">Layerwise KV Transfer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Use LMCache in production</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../production/docker_deployment.html">Docker deployment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes Deployment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache Events</a></li>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/observability/index.html">Observability<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/vllm_endpoint.html">Metrics by vLLM API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/internal_api_server.html">Internal API Server Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/metrics.html">Metrics Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/chunk_statistics.html">Chunk Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/health_monitor.html">Health Monitor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/periodic_thread_api.html">Periodic Thread Monitoring API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/frontend.html">LMCache Frontend</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../production/performance_tuning.html">Performance Tuning</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">CLI</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../cli/bench.html">lmcache bench engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internal API Server</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../internal_api_server/internal_api_server.html">Internal API Server<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/common_apis.html">Common APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/vllm_apis.html">vLLM / Inference APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/controller_apis.html">Controller APIs</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Controller WebUI</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../controller/index.html">Controller WebUI</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide/contributing.html">Contributing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide/docker_file.html">Dockerfile</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide/integration.html">Integration</a></li>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/extending_lmcache/index.html">Extending LMCache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">Adding Native Connectors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">Runtime Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">Storage Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">Remote Storage Plugins</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide/cli.html">Extending the CLI</a></li>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/usage/index.html">Usage Data Module<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">Basic Check Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/usage_stats_collection.html">Usage Stats Collection</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/configurations.html">Configuring LMCache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/storage_backends.html">Adding new storage backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM Dynamic Connector</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/multimodality.html">KV Caching for Multimodal Models with vLLM</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Multiprocess Mode</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Observability</span>
+</nav>
+<div id="content" role="main">
+<section id="observability">
+<h1>Observability<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability"><span>#</span></a></h1>
+<p>LMCache multiprocess mode provides three complementary observability modes:
+<strong>metrics</strong> (Prometheus counters via OTel), <strong>logging</strong> (Python logging with
+optional OTel log forwarding), and <strong>tracing</strong> (OTel spans for per-request
+latency).</p>
+<p>All three modes are powered by an internal <strong>EventBus</strong> that decouples
+producers (L1Manager, StorageManager, MPCacheEngine) from subscribers.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#quick-start" id="id2">Quick Start</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id3">Configuration</a></p></li>
+<li><p><a class="reference internal" href="#metrics" id="id4">Metrics</a></p>
+<ul>
+<li><p><a class="reference internal" href="#storagemanager-metrics" id="id5">StorageManager Metrics</a></p></li>
+<li><p><a class="reference internal" href="#l1-metrics" id="id6">L1 Metrics</a></p></li>
+<li><p><a class="reference internal" href="#l1-chunk-lifecycle-histograms" id="id7">L1 Chunk Lifecycle Histograms</a></p></li>
+<li><p><a class="reference internal" href="#l2-metrics" id="id8">L2 Metrics</a></p></li>
+<li><p><a class="reference internal" href="#l0-gpu-block-lifecycle-histograms" id="id9">L0 (GPU) Block Lifecycle Histograms</a></p></li>
+<li><p><a class="reference internal" href="#observable-gauges" id="id10">Observable Gauges</a></p></li>
+<li><p><a class="reference internal" href="#prometheus-scrape-configuration" id="id11">Prometheus Scrape Configuration</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#logging" id="id12">Logging</a></p></li>
+<li><p><a class="reference internal" href="#tracing" id="id13">Tracing</a></p></li>
+<li><p><a class="reference internal" href="#trace-recording" id="id14">Trace Recording</a></p>
+<ul>
+<li><p><a class="reference internal" href="#capturing-a-trace" id="id15">Capturing a trace</a></p></li>
+<li><p><a class="reference internal" href="#replay" id="id16">Replay</a></p></li>
+<li><p><a class="reference internal" href="#what-is-captured-and-what-is-not" id="id17">What is captured (and what is not)</a></p></li>
+<li><p><a class="reference internal" href="#file-format" id="id18">File format</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="quick-start">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Quick Start</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h2>
+<p>By default, <strong>metrics</strong> and <strong>logging</strong> are enabled; <strong>tracing</strong> is disabled.
+No extra flags are needed:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span></code></pre></div>
+</div>
+<p>To enable tracing, supply an OTLP endpoint:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--enable-tracing<span class="w"> </span>--otlp-endpoint<span class="w"> </span>http://localhost:4317
+</span></code></pre></div>
+</div>
+</section>
+<section id="configuration">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-observability</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Master switch: disable the EventBus entirely (no metrics, logging, or
+tracing subscribers are registered).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Skip metrics subscribers (Prometheus endpoint is not started).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-logging</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Skip logging subscribers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Register tracing subscribers. Requires <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--event-bus-queue-size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10000</span></code></p></td>
+<td><p>Maximum events in the EventBus queue before tail-drop.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code></p></td>
+<td><p><em>(none)</em></p></td>
+<td><p>OTLP gRPC endpoint (e.g. <code class="docutils literal notranslate"><span class="pre">http://localhost:4317</span></code>). Used for
+exporting metrics (push mode) and traces.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9090</span></code></p></td>
+<td><p>Port for the Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> HTTP endpoint.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--metrics-sample-rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.01</span></code></p></td>
+<td><p>Fraction of chunks/blocks to track for lifecycle histograms
+(0, 1.0]. Counters always count all events. Default is 1%.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--trace-level</span></code></p></td>
+<td><p><em>(none)</em></p></td>
+<td><p>Enable trace recording at the given level. Currently only
+<code class="docutils literal notranslate"><span class="pre">storage</span></code> is supported (records <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> public-API
+calls for offline replay). When unset, trace recording is off.
+See <a class="reference internal" href="#trace-recording"><span class="std std-ref">Trace Recording</span></a> for details.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--trace-output</span></code></p></td>
+<td><p><em>(none)</em></p></td>
+<td><p>Path to write the trace file. If omitted while <code class="docutils literal notranslate"><span class="pre">--trace-level</span></code>
+is set, a timestamped file under <code class="docutils literal notranslate"><span class="pre">$TMPDIR</span></code> is minted
+(<code class="docutils literal notranslate"><span class="pre">lmcache-trace-&lt;pid&gt;-&lt;UTC&gt;.lct</span></code>) and its path is logged at INFO.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Environment variables:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">INFO</span></code></p></td>
+<td><p>Controls the log level for all LMCache loggers. Valid values:
+<code class="docutils literal notranslate"><span class="pre">DEBUG</span></code>, <code class="docutils literal notranslate"><span class="pre">INFO</span></code>, <code class="docutils literal notranslate"><span class="pre">WARNING</span></code>, <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>, <code class="docutils literal notranslate"><span class="pre">CRITICAL</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="metrics">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#metrics'"><span>#</span></a></h2>
+<p>Metrics are collected via OpenTelemetry counters and exported through an
+in-process <strong>Prometheus</strong> <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> HTTP endpoint (default port 9090).
+When <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> is set, metrics are also pushed to the OTel
+collector.</p>
+<p>All metrics use the <code class="docutils literal notranslate"><span class="pre">lmcache_mp.</span></code> prefix (multiprocess). On Prometheus,
+dots are converted to underscores and counters get a <code class="docutils literal notranslate"><span class="pre">_total</span></code> suffix
+(e.g. <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_read_keys_total</span></code>).</p>
+<section id="storagemanager-metrics">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">StorageManager Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#storagemanager-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#storagemanager-metrics'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_read_requests</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of read (prefetch) requests received by the StorageManager.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_read_succeed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully read from LMCache.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_read_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to read.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_write_requests</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of write (reserve) requests.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_write_succeed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully reserved for write.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.sm_write_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to reserve (OOM, write conflict).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l1-metrics">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">L1 Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-metrics'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_read_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys read from L1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_write_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys written to L1.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_evicted_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys evicted by the EvictionController.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l1-chunk-lifecycle-histograms">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">L1 Chunk Lifecycle Histograms</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-chunk-lifecycle-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-chunk-lifecycle-histograms'"><span>#</span></a></h3>
+<p>Sampled (default 1%) chunk-level lifecycle tracking via
+<code class="docutils literal notranslate"><span class="pre">L1LifecycleSubscriber</span></code>. Only sampled chunks contribute to histograms;
+counters above always count all events. Sampling is deterministic
+(hash-based), so the same key always gets the same decision with zero
+memory overhead.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_lifetime_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from allocation to eviction per sampled chunk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_idle_before_evict_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from last access to eviction per sampled chunk.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time gap between consecutive touches (read or write) of the same chunk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_chunk_evict_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from eviction to next reuse (capped at 300 s).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l2-metrics">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">L2 Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-metrics'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_tasks</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 store tasks submitted.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 store.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_completed</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 store tasks completed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_succeeded_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully stored to L2.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to store to L2.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_lookups</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 prefetch lookup requests.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_lookup_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 prefetch lookup.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_hit_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of prefix keys found in L2 lookup.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_load_tasks</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of L2 prefetch load tasks submitted.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_load_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys submitted for L2 load.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_loaded_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys successfully loaded from L2.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_prefetch_failed_keys</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>Number of keys that failed to load from L2.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l0-gpu-block-lifecycle-histograms">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">L0 (GPU) Block Lifecycle Histograms</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l0-gpu-block-lifecycle-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l0-gpu-block-lifecycle-histograms'"><span>#</span></a></h3>
+<p>Sampled (default 1%) GPU KV cache block lifecycle tracking via
+<code class="docutils literal notranslate"><span class="pre">L0LifecycleSubscriber</span></code>. Eviction is detected at reallocation time
+(when a block is assigned different tokens). Sampling uses random
+selection with a <code class="docutils literal notranslate"><span class="pre">_skipped</span></code> set (bounded by the finite number of
+physical GPU blocks).</p>
+<p>All L0 histograms are emitted with <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and <code class="docutils literal notranslate"><span class="pre">model_name</span></code>
+OTel attributes, enabling per-instance and per-model metric slicing
+in Prometheus (e.g.
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l0_block_lifetime_seconds{instance_id="12345",model_name="llama-7b"}</span></code>).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_lifetime_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from allocation to eviction per sampled GPU block.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_idle_before_evict_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time from last access to eviction per sampled GPU block.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l0_block_reuse_gap_seconds</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>Time gaps between consecutive accesses of the same GPU block.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="observable-gauges">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Observable Gauges</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observable-gauges" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observable-gauges'"><span>#</span></a></h3>
+<p>Point-in-time state snapshots registered via <code class="docutils literal notranslate"><span class="pre">register_gauge</span></code>
+(pull-based OTel observable gauges).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.active_prefetch_jobs</span></code></p></td>
+<td><p>ObservableGauge</p></td>
+<td><p>Number of prefetch jobs currently in-flight. A sustained high
+value may indicate slow L2 backends or polling delays.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prometheus-scrape-configuration">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Prometheus Scrape Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h3>
+<p>Add the LMCache server as a Prometheus scrape target:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">scrape_configs</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-mp"</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"&lt;lmcache-host&gt;:9090"</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="logging">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Logging</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging'"><span>#</span></a></h2>
+<p>Logging subscribers emit debug-level messages for store, retrieve, lookup,
+L1, and StorageManager events via Python’s standard <code class="docutils literal notranslate"><span class="pre">logging</span></code> module.</p>
+<p>When OpenTelemetry is installed, <code class="docutils literal notranslate"><span class="pre">init_logger</span></code> automatically attaches an
+OTel <code class="docutils literal notranslate"><span class="pre">LoggingHandler</span></code> so that log records are forwarded to any configured
+OTel <code class="docutils literal notranslate"><span class="pre">LoggerProvider</span></code>. The handler respects the <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL</span></code>
+environment variable.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span>...
+</span></code></pre></div>
+</div>
+<p>Key log messages:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Message</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>INFO</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Stored</span> <span class="pre">N</span> <span class="pre">tokens</span> <span class="pre">in</span> <span class="pre">X</span> <span class="pre">seconds</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>INFO</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Retrieved</span> <span class="pre">N</span> <span class="pre">tokens</span> <span class="pre">in</span> <span class="pre">X</span> <span class="pre">seconds</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>INFO</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Prefetch</span> <span class="pre">request</span> <span class="pre">completed</span> <span class="pre">(L1+L2):</span> <span class="pre">N/M</span> <span class="pre">prefix</span> <span class="pre">hits</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DEBUG</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MP</span> <span class="pre">store</span> <span class="pre">start:</span> <span class="pre">session=...</span> <span class="pre">device=...</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>DEBUG</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MP</span> <span class="pre">retrieve</span> <span class="pre">end:</span> <span class="pre">session=...</span> <span class="pre">retrieved_count=...</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="tracing">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Tracing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tracing'"><span>#</span></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> <strong>requires</strong> <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> to be set.
+The server will refuse to start if tracing is enabled without an
+OTLP endpoint, since there is no local fallback for trace export.</p>
+</div>
+<p>When tracing is enabled (<code class="docutils literal notranslate"><span class="pre">--enable-tracing</span> <span class="pre">--otlp-endpoint</span> <span class="pre">&lt;URL&gt;</span></code>),
+the tracing subscriber creates OTel spans from START/END event pairs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mp.store</span></code> — from <code class="docutils literal notranslate"><span class="pre">MP_STORE_START</span></code> to <code class="docutils literal notranslate"><span class="pre">MP_STORE_END</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp.retrieve</span></code> — from <code class="docutils literal notranslate"><span class="pre">MP_RETRIEVE_START</span></code> to <code class="docutils literal notranslate"><span class="pre">MP_RETRIEVE_END</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp.lookup_prefetch</span></code> — from <code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_START</span></code> to <code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code></p></li>
+</ul>
+<p>Each span carries event metadata as span attributes (e.g. <code class="docutils literal notranslate"><span class="pre">device</span></code>,
+<code class="docutils literal notranslate"><span class="pre">stored_count</span></code>, <code class="docutils literal notranslate"><span class="pre">found_count</span></code>).</p>
+<p>View traces in any OTel-compatible backend such as <strong>Jaeger</strong> or
+<strong>Grafana Tempo</strong>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Start Jaeger all-in-one (OTLP gRPC on 4317)</span>
+</span><span id="line-2">docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>jaeger<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-p<span class="w"> </span><span class="m">16686</span>:16686<span class="w"> </span>-p<span class="w"> </span><span class="m">4317</span>:4317<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>jaegertracing/all-in-one:latest
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Start LMCache with tracing</span>
+</span><span id="line-7">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--enable-tracing<span class="w"> </span>--otlp-endpoint<span class="w"> </span>http://localhost:4317
+</span></code></pre></div>
+</div>
+</section>
+<section id="trace-recording">
+<span id="id1"></span><h2><a class="toc-backref" href="#id14" role="doc-backlink">Trace Recording</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#trace-recording" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#trace-recording'"><span>#</span></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Trace recording is <strong>distinct from</strong> <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> (OTel
+spans). Trace recording captures every <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> public-API
+call to a binary file so the same workload can be <strong>replayed</strong> later
+for testing, regression hunting, and benchmarking — without needing
+vLLM and (eventually) without a GPU. <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> exports
+live OTel spans to an OTLP endpoint for online observability.
+The two features are independent and can be used together.</p>
+</div>
+<p>When <code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code> is set, LMCache records every call to
+<code class="docutils literal notranslate"><span class="pre">StorageManager.{reserve_write,</span> <span class="pre">finish_write,</span> <span class="pre">submit_prefetch_task,</span>
+<span class="pre">read_prefetched_results,</span> <span class="pre">finish_read_prefetched}</span></code> to a binary file
+for later replay.</p>
+<p>Recording is <strong>off by default</strong> and adds near-zero overhead when off
+(a single boolean check per <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call). When on,
+recording happens on the EventBus drain thread, off the request path.</p>
+<section id="capturing-a-trace">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Capturing a trace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#capturing-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#capturing-a-trace'"><span>#</span></a></h3>
+<p>With an explicit output path:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--trace-level<span class="w"> </span>storage<span class="w"> </span>--trace-output<span class="w"> </span>/tmp/run.lct
+</span></code></pre></div>
+</div>
+<p>With an implicit timestamped output path under <code class="docutils literal notranslate"><span class="pre">$TMPDIR</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--trace-level<span class="w"> </span>storage
+</span><span id="line-4"><span class="c1"># → INFO log: "trace recording enabled (level=storage); no</span>
+</span><span id="line-5"><span class="c1">#   --trace-output given, writing to</span>
+</span><span id="line-6"><span class="c1">#   /tmp/lmcache-trace-&lt;pid&gt;-&lt;UTC&gt;.lct"</span>
+</span></code></pre></div>
+</div>
+<p>The trace file is closed cleanly on shutdown (SIGTERM is handled by
+the EventBus stop path).</p>
+</section>
+<section id="replay">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Replay</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h3>
+<p>Replaying a recorded trace, plus the full set of CLI flags for
+driving, monitoring, and exporting replay results, is covered in
+its own page: <a class="reference internal" href="tracing_and_debugging.html"><span class="doc">Tracing and Debugging</span></a>.</p>
+</section>
+<section id="what-is-captured-and-what-is-not">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">What is captured (and what is not)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-captured-and-what-is-not" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-captured-and-what-is-not'"><span>#</span></a></h3>
+<p><strong>Captured:</strong></p>
+<ul class="simple">
+<li><p>The fully-qualified name of every decorated <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call.</p></li>
+<li><p>Each call’s input arguments (e.g. <code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">layout_desc</span></code>,
+<code class="docutils literal notranslate"><span class="pre">mode</span></code>, <code class="docutils literal notranslate"><span class="pre">extra_count</span></code>, <code class="docutils literal notranslate"><span class="pre">external_request_id</span></code>).</p></li>
+<li><p>Wall-clock and monotonic timestamps of each call.</p></li>
+<li><p>A header carrying a trace schema version, start times, and a
+SHA-256 digest of the active <code class="docutils literal notranslate"><span class="pre">StorageManagerConfig</span></code> so replay can
+detect mismatched configurations.</p></li>
+</ul>
+<p><strong>Not captured:</strong></p>
+<ul class="simple">
+<li><p>KV tensor bytes. Replay exercises bookkeeping and controller logic;
+payloads at replay time are zeros.</p></li>
+<li><p>Calls inside the <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code>, the message queue, or any
+GPU-copy code. These layers are <strong>out of scope</strong> for the storage
+trace level.</p></li>
+</ul>
+</section>
+<section id="file-format">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">File format</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#file-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#file-format'"><span>#</span></a></h3>
+<p>A length-prefixed <a class="reference external" href="https://msgpack.org/">msgpack</a> stream:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Header</span><span class="p">]</span>
+</span><span id="line-2"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Record</span><span class="p">]</span>
+</span><span id="line-3"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Record</span><span class="p">]</span>
+</span><span id="line-4"><span class="o">...</span>
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Header</span></code> carries a magic prefix (<code class="docutils literal notranslate"><span class="pre">LMCT</span></code>), a format version,
+the trace level (<code class="docutils literal notranslate"><span class="pre">storage</span></code> today), a trace schema version, start
+timestamps, and the StorageManagerConfig digest. Each <code class="docutils literal notranslate"><span class="pre">Record</span></code>
+carries a relative timestamp, a wall-clock timestamp, the
+fully-qualified call site (<code class="docutils literal notranslate"><span class="pre">qualname</span></code>), and an argument dict.</p>
+<p>The format is deliberately extensible: future trace <strong>levels</strong>
+(<code class="docutils literal notranslate"><span class="pre">mq</span></code>, <code class="docutils literal notranslate"><span class="pre">gpu</span></code>) will share this layout and use the <code class="docutils literal notranslate"><span class="pre">level</span></code> header
+field to discriminate. Additional captured ops add new <code class="docutils literal notranslate"><span class="pre">qualname</span></code>
+strings without bumping the format version.</p>
+<p>For the full design rationale see
+<code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/trace.md</span></code> in the source tree.</p>
+</section>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="operator.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        Kubernetes Operator
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="tracing_and_debugging.html">
+        Tracing and Debugging
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#metrics'" class="reference internal" href="#metrics">Metrics</a><ul>
+<li><a :data-current="activeSection === '#storagemanager-metrics'" class="reference internal" href="#storagemanager-metrics">StorageManager Metrics</a></li>
+<li><a :data-current="activeSection === '#l1-metrics'" class="reference internal" href="#l1-metrics">L1 Metrics</a></li>
+<li><a :data-current="activeSection === '#l1-chunk-lifecycle-histograms'" class="reference internal" href="#l1-chunk-lifecycle-histograms">L1 Chunk Lifecycle Histograms</a></li>
+<li><a :data-current="activeSection === '#l2-metrics'" class="reference internal" href="#l2-metrics">L2 Metrics</a></li>
+<li><a :data-current="activeSection === '#l0-gpu-block-lifecycle-histograms'" class="reference internal" href="#l0-gpu-block-lifecycle-histograms">L0 (GPU) Block Lifecycle Histograms</a></li>
+<li><a :data-current="activeSection === '#observable-gauges'" class="reference internal" href="#observable-gauges">Observable Gauges</a></li>
+<li><a :data-current="activeSection === '#prometheus-scrape-configuration'" class="reference internal" href="#prometheus-scrape-configuration">Prometheus Scrape Configuration</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#logging'" class="reference internal" href="#logging">Logging</a></li>
+<li><a :data-current="activeSection === '#tracing'" class="reference internal" href="#tracing">Tracing</a></li>
+<li><a :data-current="activeSection === '#trace-recording'" class="reference internal" href="#trace-recording">Trace Recording</a><ul>
+<li><a :data-current="activeSection === '#capturing-a-trace'" class="reference internal" href="#capturing-a-trace">Capturing a trace</a></li>
+<li><a :data-current="activeSection === '#replay'" class="reference internal" href="#replay">Replay</a></li>
+<li><a :data-current="activeSection === '#what-is-captured-and-what-is-not'" class="reference internal" href="#what-is-captured-and-what-is-not">What is captured (and what is not)</a></li>
+<li><a :data-current="activeSection === '#file-format'" class="reference internal" href="#file-format">File format</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=5929fcd5"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=e5cd2227"></script>
+</body>
+</html>
