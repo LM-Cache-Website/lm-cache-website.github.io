@@ -268,80 +268,146 @@
 <div id="content" role="main">
 <section id="benchmarking">
 <h1>Benchmarking<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#benchmarking"><span>#</span></a></h1>
-<p>This is a simple tutorial on how to deploy and benchmark LMCache.</p>
-<section id="workload-generator-long-doc-qa">
-<h2>Workload Generator – Long Doc QA:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workload-generator-long-doc-qa" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workload-generator-long-doc-qa'"><span>#</span></a></h2>
-<p>Long Doc QA (found in <code class="docutils literal notranslate"><span class="pre">benchmarks/long_doc_qa/</span></code>) is a highly flexible traffic simulator that sends long context queries (“documents”) to your serving engine.
-Some configurable parameters include the number of tokens in the documents (default is 10000), the number of documents to send to the model (default is 20), the number of output tokens per request (default is 100), and the cache hit/miss ratio (e.g. 2:2 means a repeated 2 hit and 2 miss pattern through all the documents).
-You can also choose the number of times to repeat prompts and the mode of repetition (random, tile, interleave).</p>
-<p>LMCache provides a simple Long Doc QA Recommender that helps you deploy LMCache and generate the appropriate traffic through Long Doc QA.
-It will also help you determine the tensor parallelism and the amount of CPU RAM to deploy LMCache with based on the specifications of your hardware.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa_recommender.py<span class="w"> </span>--model<span class="w"> </span>&lt;YOUR_MODEL_NAME&gt;
-</span></code></pre></div>
-</div>
+<p>This is a simple tutorial on how to deploy and benchmark LMCache using the
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> CLI.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> command is a flexible traffic simulator that
+sends configurable workloads to your inference engine and reports TTFT,
+decoding speed, and throughput metrics. This tutorial walks through a
+long-document Q&amp;A benchmark that exercises LMCache’s CPU offloading path.</p>
+<p>For the full CLI reference – including every flag, every workload type, and
+config-file usage – see <a class="reference internal" href="../cli/bench.html"><span class="doc">lmcache bench engine</span></a>.</p>
+<section id="long-doc-qa-workload">
+<h2>Long Doc QA workload<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-qa-workload" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#long-doc-qa-workload'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code> workload simulates repeated Q&amp;A over long synthetic
+documents: a warmup round primes the KV cache with each document, then a
+benchmark round dispatches the questions. The number of documents is
+derived from <code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> and the model’s tokens-per-GB rather
+than set directly. See <a class="reference internal" href="../cli/bench.html"><span class="doc">lmcache bench engine</span></a> for the full flag list.</p>
 </section>
 <section id="example">
-<h2>Example:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa_recommender.py<span class="w"> </span>--model<span class="w"> </span>Qwen/Qwen3-8B
-</span></code></pre></div>
-</div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"># this output is hardware specific, blindly copying it may not yield optimal results
-</span><span id="line-2"># please run the recommender script yourself
-</span><span id="line-3">1. vLLM Deployment:
-</span><span id="line-4">-----------------
-</span><span id="line-5">
-</span><span id="line-6">PYTHONHASHSEED=0 \
-</span><span id="line-7">vllm serve Qwen/Qwen3-8B \
-</span><span id="line-8">--tensor-parallel-size 1 \
-</span><span id="line-9">--load-format dummy
-</span><span id="line-10">
-</span><span id="line-11">
-</span><span id="line-12">2. LMCache Deployment:
-</span><span id="line-13">--------------------
-</span><span id="line-14">
-</span><span id="line-15">PYTHONHASHSEED=0 \
-</span><span id="line-16">LMCACHE_MAX_LOCAL_CPU_SIZE=66 \
-</span><span id="line-17">vllm serve Qwen/Qwen3-8B \
-</span><span id="line-18">--tensor-parallel-size 1 \
-</span><span id="line-19">--load-format dummy \
-</span><span id="line-20">--kv-transfer-config \
-</span><span id="line-21">'{"kv_connector": "LMCacheConnectorV1", "kv_role": "kv_both"}'
-</span><span id="line-22">
-</span><span id="line-23">
-</span><span id="line-24">3. Multi-Round QA Workload Generation:
-</span><span id="line-25">----------------------------------------
-</span><span id="line-26">
-</span><span id="line-27">python benchmarks/long_doc_qa/long_doc_qa.py \
-</span><span id="line-28">--model Qwen/Qwen3-8B \
-</span><span id="line-29">--num-documents 46 \
-</span><span id="line-30">--document-length 10000 \
-</span><span id="line-31">--output-len 100 \
-</span><span id="line-32">--repeat-count 1 \
-</span><span id="line-33">--repeat-mode tile \
-</span><span id="line-34">--max-inflight-requests 4
-</span></code></pre></div>
-</div>
-<section id="qwen-8b-vllm-metrics">
-<h3>Qwen 8B vLLM Metrics:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#qwen-8b-vllm-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#qwen-8b-vllm-metrics'"><span>#</span></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">=== BENCHMARK RESULTS ===
-</span><span id="line-2">Query round mean TTFT: 0.757s
-</span><span id="line-3">Query round time: 23.467s
-</span><span id="line-4">Query round prompt count: 46
+<h2>Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
+<p>To measure the benefit of LMCache, run the <strong>same benchmark against two
+setups</strong> and compare the results:</p>
+<ul class="simple">
+<li><p><strong>Setup A (baseline)</strong> – vLLM alone.</p></li>
+<li><p><strong>Setup B (with LMCache)</strong> – vLLM plus a standalone LMCache server.</p></li>
+</ul>
+<p>The steps below reproduce both runs on <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-8B</span></code>. Adjust the sizes
+to match your hardware.</p>
+<section id="setup-a-vllm-alone-baseline">
+<h3>Setup A: vLLM alone (baseline)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-a-vllm-alone-baseline" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-a-vllm-alone-baseline'"><span>#</span></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B
 </span></code></pre></div>
 </div>
 </section>
-<section id="qwen-8b-lmcache-metrics">
-<h3>Qwen 8B LMCache Metrics:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#qwen-8b-lmcache-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#qwen-8b-lmcache-metrics'"><span>#</span></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">=== BENCHMARK RESULTS ===
-</span><span id="line-2">Query round mean TTFT: 0.185s
-</span><span id="line-3">Query round time: 13.789s
-</span><span id="line-4">Query round prompt count: 46
+<section id="setup-b-vllm-with-lmcache">
+<h3>Setup B: vLLM with LMCache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-b-vllm-with-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-b-vllm-with-lmcache'"><span>#</span></a></h3>
+<p>Run LMCache as a standalone service and point vLLM at it with the
+<code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>. See <a class="reference internal" href="../mp/quickstart.html"><span class="doc">Quick Start</span></a> for the full MP-mode
+walkthrough.</p>
+<p><strong>Start the LMCache server:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">66</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
-<p>From this example, we can see a <strong>75%</strong> reduction in TTFT (0.757s → 0.185s), <strong>41%</strong> reduction in total inference time (23.467s → 13.789s) via offloading with <strong>LMCache</strong>.</p>
+<p>The ZMQ port defaults to <strong>5555</strong> (used by vLLM) and the HTTP frontend
+defaults to <strong>8080</strong> (used by <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span> <span class="pre">--lmcache-url</span></code>).</p>
+<p><strong>Start vLLM with the MP connector in a separate terminal:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector": "LMCacheMPConnector", "kv_role": "kv_both"}'</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="run-the-benchmark">
+<h3>Run the benchmark<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#run-the-benchmark" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#run-the-benchmark'"><span>#</span></a></h3>
+<p>To make the comparison fair, capture the benchmark settings <strong>once</strong> in a
+config file, then replay the same config against both setups.</p>
+<p><strong>Step 1 – export a shared config.</strong> With the LMCache server from Setup B
+still running, launch <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> in interactive mode:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--lmcache-url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p>Interactive mode triggers because <code class="docutils literal notranslate"><span class="pre">--engine-url</span></code> and <code class="docutils literal notranslate"><span class="pre">--workload</span></code> are
+missing, and <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> auto-detects <code class="docutils literal notranslate"><span class="pre">tokens-per-gb-kvcache</span></code> from
+the server. Walk through the prompts and pick:</p>
+<ul class="simple">
+<li><p>Engine URL: <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code></p></li>
+<li><p>Workload: <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code></p></li>
+<li><p>Model: auto-detected from the engine (or type <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-8B</span></code>)</p></li>
+<li><p>KV cache volume (GB): <code class="docutils literal notranslate"><span class="pre">10</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ldqa-query-per-document</span></code>: <code class="docutils literal notranslate"><span class="pre">1</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ldqa-shuffle-policy</span></code>: <code class="docutils literal notranslate"><span class="pre">tile</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ldqa-num-inflight-requests</span></code>: <code class="docutils literal notranslate"><span class="pre">4</span></code></p></li>
+<li><p>Leave the rest at their defaults.</p></li>
+</ul>
+<p>At the <strong>summary</strong> step, choose <strong>“Export configuration for later use and
+exit”</strong> and save to <code class="docutils literal notranslate"><span class="pre">bench_config.json</span></code>. The file looks like:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Qwen/Qwen3-8B"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"workload"</span><span class="p">:</span><span class="w"> </span><span class="s2">"long-doc-qa"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"kv_cache_volume"</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"tokens_per_gb_kvcache"</span><span class="p">:</span><span class="w"> </span><span class="mi">46020</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"ldqa_document_length"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">"ldqa_query_per_document"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"ldqa_shuffle_policy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tile"</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">"ldqa_num_inflight_requests"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+</span><span id="line-10"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>Note that the exported config stores <code class="docutils literal notranslate"><span class="pre">tokens_per_gb_kvcache</span></code> (resolved
+from <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>) but <strong>not</strong> the engine URL or the LMCache URL, so
+the same file is portable across environments.</p>
+<p><strong>Step 2 – replay against each setup.</strong> Point <code class="docutils literal notranslate"><span class="pre">--engine-url</span></code> at whichever
+vLLM you want to benchmark and pass the shared config:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--config<span class="w"> </span>bench_config.json
+</span></code></pre></div>
+</div>
+<p>Run this once against Setup A’s vLLM and once against Setup B’s
+vLLM-plus-LMCache, recording the metrics from each run.</p>
+</section>
+<section id="results">
+<h3>Results<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#results" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#results'"><span>#</span></a></h3>
+<p>Pull the headline numbers out of each run’s
+<code class="docutils literal notranslate"><span class="pre">Engine</span> <span class="pre">Benchmark</span> <span class="pre">Result</span> <span class="pre">(long-doc-qa)</span></code> summary:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 30.0%"/>
+<col style="width: 30.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Setup A (vLLM)</p></th>
+<th class="head"><p>Setup B (+ LMCache)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Successful requests</p></td>
+<td><p>46</p></td>
+<td><p>46</p></td>
+</tr>
+<tr class="row-odd"><td><p>Benchmark duration (s)</p></td>
+<td><p>23.47</p></td>
+<td><p>13.79</p></td>
+</tr>
+<tr class="row-even"><td><p>Mean TTFT (ms)</p></td>
+<td><p>757.00</p></td>
+<td><p>185.00</p></td>
+</tr>
+</tbody>
+</table>
+<p>That’s a <strong>75%</strong> reduction in Mean TTFT (757 ms → 185 ms) and a <strong>41%</strong>
+reduction in benchmark duration (23.47 s → 13.79 s) from LMCache offloading.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The warmup round is the first time the model sees the documents. The query round is the second time the model sees the documents. Without offloading, even with KV Cache reuse, there is no improvement in TTFT nor throughput. With offloading, we can see significant performance improvements to the query round.</p>
+<p>Without LMCache, once the benchmark’s working set overflows the GPU KV
+cache the second round has to recompute every prefix, so TTFT and
+throughput don’t improve even when content repeats. LMCache keeps the
+evicted blocks on CPU RAM and restores them on demand – that’s where
+the speedup comes from.</p>
 </div>
 </section>
 </section>
@@ -366,10 +432,12 @@ It will also help you determine the tensor parallelism and the amount of CPU RAM
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#workload-generator-long-doc-qa'" class="reference internal" href="#workload-generator-long-doc-qa">Workload Generator – Long Doc QA:</a></li>
-<li><a :data-current="activeSection === '#example'" class="reference internal" href="#example">Example:</a><ul>
-<li><a :data-current="activeSection === '#qwen-8b-vllm-metrics'" class="reference internal" href="#qwen-8b-vllm-metrics">Qwen 8B vLLM Metrics:</a></li>
-<li><a :data-current="activeSection === '#qwen-8b-lmcache-metrics'" class="reference internal" href="#qwen-8b-lmcache-metrics">Qwen 8B LMCache Metrics:</a></li>
+<li><a :data-current="activeSection === '#long-doc-qa-workload'" class="reference internal" href="#long-doc-qa-workload">Long Doc QA workload</a></li>
+<li><a :data-current="activeSection === '#example'" class="reference internal" href="#example">Example</a><ul>
+<li><a :data-current="activeSection === '#setup-a-vllm-alone-baseline'" class="reference internal" href="#setup-a-vllm-alone-baseline">Setup A: vLLM alone (baseline)</a></li>
+<li><a :data-current="activeSection === '#setup-b-vllm-with-lmcache'" class="reference internal" href="#setup-b-vllm-with-lmcache">Setup B: vLLM with LMCache</a></li>
+<li><a :data-current="activeSection === '#run-the-benchmark'" class="reference internal" href="#run-the-benchmark">Run the benchmark</a></li>
+<li><a :data-current="activeSection === '#results'" class="reference internal" href="#results">Results</a></li>
 </ul>
 </li>
 </ul>
