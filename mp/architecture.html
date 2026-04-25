@@ -346,10 +346,13 @@ which adds CacheBlend operations (<code class="docutils literal notranslate"><sp
 <code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code>).  Enables non-prefix KV
 cache reuse across document paragraphs.</p>
 <p><strong>``http_server.py``</strong> – Wraps <code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> (from <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
-inside a FastAPI application.  Adds <code class="docutils literal notranslate"><span class="pre">/api/healthcheck</span></code> for Kubernetes probes,
-<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/clear-cache</span></code> for clearing all KV cache data in L1 (CPU) memory,
-and <code class="docutils literal notranslate"><span class="pre">/api/status</span></code> for inspecting detailed internal state.
-The ZMQ server runs as part of the same process.</p>
+inside a FastAPI application.  Endpoints are contributed by modules under
+<code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> and auto-registered via <code class="docutils literal notranslate"><span class="pre">HTTPAPIRegistry</span></code>: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code> (basic
+liveness), <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/healthcheck</span></code> for Kubernetes probes, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/clear-cache</span></code>
+for clearing all KV cache data in L1 (CPU) memory, and <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/status</span></code>
+for inspecting detailed internal state.  The ZMQ server runs as part of the
+same process, and any configured runtime plugins are spawned by
+<code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> during FastAPI startup.</p>
 </section>
 <section id="zmq-protocol">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">ZMQ Protocol</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#zmq-protocol" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#zmq-protocol'"><span>#</span></a></h2>
@@ -449,9 +452,12 @@ The ZMQ server runs as part of the same process.</p>
 <p><code class="docutils literal notranslate"><span class="pre">server.py:parse_args()</span></code> composes them:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
 </span><span id="line-2"><span class="n">add_mp_server_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>        <span class="c1"># from multiprocess/config.py</span>
-</span><span id="line-3"><span class="n">add_storage_manager_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>  <span class="c1"># from distributed/config.py</span>
-</span><span id="line-4">  <span class="c1"># which internally calls add_l2_adapters_args(parser)</span>
-</span><span id="line-5"><span class="n">add_observability_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>    <span class="c1"># from mp_observability/config.py</span>
+</span><span id="line-3">                                  <span class="c1"># includes runtime-plugin args</span>
+</span><span id="line-4">                                  <span class="c1"># (--runtime-plugin-locations,</span>
+</span><span id="line-5">                                  <span class="c1">#  --runtime-plugin-config)</span>
+</span><span id="line-6"><span class="n">add_storage_manager_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>  <span class="c1"># from distributed/config.py</span>
+</span><span id="line-7">  <span class="c1"># which internally calls add_l2_adapters_args(parser)</span>
+</span><span id="line-8"><span class="n">add_observability_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>    <span class="c1"># from mp_observability/config.py</span>
 </span></code></pre></div>
 </div>
 <p>Both <code class="docutils literal notranslate"><span class="pre">blend_server_v2.py</span></code> and <code class="docutils literal notranslate"><span class="pre">http_server.py</span></code> reuse this pattern, adding
@@ -597,15 +603,25 @@ collector.</p>
 <h2><a class="toc-backref" href="#id15" role="doc-backlink">How to Extend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-to-extend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-to-extend'"><span>#</span></a></h2>
 <section id="adding-a-new-l2-adapter">
 <h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding a new L2 adapter</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-a-new-l2-adapter" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-a-new-l2-adapter'"><span>#</span></a></h3>
-<ol class="arabic simple">
+<p>Create a new <code class="docutils literal notranslate"><span class="pre">*_l2_adapter.py</span></code> module under
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/</span></code> — <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> auto-discovers
+modules matching that suffix via <code class="docutils literal notranslate"><span class="pre">pkgutil</span></code> and imports them lazily on
+first use, so no other files need to be modified.</p>
+<ol class="arabic">
 <li><p>Create a config class subclassing <code class="docutils literal notranslate"><span class="pre">L2AdapterConfigBase</span></code> with
 <code class="docutils literal notranslate"><span class="pre">from_dict()</span></code> and <code class="docutils literal notranslate"><span class="pre">help()</span></code> methods.</p></li>
-<li><p>Call <code class="docutils literal notranslate"><span class="pre">register_l2_adapter_type("my_adapter",</span> <span class="pre">MyAdapterConfig)</span></code> at module
-level.</p></li>
-<li><p>Create an adapter class implementing <code class="docutils literal notranslate"><span class="pre">L2AdapterInterface</span></code>.</p></li>
-<li><p>Add an <code class="docutils literal notranslate"><span class="pre">isinstance()</span></code> branch in <code class="docutils literal notranslate"><span class="pre">create_l2_adapter()</span></code>
-(<code class="docutils literal notranslate"><span class="pre">l2_adapters/__init__.py</span></code>).</p></li>
+<li><p>Create an adapter class implementing <code class="docutils literal notranslate"><span class="pre">L2AdapterInterface</span></code>, and
+a small factory function
+<code class="docutils literal notranslate"><span class="pre">(config,</span> <span class="pre">l1_memory_desc)</span> <span class="pre">-&gt;</span> <span class="pre">L2AdapterInterface</span></code>.</p></li>
+<li><p>At module level, self-register both the config and the factory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">register_l2_adapter_type</span><span class="p">(</span><span class="s2">"my_adapter"</span><span class="p">,</span> <span class="n">MyAdapterConfig</span><span class="p">)</span>
+</span><span id="line-2"><span class="n">register_l2_adapter_factory</span><span class="p">(</span><span class="s2">"my_adapter"</span><span class="p">,</span> <span class="n">_create_my_adapter</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</li>
 </ol>
+<p>See <code class="docutils literal notranslate"><span class="pre">mock_l2_adapter.py</span></code> or <code class="docutils literal notranslate"><span class="pre">s3_l2_adapter.py</span></code> for reference
+implementations.</p>
 </section>
 <section id="adding-an-observability-subscriber">
 <h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding an observability subscriber</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-an-observability-subscriber" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-an-observability-subscriber'"><span>#</span></a></h3>
@@ -661,49 +677,60 @@ CLI flag if needed.</p></li>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_server.py</span></code></p></td>
 <td><p>FastAPI wrapper with health check and many other useful APIs</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/protocols/base.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_api_registry.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HTTPAPIRegistry</span></code> that auto-discovers routers in <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_apis/</span></code></p></td>
+<td><p>Extensible HTTP endpoints (<code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">/api/healthcheck</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/api/clear-cache</span></code>, <code class="docutils literal notranslate"><span class="pre">/api/status</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/mp_runtime_plugin_launcher.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> that spawns runtime plugins with the
+full server config serialized into environment variables</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/protocols/base.py</span></code></p></td>
 <td><p>RequestType, HandlerType, ProtocolDefinition</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_manager.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_manager.py</span></code></p></td>
 <td><p>StorageManager (top-level manager)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p></td>
 <td><p>StorageManagerConfig hierarchy</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l1_manager.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l1_manager.py</span></code></p></td>
 <td><p>L1Manager (object state machine)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p></td>
 <td><p>L2 adapter config registry</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/base.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/base.py</span></code></p></td>
 <td><p>L2AdapterInterface</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/store_controller.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/store_controller.py</span></code></p></td>
 <td><p>StoreController (event-driven L1-&gt;L2)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/eviction_controller.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/eviction_controller.py</span></code></p></td>
 <td><p>EvictionController (watermark-triggered)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/prefetch_controller.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/prefetch_controller.py</span></code></p></td>
 <td><p>PrefetchController (L2-&gt;L1 on miss)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p></td>
 <td><p>ObservabilityConfig + <code class="docutils literal notranslate"><span class="pre">init_observability()</span></code> entry point</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code></p></td>
 <td><p>EventBus singleton and <code class="docutils literal notranslate"><span class="pre">EventSubscriber</span></code> base class</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Event</span></code> / <code class="docutils literal notranslate"><span class="pre">EventType</span></code> definitions</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/otel_init.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/otel_init.py</span></code></p></td>
 <td><p>OTel metrics / tracing provider setup</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code></p></td>
 <td><p>Metrics, logging, and tracing subscribers</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/trace/</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/trace/</span></code></p></td>
 <td><p>Trace recording (<code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code>) capture stack</p></td>
 </tr>
 </tbody>
