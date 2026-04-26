@@ -22,7 +22,7 @@
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
 <link href="tracing_and_debugging.html" rel="next" title="Tracing and Debugging"/>
-<link href="operator.html" rel="prev" title="Kubernetes Operator"/>
+<link href="http_api.html" rel="prev" title="HTTP API"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -137,6 +137,7 @@
 <li class="toctree-l2"><a class="reference internal" href="l2_storage.html">L2 Storage (Persistent Cache)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="deployment.html">Deployment Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="http_api.html">HTTP API</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Observability</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tracing_and_debugging.html">Tracing and Debugging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture &amp; Developer Guide</a></li>
@@ -289,18 +290,19 @@ producers (L1Manager, StorageManager, MPCacheEngine) from subscribers.</p>
 <li><p><a class="reference internal" href="#lookup-hit-rate-metrics" id="id10">Lookup Hit-Rate Metrics</a></p></li>
 <li><p><a class="reference internal" href="#l0-gpu-block-lifecycle-histograms" id="id11">L0 (GPU) Block Lifecycle Histograms</a></p></li>
 <li><p><a class="reference internal" href="#l0-l1-throughput-histograms" id="id12">L0 ↔ L1 Throughput Histograms</a></p></li>
-<li><p><a class="reference internal" href="#observable-gauges" id="id13">Observable Gauges</a></p></li>
-<li><p><a class="reference internal" href="#prometheus-scrape-configuration" id="id14">Prometheus Scrape Configuration</a></p></li>
+<li><p><a class="reference internal" href="#l1-l2-throughput-histograms" id="id13">L1 ↔ L2 Throughput Histograms</a></p></li>
+<li><p><a class="reference internal" href="#observable-gauges" id="id14">Observable Gauges</a></p></li>
+<li><p><a class="reference internal" href="#prometheus-scrape-configuration" id="id15">Prometheus Scrape Configuration</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#logging" id="id15">Logging</a></p></li>
-<li><p><a class="reference internal" href="#tracing" id="id16">Tracing</a></p></li>
-<li><p><a class="reference internal" href="#trace-recording" id="id17">Trace Recording</a></p>
+<li><p><a class="reference internal" href="#logging" id="id16">Logging</a></p></li>
+<li><p><a class="reference internal" href="#tracing" id="id17">Tracing</a></p></li>
+<li><p><a class="reference internal" href="#trace-recording" id="id18">Trace Recording</a></p>
 <ul>
-<li><p><a class="reference internal" href="#capturing-a-trace" id="id18">Capturing a trace</a></p></li>
-<li><p><a class="reference internal" href="#replay" id="id19">Replay</a></p></li>
-<li><p><a class="reference internal" href="#what-is-captured-and-what-is-not" id="id20">What is captured (and what is not)</a></p></li>
-<li><p><a class="reference internal" href="#file-format" id="id21">File format</a></p></li>
+<li><p><a class="reference internal" href="#capturing-a-trace" id="id19">Capturing a trace</a></p></li>
+<li><p><a class="reference internal" href="#replay" id="id20">Replay</a></p></li>
+<li><p><a class="reference internal" href="#what-is-captured-and-what-is-not" id="id21">What is captured (and what is not)</a></p></li>
+<li><p><a class="reference internal" href="#file-format" id="id22">File format</a></p></li>
 </ul>
 </li>
 </ul>
@@ -589,8 +591,8 @@ memory overhead.</p>
 <td><p>Number of keys submitted for L2 store.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_completed</span></code></p></td>
-<td><p>Counter</p></td>
-<td><p>Number of L2 store tasks completed.</p></td>
+<td><p>Counter (attr: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>)</p></td>
+<td><p>Number of L2 store tasks completed, labeled by adapter type.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_succeeded_keys</span></code></p></td>
 <td><p>Counter</p></td>
@@ -628,8 +630,17 @@ memory overhead.</p>
 <td><p>Counter</p></td>
 <td><p>Number of keys that failed to load from L2.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_load_completed</span></code></p></td>
+<td><p>Counter (attr: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>)</p></td>
+<td><p>Number of per-adapter L2 load tasks completed, labeled by adapter type.</p></td>
+</tr>
 </tbody>
 </table>
+<p>The <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>-labeled counters (<code class="docutils literal notranslate"><span class="pre">l2_store_completed</span></code> and
+<code class="docutils literal notranslate"><span class="pre">l2_load_completed</span></code>) exist so dashboards can compute per-backend IOPS on
+demand via <code class="docutils literal notranslate"><span class="pre">rate(lmcache_mp_l2_store_completed_total{l2_name="..."}[1m])</span></code>
+(and the equivalent for loads).  No separate <code class="docutils literal notranslate"><span class="pre">*_iops</span></code> metric is exported;
+keeping the raw counter lets dashboard users pick their own window.</p>
 </section>
 <section id="lookup-hit-rate-metrics">
 <h3><a class="toc-backref" href="#id10" role="doc-backlink">Lookup Hit-Rate Metrics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lookup-hit-rate-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lookup-hit-rate-metrics'"><span>#</span></a></h3>
@@ -718,9 +729,10 @@ GB/s. Timestamps come from <code class="docutils literal notranslate"><span clas
 published on the GPU cupy stream, so they reflect true GPU-stream copy
 time — not Python/lock overhead.</p>
 <p>All throughput histograms are emitted with <code class="docutils literal notranslate"><span class="pre">engine_id</span></code> (vLLM worker
-instance id) and <code class="docutils literal notranslate"><span class="pre">gpu_id</span></code> OTel attributes, enabling per-worker and
-per-GPU slicing in Prometheus (e.g.
-<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l0_l1_store_throughput_gbs{engine_id="0",gpu_id="3"}</span></code>).</p>
+instance id), <code class="docutils literal notranslate"><span class="pre">device</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">"cuda:3"</span></code>), and <code class="docutils literal notranslate"><span class="pre">model_name</span></code> OTel
+attributes, enabling per-worker, per-device, and per-model slicing in
+Prometheus (e.g.
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l0_l1_store_throughput_gbs{engine_id="0",device="cuda:3",model_name="meta-llama/Llama-3.1-8B"}</span></code>).</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 40.0%"/>
@@ -745,8 +757,51 @@ per-GPU slicing in Prometheus (e.g.
 </tbody>
 </table>
 </section>
+<section id="l1-l2-throughput-histograms">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">L1 ↔ L2 Throughput Histograms</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-l2-throughput-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-l2-throughput-histograms'"><span>#</span></a></h3>
+<p>Sampled (default 1%) per-task throughput of L1↔L2 transfers via
+<code class="docutils literal notranslate"><span class="pre">L2ThroughputSubscriber</span></code>. The store path correlates
+<code class="docutils literal notranslate"><span class="pre">L2_STORE_SUBMITTED</span></code> → <code class="docutils literal notranslate"><span class="pre">L2_STORE_COMPLETED</span></code> by
+<code class="docutils literal notranslate"><span class="pre">(adapter_index,</span> <span class="pre">task_id)</span></code>. The load path correlates the per-adapter
+<code class="docutils literal notranslate"><span class="pre">L2_LOAD_TASK_SUBMITTED</span></code> → <code class="docutils literal notranslate"><span class="pre">L2_LOAD_TASK_COMPLETED</span></code> events by
+<code class="docutils literal notranslate"><span class="pre">(request_id,</span> <span class="pre">adapter_index)</span></code>; the request-level
+<code class="docutils literal notranslate"><span class="pre">L2_PREFETCH_LOAD_*</span></code> events used by the key-count counters aggregate
+across adapters and cannot be attributed to a specific <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>.</p>
+<p>Timestamps span <strong>submit → complete</strong>, so the duration includes adapter
+queue, network, and disk I/O — the value is <em>bytes / end-to-end
+latency</em>, not raw transfer rate. Use these histograms to compare
+adapter types and catch regressions; use the L0↔L1 histograms when you
+need pure copy-time throughput.</p>
+<p>All L1↔L2 throughput histograms carry a single <code class="docutils literal notranslate"><span class="pre">l2_name</span></code> OTel
+attribute — the registered adapter type (e.g. <code class="docutils literal notranslate"><span class="pre">"fs"</span></code>, <code class="docutils literal notranslate"><span class="pre">"nixl_store"</span></code>,
+<code class="docutils literal notranslate"><span class="pre">"mooncake_store"</span></code>) — enabling per-backend slicing in Prometheus (e.g.
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l2_store_throughput_gbs{l2_name="nixl_store"}</span></code>).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_store_throughput_gbs</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>L1→L2 store throughput in GB/s per sampled task.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_load_throughput_gbs</span></code></p></td>
+<td><p>Histogram</p></td>
+<td><p>L2→L1 load throughput in GB/s per sampled (request, adapter) pair.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="observable-gauges">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Observable Gauges</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observable-gauges" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observable-gauges'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Observable Gauges</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observable-gauges" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observable-gauges'"><span>#</span></a></h3>
 <p>Point-in-time state snapshots registered via <code class="docutils literal notranslate"><span class="pre">register_gauge</span></code>
 (pull-based OTel observable gauges).</p>
 <table class="docutils align-default">
@@ -771,7 +826,7 @@ value may indicate slow L2 backends or polling delays.</p></td>
 </table>
 </section>
 <section id="prometheus-scrape-configuration">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Prometheus Scrape Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Prometheus Scrape Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h3>
 <p>Add the LMCache server as a Prometheus scrape target:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">scrape_configs</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-mp"</span>
@@ -782,7 +837,7 @@ value may indicate slow L2 backends or polling delays.</p></td>
 </section>
 </section>
 <section id="logging">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">Logging</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">Logging</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#logging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#logging'"><span>#</span></a></h2>
 <p>Logging subscribers emit debug-level messages for store, retrieve, lookup,
 L1, and StorageManager events via Python’s standard <code class="docutils literal notranslate"><span class="pre">logging</span></code> module.</p>
 <p>When OpenTelemetry is installed, <code class="docutils literal notranslate"><span class="pre">init_logger</span></code> automatically attaches an
@@ -823,7 +878,7 @@ environment variable.</p>
 </table>
 </section>
 <section id="tracing">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">Tracing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tracing'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Tracing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tracing'"><span>#</span></a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> <strong>requires</strong> <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> to be set.
@@ -854,7 +909,7 @@ the tracing subscriber creates OTel spans from START/END event pairs:</p>
 </div>
 </section>
 <section id="trace-recording">
-<span id="id1"></span><h2><a class="toc-backref" href="#id17" role="doc-backlink">Trace Recording</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#trace-recording" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#trace-recording'"><span>#</span></a></h2>
+<span id="id1"></span><h2><a class="toc-backref" href="#id18" role="doc-backlink">Trace Recording</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#trace-recording" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#trace-recording'"><span>#</span></a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Trace recording is <strong>distinct from</strong> <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> (OTel
@@ -873,7 +928,7 @@ for later replay.</p>
 (a single boolean check per <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call). When on,
 recording happens on the EventBus drain thread, off the request path.</p>
 <section id="capturing-a-trace">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Capturing a trace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#capturing-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#capturing-a-trace'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Capturing a trace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#capturing-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#capturing-a-trace'"><span>#</span></a></h3>
 <p>With an explicit output path:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -893,13 +948,13 @@ recording happens on the EventBus drain thread, off the request path.</p>
 the EventBus stop path).</p>
 </section>
 <section id="replay">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Replay</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Replay</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h3>
 <p>Replaying a recorded trace, plus the full set of CLI flags for
 driving, monitoring, and exporting replay results, is covered in
 its own page: <a class="reference internal" href="tracing_and_debugging.html"><span class="doc">Tracing and Debugging</span></a>.</p>
 </section>
 <section id="what-is-captured-and-what-is-not">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">What is captured (and what is not)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-captured-and-what-is-not" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-captured-and-what-is-not'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">What is captured (and what is not)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-captured-and-what-is-not" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-captured-and-what-is-not'"><span>#</span></a></h3>
 <p><strong>Captured:</strong></p>
 <ul class="simple">
 <li><p>The fully-qualified name of every decorated <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call.</p></li>
@@ -920,7 +975,7 @@ trace level.</p></li>
 </ul>
 </section>
 <section id="file-format">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">File format</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#file-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#file-format'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">File format</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#file-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#file-format'"><span>#</span></a></h3>
 <p>A length-prefixed <a class="reference external" href="https://msgpack.org/">msgpack</a> stream:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Header</span><span class="p">]</span>
 </span><span id="line-2"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Record</span><span class="p">]</span>
@@ -944,11 +999,11 @@ strings without bumping the format version.</p>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="operator.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="http_api.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        Kubernetes Operator
+        HTTP API
       </a>
 </div>
 <div class="ml-auto">
@@ -973,6 +1028,7 @@ strings without bumping the format version.</p>
 <li><a :data-current="activeSection === '#lookup-hit-rate-metrics'" class="reference internal" href="#lookup-hit-rate-metrics">Lookup Hit-Rate Metrics</a></li>
 <li><a :data-current="activeSection === '#l0-gpu-block-lifecycle-histograms'" class="reference internal" href="#l0-gpu-block-lifecycle-histograms">L0 (GPU) Block Lifecycle Histograms</a></li>
 <li><a :data-current="activeSection === '#l0-l1-throughput-histograms'" class="reference internal" href="#l0-l1-throughput-histograms">L0 ↔ L1 Throughput Histograms</a></li>
+<li><a :data-current="activeSection === '#l1-l2-throughput-histograms'" class="reference internal" href="#l1-l2-throughput-histograms">L1 ↔ L2 Throughput Histograms</a></li>
 <li><a :data-current="activeSection === '#observable-gauges'" class="reference internal" href="#observable-gauges">Observable Gauges</a></li>
 <li><a :data-current="activeSection === '#prometheus-scrape-configuration'" class="reference internal" href="#prometheus-scrape-configuration">Prometheus Scrape Configuration</a></li>
 </ul>
