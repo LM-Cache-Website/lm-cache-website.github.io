@@ -15,7 +15,7 @@
 <link href="../../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
-<link href="../../_static/custom.css?v=04f4756a" rel="stylesheet" type="text/css"/>
+<link href="../../_static/custom.css?v=35d29ced" rel="stylesheet" type="text/css"/>
 <link href="../../_static/scroll.css?v=1a89b264" rel="stylesheet" type="text/css"/>
 <link href="../../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
 <link href="../../_static/lmcache-logo.png" rel="icon"/>
@@ -103,6 +103,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../getting_started/faq.html">FAQ</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../getting_started/quickstart/standalone_starter.html">Standalone Starter</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Serving engine integrations</span></p>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../integrations/index.html">Serving Engine Integrations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../integrations/tensorrt_llm.html">TensorRT-LLM</a></li>
+</ul>
+</li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">KV Cache offloading and sharing</span></p>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../kv_cache/storage_backends/index.html">Using Different Storage Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
@@ -128,6 +135,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../../kv_cache/async_loading.html">Async Loading</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../kv_cache/p2p_sharing.html">P2P KV Cache Sharing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Non-KV caching</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../non_kv_cache/encoder_cache.html">Encoder caching</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Multiprocess Mode</span></p>
 <ul>
@@ -424,7 +435,8 @@ from different threads concurrently.</p></li>
 <p>A plugin adapter class <strong>should</strong>:</p>
 <ol class="arabic simple">
 <li><p>Create its own asyncio event loop and background thread if it needs async I/O.</p></li>
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">os.eventfd(0,</span> <span class="pre">os.EFD_NONBLOCK</span> <span class="pre">|</span> <span class="pre">os.EFD_CLOEXEC)</span></code> for the three event fds.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">create_event_notifier()</span></code> from <code class="docutils literal notranslate"><span class="pre">lmcache.v1.platform</span></code> for the three event fds
+(cross-platform: <code class="docutils literal notranslate"><span class="pre">os.eventfd</span></code> on Linux, <code class="docutils literal notranslate"><span class="pre">os.pipe</span></code> fallback elsewhere).</p></li>
 <li><p>Clean up all resources (event fds, threads, connections) in <code class="docutils literal notranslate"><span class="pre">close()</span></code>.</p></li>
 </ol>
 </section>
@@ -464,35 +476,29 @@ from different threads concurrently.</p></li>
 <h3>Minimal Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#minimal-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#minimal-example'"><span>#</span></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># my_plugin/adapter.py</span>
 </span><span id="line-2"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="line-3"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
-</span><span id="line-5">
-</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.native_storage_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bitmap</span>
-</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.distributed.l2_adapters.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="line-8">    <span class="n">L2AdapterInterface</span><span class="p">,</span>
-</span><span id="line-9">    <span class="n">L2TaskId</span><span class="p">,</span>
-</span><span id="line-10"><span class="p">)</span>
+</span><span id="line-3"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.native_storage_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bitmap</span>
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.distributed.l2_adapters.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-7">    <span class="n">L2AdapterInterface</span><span class="p">,</span>
+</span><span id="line-8">    <span class="n">L2TaskId</span><span class="p">,</span>
+</span><span id="line-9"><span class="p">)</span>
+</span><span id="line-10"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_event_notifier</span>
 </span><span id="line-11">
 </span><span id="line-12">
 </span><span id="line-13"><span class="k">class</span><span class="w"> </span><span class="nc">MyL2Adapter</span><span class="p">(</span><span class="n">L2AdapterInterface</span><span class="p">):</span>
 </span><span id="line-14">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">_kw</span><span class="p">):</span>
-</span><span id="line-15">        <span class="bp">self</span><span class="o">.</span><span class="n">_store_efd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">eventfd</span><span class="p">(</span>
-</span><span id="line-16">            <span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_NONBLOCK</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_CLOEXEC</span>
-</span><span id="line-17">        <span class="p">)</span>
-</span><span id="line-18">        <span class="bp">self</span><span class="o">.</span><span class="n">_lookup_efd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">eventfd</span><span class="p">(</span>
-</span><span id="line-19">            <span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_NONBLOCK</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_CLOEXEC</span>
-</span><span id="line-20">        <span class="p">)</span>
-</span><span id="line-21">        <span class="bp">self</span><span class="o">.</span><span class="n">_load_efd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">eventfd</span><span class="p">(</span>
-</span><span id="line-22">            <span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_NONBLOCK</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">EFD_CLOEXEC</span>
-</span><span id="line-23">        <span class="p">)</span>
-</span><span id="line-24">        <span class="c1"># ... set up connection, background thread, etc.</span>
-</span><span id="line-25">
-</span><span id="line-26">    <span class="c1"># implement all abstract methods ...</span>
-</span><span id="line-27">
-</span><span id="line-28">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-29">        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_store_efd</span><span class="p">)</span>
-</span><span id="line-30">        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lookup_efd</span><span class="p">)</span>
-</span><span id="line-31">        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_efd</span><span class="p">)</span>
+</span><span id="line-15">        <span class="bp">self</span><span class="o">.</span><span class="n">_store_efd</span> <span class="o">=</span> <span class="n">create_event_notifier</span><span class="p">()</span>
+</span><span id="line-16">        <span class="bp">self</span><span class="o">.</span><span class="n">_lookup_efd</span> <span class="o">=</span> <span class="n">create_event_notifier</span><span class="p">()</span>
+</span><span id="line-17">        <span class="bp">self</span><span class="o">.</span><span class="n">_load_efd</span> <span class="o">=</span> <span class="n">create_event_notifier</span><span class="p">()</span>
+</span><span id="line-18">        <span class="c1"># ... set up connection, background thread, etc.</span>
+</span><span id="line-19">
+</span><span id="line-20">    <span class="c1"># implement all abstract methods ...</span>
+</span><span id="line-21">
+</span><span id="line-22">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-23">        <span class="bp">self</span><span class="o">.</span><span class="n">_store_efd</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="line-24">        <span class="bp">self</span><span class="o">.</span><span class="n">_lookup_efd</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="line-25">        <span class="bp">self</span><span class="o">.</span><span class="n">_load_efd</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
 <p>Launch via CLI:</p>
@@ -581,6 +587,6 @@ from different threads concurrently.</p></li>
 <script src="../../_static/design-tabs.js?v=f930bc37"></script>
 <script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
 <script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
-<script src="../../_static/custom.js?v=e5cd2227"></script>
+<script src="../../_static/custom.js?v=a54d9cb0"></script>
 </body>
 </html>
