@@ -387,7 +387,8 @@ Set <code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY<
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--workload</span> <span class="pre">TYPE</span></code></p></td>
 <td><p>Yes</p></td>
 <td><p>Workload type: <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>,
-<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, or <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span> <span class="pre">N</span></code></p></td>
 <td><p>*</p></td>
@@ -606,6 +607,127 @@ N = <code class="docutils literal notranslate"><span class="pre">--ldp-num-conte
 </span></code></pre></div>
 </div>
 </section>
+<section id="prefix-suffix-tuner">
+<h3>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefix-suffix-tuner'"><span>#</span></a></h3>
+<p>A two-pass sequential workload designed to be run <strong>unchanged</strong> across
+three LMCache configurations to demonstrate the value of each cache tier
+(L0 HBM, L1 DRAM, L2 disk):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 30.0%"/>
+<col style="width: 30.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Baseline</p></th>
+<th class="head"><p>LMCache config</p></th>
+<th class="head"><p>Targeted overflow</p></th>
+<th class="head"><p>Expected pass-2 hits</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>vanilla vLLM (L0 only)</p></td>
+<td><p>L0 (HBM)</p></td>
+<td><p>none – every request a cold prefill</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>vLLM + LMCache L1 + L2</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 prefix hits (suffix recomputed)</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>vLLM + LMCache L1 + L2 + CacheBlend</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 prefix hits + CacheBlend suffix hits</p></td>
+</tr>
+</tbody>
+</table>
+<p>Set <code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> to the size in GB of the tier you want to overflow
+(L0 size for Baseline 1, L1 size for Baselines 2 and 3). The workload itself
+is identical across baselines.</p>
+<p>Each request has the layout:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="n">prefix_i</span> <span class="k">with</span> <span class="n">unique</span><span class="o">-</span><span class="n">ID</span><span class="p">][</span><span class="n">random</span> <span class="n">breaker</span><span class="p">][</span><span class="n">shared</span> <span class="n">suffix</span><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_prefixes</span></code> distinct prefixes, each starting with <code class="docutils literal notranslate"><span class="pre">PREFIX_&lt;8-hex&gt;</span></code>
+so the prefix’s tokenized hash differs across the pool.</p></li>
+<li><p>A fresh random 32-token breaker per request, defeating ordinary prefix
+caching past the prefix boundary.</p></li>
+<li><p>A single shared suffix used by every request – the only entry CacheBlend
+can reuse.</p></li>
+</ul>
+<p>Pass 1 (warmup) sends each prefix once to populate the cache; its stats are
+discarded. Pass 2 sends them again in identical order. Because LRU evicts
+the next-needed prefix on each pass-2 access, even a 1.05x overflow of the
+targeted tier is enough to make every pass-2 request miss that tier and
+fall through to the next one.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-context-length</span></code></p></td>
+<td><p>8000</p></td>
+<td><p>Total tokens per request (prefix + breaker + suffix).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-prefix-ratio</span></code></p></td>
+<td><p>0.8</p></td>
+<td><p>Fraction of context-length used by the prefix. Must be in (0.0, 1.0).
+The remainder (minus a 32-token breaker) is the shared suffix.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code></p></td>
+<td><p>20.0</p></td>
+<td><p><strong>Size in GB of the KV-cache tier to overflow.</strong> Use the L0 (HBM)
+size for vanilla vLLM, or the L1 (LMCache DRAM) size for tiered
+baselines. The workload sizes its prefix pool to slightly more than
+this (5% overflow internally), enough to drive every pass-2 request
+to a miss of that tier under sequential dispatch + LRU.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The number of pass-2 (measured) requests equals the prefix pool size,
+computed as
+<code class="docutils literal notranslate"><span class="pre">floor(psf_thrash</span> <span class="pre">*</span> <span class="pre">1.05</span> <span class="pre">*</span> <span class="pre">tokens_per_gb</span> <span class="pre">/</span> <span class="pre">prefix_tokens)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> is unused by this workload — sizing is driven solely
+by <code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code>.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>prefix-suffix-tuner<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--psf-context-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--psf-prefix-ratio<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--psf-thrash<span class="w"> </span><span class="m">100</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For the analytical-model claim “thrash ≈ L1 size → ~0% LMCache hit rate”
+to hold empirically, the LMCache server must be started with
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">0.99</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.20</span></code> only clears 20% per cycle,
+leaving ~60% of pass-1 content in cache through pass 2):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span>&lt;SIZE&gt;<span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.80<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.99
+</span></code></pre></div>
+</div>
+<p>The workload itself sleeps 5 seconds between pass 1 (warmup) and pass 2
+(measured), so LMCache’s 1Hz batched-eviction polling thread has time
+to actually run.  Without that sleep, fast benchmarks complete before
+any eviction fires.</p>
+</div>
+</section>
 <section id="random-prefill">
 <h3>random-prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#random-prefill'"><span>#</span></a></h3>
 <p>Fires all requests simultaneously with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> to measure pure
@@ -676,27 +798,28 @@ text and number prompts accept typed input with defaults shown in brackets.</p>
 </span><span id="line-13">  * long-doc-qa           Repeated Q&amp;A over long documents
 </span><span id="line-14">    multi-round-chat       Multi-turn chat with stateful sessions
 </span><span id="line-15">    long-doc-permutator    Permutations of context documents
-</span><span id="line-16">    random-prefill         Prefill-only requests fired simultaneously
-</span><span id="line-17">
-</span><span id="line-18">LMCache Server
-</span><span id="line-19">  Do you have a running LMCache server?
-</span><span id="line-20">  It can auto-detect KV cache size information.
-</span><span id="line-21">  [default: Y] (Y/n) &gt;
-</span><span id="line-22">
-</span><span id="line-23">...
-</span><span id="line-24">
-</span><span id="line-25">──────────────────────────────────────────────────
-</span><span id="line-26"> Configuration Summary
-</span><span id="line-27">──────────────────────────────────────────────────
-</span><span id="line-28">  Workload:             long-doc-qa
-</span><span id="line-29">  Model:                Qwen/Qwen3-14B
-</span><span id="line-30">  Tokens per GB:        6553
-</span><span id="line-31">  ...
-</span><span id="line-32">──────────────────────────────────────────────────
-</span><span id="line-33">
-</span><span id="line-34">What would you like to do?
-</span><span id="line-35">  * Start benchmark
-</span><span id="line-36">    Export configuration for later use and exit
+</span><span id="line-16">    prefix-suffix-tuner    Two-pass tiered KV-cache demonstrator
+</span><span id="line-17">    random-prefill         Prefill-only requests fired simultaneously
+</span><span id="line-18">
+</span><span id="line-19">LMCache Server
+</span><span id="line-20">  Do you have a running LMCache server?
+</span><span id="line-21">  It can auto-detect KV cache size information.
+</span><span id="line-22">  [default: Y] (Y/n) &gt;
+</span><span id="line-23">
+</span><span id="line-24">...
+</span><span id="line-25">
+</span><span id="line-26">──────────────────────────────────────────────────
+</span><span id="line-27"> Configuration Summary
+</span><span id="line-28">──────────────────────────────────────────────────
+</span><span id="line-29">  Workload:             long-doc-qa
+</span><span id="line-30">  Model:                Qwen/Qwen3-14B
+</span><span id="line-31">  Tokens per GB:        6553
+</span><span id="line-32">  ...
+</span><span id="line-33">──────────────────────────────────────────────────
+</span><span id="line-34">
+</span><span id="line-35">What would you like to do?
+</span><span id="line-36">  * Start benchmark
+</span><span id="line-37">    Export configuration for later use and exit
 </span></code></pre></div>
 </div>
 <p>When you choose “Export configuration”, all auto-detected values (model name,
@@ -840,6 +963,7 @@ metadata. Opt-in with <code class="docutils literal notranslate"><span class="pr
 <li><a :data-current="activeSection === '#long-doc-qa'" class="reference internal" href="#long-doc-qa">long-doc-qa</a></li>
 <li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
 <li><a :data-current="activeSection === '#long-doc-permutator'" class="reference internal" href="#long-doc-permutator">long-doc-permutator</a></li>
+<li><a :data-current="activeSection === '#prefix-suffix-tuner'" class="reference internal" href="#prefix-suffix-tuner">prefix-suffix-tuner</a></li>
 <li><a :data-current="activeSection === '#random-prefill'" class="reference internal" href="#random-prefill">random-prefill</a></li>
 </ul>
 </li>
