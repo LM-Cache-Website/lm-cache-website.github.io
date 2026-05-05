@@ -281,7 +281,7 @@
 <li><p><strong>L1 (in-memory)</strong> – Fast CPU memory managed by the L1 Manager.  All KV
 cache chunks live here during active use.</p></li>
 <li><p><strong>L2 (persistent)</strong> – Durable storage backends (NIXL-based or plain
-file-system).  The StoreController asynchronously pushes data from L1
+file-system/raw-block).  The StoreController asynchronously pushes data from L1
 to L2, and the PrefetchController loads data from L2 back into L1 on
 cache misses.</p></li>
 </ul>
@@ -293,27 +293,28 @@ cache misses.</p></li>
 <li><p><a class="reference internal" href="#nixl-store-nixl-based-persistent-storage" id="id4"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></p></li>
 <li><p><a class="reference internal" href="#nixl-store-dynamic-nixl-based-dynamic-storage-with-persist-recover" id="id5"><code class="docutils literal notranslate"><span class="pre">nixl_store_dynamic</span></code> – NIXL-based dynamic storage with persist/recover</a></p></li>
 <li><p><a class="reference internal" href="#fs-file-system-backed-storage" id="id6"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></p></li>
-<li><p><a class="reference internal" href="#mooncake-store-mooncake-store-native-connector" id="id7"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> – Mooncake Store native connector</a></p></li>
-<li><p><a class="reference internal" href="#s3-s3-compatible-object-store" id="id8"><code class="docutils literal notranslate"><span class="pre">s3</span></code> – S3-compatible object store</a></p></li>
-<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id9"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
+<li><p><a class="reference internal" href="#raw-block-raw-block-device-backed-persistent-storage" id="id7"><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> – Raw block device backed persistent storage</a></p></li>
+<li><p><a class="reference internal" href="#mooncake-store-mooncake-store-native-connector" id="id8"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> – Mooncake Store native connector</a></p></li>
+<li><p><a class="reference internal" href="#s3-s3-compatible-object-store" id="id9"><code class="docutils literal notranslate"><span class="pre">s3</span></code> – S3-compatible object store</a></p></li>
+<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id10"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id10">Multiple Adapters (Cascade)</a></p></li>
-<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id11">Store and Prefetch Policies</a></p>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id11">Multiple Adapters (Cascade)</a></p></li>
+<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id12">Store and Prefetch Policies</a></p>
 <ul>
-<li><p><a class="reference internal" href="#prefetch-concurrency" id="id12">Prefetch Concurrency</a></p></li>
-<li><p><a class="reference internal" href="#buffer-only-mode" id="id13">Buffer-Only Mode</a></p></li>
+<li><p><a class="reference internal" href="#prefetch-concurrency" id="id13">Prefetch Concurrency</a></p></li>
+<li><p><a class="reference internal" href="#buffer-only-mode" id="id14">Buffer-Only Mode</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#serde-compression-quantization" id="id14">Serde (compression / quantization)</a></p></li>
-<li><p><a class="reference internal" href="#eviction" id="id15">Eviction</a></p>
+<li><p><a class="reference internal" href="#serde-compression-quantization" id="id15">Serde (compression / quantization)</a></p></li>
+<li><p><a class="reference internal" href="#eviction" id="id16">Eviction</a></p>
 <ul>
-<li><p><a class="reference internal" href="#l1-eviction" id="id16">L1 Eviction</a></p></li>
-<li><p><a class="reference internal" href="#l2-eviction" id="id17">L2 Eviction</a></p></li>
-<li><p><a class="reference internal" href="#combined-l1-l2-eviction-example" id="id18">Combined L1 + L2 Eviction Example</a></p></li>
+<li><p><a class="reference internal" href="#l1-eviction" id="id17">L1 Eviction</a></p></li>
+<li><p><a class="reference internal" href="#l2-eviction" id="id18">L2 Eviction</a></p></li>
+<li><p><a class="reference internal" href="#combined-l1-l2-eviction-example" id="id19">Combined L1 + L2 Eviction Example</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#verifying-l2-storage" id="id19">Verifying L2 Storage</a></p></li>
+<li><p><a class="reference internal" href="#verifying-l2-storage" id="id20">Verifying L2 Storage</a></p></li>
 </ul>
 </nav>
 <section id="data-flow">
@@ -488,8 +489,60 @@ page cache via <code class="docutils literal notranslate"><span class="pre">O_DI
 </span></code></pre></div>
 </div>
 </section>
+<section id="raw-block-raw-block-device-backed-persistent-storage">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> – Raw block device backed persistent storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#raw-block-raw-block-device-backed-persistent-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#raw-block-raw-block-device-backed-persistent-storage'"><span>#</span></a></h3>
+<p>A built-in L2 adapter that stores KV objects in fixed-size slots on a raw block
+device or pre-sized file using the Rust raw-device I/O bindings. It reuses the
+existing raw-block metadata checkpoint model and writes directly into the
+caller-provided load buffers during prefetch.</p>
+<p><strong>Required fields:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: Raw device path or pre-sized file path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: Fixed slot size in bytes. Must be aligned to <code class="docutils literal notranslate"><span class="pre">block_align</span></code>.</p></li>
+</ul>
+<p><strong>Optional fields:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">capacity_bytes</span></code>: Optional cap on the usable device bytes. Default <code class="docutils literal notranslate"><span class="pre">0</span></code>
+means use the full device/file size.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>: <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> (default <code class="docutils literal notranslate"><span class="pre">true</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">block_align</span></code>: Device alignment in bytes (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">header_bytes</span></code>: Per-slot header reservation (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta_total_bytes</span></code>: Reserved metadata checkpoint region (default <code class="docutils literal notranslate"><span class="pre">256MiB</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta_magic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_version</span></code>: Metadata checkpoint identity/version knobs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta_checkpoint_interval_sec</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_idle_quiet_ms</span></code> /
+<code class="docutils literal notranslate"><span class="pre">meta_enable_periodic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_verify_on_load</span></code>: Checkpoint and recovery
+controls carried over from the legacy raw-block backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code>: Try aligned direct-buffer I/O when possible.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_engine</span></code>: Rust raw-block I/O engine. Valid values are <code class="docutils literal notranslate"><span class="pre">"posix"</span></code>
+(default synchronous <code class="docutils literal notranslate"><span class="pre">pread</span></code>/<code class="docutils literal notranslate"><span class="pre">pwrite</span></code> path), <code class="docutils literal notranslate"><span class="pre">"io_uring"</span></code> (direct Rust
+io_uring syscall path).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iouring_queue_depth</span></code>: Queue depth for <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_store_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_lookup_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code>:
+Worker-thread counts for each operation type.</p></li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> is a server-owned MP adapter. It does <strong>not</strong> support
+per-TP device-path mappings in MP mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> remains <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"raw_block"</span></code> for both supported engines.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> owns on-device slot allocation, checkpointing, and recovery
+through <code class="docutils literal notranslate"><span class="pre">RawBlockCore</span></code>. Slot reclamation is driven by the shared/global
+L2 eviction controller or explicit <code class="docutils literal notranslate"><span class="pre">delete()</span></code> calls.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> is enabled, the server’s <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> should be
+at least <code class="docutils literal notranslate"><span class="pre">block_align</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> must remain <code class="docutils literal notranslate"><span class="pre">true</span></code> for this adapter.</p></li>
+</ul>
+<p><strong>Configuration examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "block_align": 4096, "header_bytes": 4096, "meta_total_bytes": 268435456, "use_odirect": true, "num_store_workers": 2, "num_lookup_workers": 1, "num_load_workers": 4}'</span>
+</span><span id="line-2">
+</span><span id="line-3">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "iouring_queue_depth": 256, "use_odirect": true}'</span>
+</span><span id="line-4">
+</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
+</span></code></pre></div>
+</div>
+</section>
 <section id="mooncake-store-mooncake-store-native-connector">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> – Mooncake Store native connector</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mooncake-store-mooncake-store-native-connector" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mooncake-store-mooncake-store-native-connector'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> – Mooncake Store native connector</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mooncake-store-mooncake-store-native-connector" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mooncake-store-mooncake-store-native-connector'"><span>#</span></a></h3>
 <p>An L2 adapter backed by the native C++ Mooncake Store connector.  Uses
 <a class="reference external" href="https://github.com/kvcache-ai/Mooncake">Mooncake</a> for high-performance
 distributed KV cache storage with RDMA support.</p>
@@ -562,7 +615,7 @@ and size.</p></li>
 </ul>
 </section>
 <section id="s3-s3-compatible-object-store">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">s3</span></code> – S3-compatible object store</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#s3-s3-compatible-object-store" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#s3-s3-compatible-object-store'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">s3</span></code> – S3-compatible object store</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#s3-s3-compatible-object-store" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#s3-s3-compatible-object-store'"><span>#</span></a></h3>
 <p>An L2 adapter that stores KV cache objects as S3 objects using the AWS
 Common Runtime (CRT).  Works with AWS S3, S3 Express One Zone, and any
 S3-compatible endpoint (MinIO, Ceph RGW, etc.).</p>
@@ -600,7 +653,7 @@ credentials; omit both to use the AWS default credential provider chain
 </div>
 </section>
 <section id="mock-mock-adapter-for-testing">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
 <p>Simulates L2 storage with configurable size and bandwidth.  Useful for testing
 the L2 pipeline without real storage hardware.</p>
 <p><strong>Fields:</strong></p>
@@ -614,7 +667,7 @@ the L2 pipeline without real storage hardware.</p>
 </section>
 </section>
 <section id="multiple-adapters-cascade">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">Multiple Adapters (Cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Multiple Adapters (Cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
 <p>You can configure multiple L2 adapters by repeating the <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>
 argument.  Adapters are used in the order they are specified.  The
 <code class="docutils literal notranslate"><span class="pre">StoreController</span></code> pushes data to all configured adapters, and the
@@ -626,7 +679,7 @@ argument.  Adapters are used in the order they are specified.  The
 </div>
 </section>
 <section id="store-and-prefetch-policies">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Store and Prefetch Policies</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#store-and-prefetch-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#store-and-prefetch-policies'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Store and Prefetch Policies</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#store-and-prefetch-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#store-and-prefetch-policies'"><span>#</span></a></h2>
 <p>The <strong>store policy</strong> controls how keys flow from L1 to L2: which adapters
 receive each key and whether keys are deleted from L1 after a successful
 L2 store.  The <strong>prefetch policy</strong> controls how keys flow from L2 back to
@@ -675,7 +728,7 @@ by subsequent requests (e.g. shared system-prompt chunks).</p></td>
 </tbody>
 </table>
 <section id="prefetch-concurrency">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">Prefetch Concurrency</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefetch-concurrency" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefetch-concurrency'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Prefetch Concurrency</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefetch-concurrency" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefetch-concurrency'"><span>#</span></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">--l2-prefetch-max-in-flight</span></code> flag limits the number of concurrent
 prefetch requests that the <code class="docutils literal notranslate"><span class="pre">PrefetchController</span></code> can have in flight at
 any time.  A higher value increases L2-to-L1 throughput but also
@@ -701,7 +754,7 @@ increases L1 memory pressure from in-flight data.</p>
 </table>
 </section>
 <section id="buffer-only-mode">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Buffer-Only Mode</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Buffer-Only Mode</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
 <p>When L1 is used purely as a write buffer (all data lives in L2), use
 <code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span> <span class="pre">skip_l1</span></code> together with <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code>.
 This combination deletes keys from L1 as soon as they are stored to L2
@@ -719,18 +772,18 @@ in <code class="docutils literal notranslate"><span class="pre">storage_controll
 </section>
 </section>
 <section id="serde-compression-quantization">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">Serde (compression / quantization)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#serde-compression-quantization" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#serde-compression-quantization'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Serde (compression / quantization)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#serde-compression-quantization" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#serde-compression-quantization'"><span>#</span></a></h2>
 <p>Each adapter can optionally run a <strong>serde</strong> (serializer / deserializer)
 that transforms data on the way in and out of L2 — e.g. fp8 quantization
 for disk backends, or encryption for remote adapters. See <a class="reference internal" href="serde.html"><span class="doc">L2 Serde (Serialization / Deserialization)</span></a>
 for details and configuration.</p>
 </section>
 <section id="eviction">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h2>
 <p>LMCache supports eviction at both storage tiers so that each tier
 can operate within a fixed capacity budget.</p>
 <section id="l1-eviction">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">L1 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-eviction'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">L1 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-eviction'"><span>#</span></a></h3>
 <p>L1 eviction runs a single background thread that monitors overall L1
 memory usage. When usage exceeds <code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code>, the eviction
 policy evicts a fraction of the least-recently-used keys.</p>
@@ -770,7 +823,7 @@ policy evicts a fraction of the least-recently-used keys.</p>
 </div>
 </section>
 <section id="l2-eviction">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">L2 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-eviction'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">L2 Eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-eviction'"><span>#</span></a></h3>
 <p>L2 eviction is <strong>per-adapter</strong> and <strong>opt-in</strong>. Each adapter can
 independently declare an eviction policy by adding an <code class="docutils literal notranslate"><span class="pre">"eviction"</span></code>
 sub-object to its <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON spec. Adapters without an
@@ -846,20 +899,24 @@ keys are skipped. <code class="docutils literal notranslate"><span class="pre">g
 <td><p>Full support. Useful for testing eviction behaviour without
 real storage hardware.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">s3</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code></p></td>
+<td><p>Full shared/global eviction support. <code class="docutils literal notranslate"><span class="pre">delete</span></code> recycles raw-block
+slots; locked entries are skipped and retried on the next cycle.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">s3</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">delete</span></code> removes objects from the bucket and frees aggregate
 byte accounting. <code class="docutils literal notranslate"><span class="pre">get_usage</span></code> reports <code class="docutils literal notranslate"><span class="pre">usage_fraction</span> <span class="pre">==</span> <span class="pre">-1.0</span></code>
 when <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> is <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled); set a non-zero
 <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> to enable the watermark-triggered eviction
 controller.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code></p></td>
 <td><p>No eviction support (native connector adapter).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
 <td><p>No eviction support (<code class="docutils literal notranslate"><span class="pre">delete</span></code> and <code class="docutils literal notranslate"><span class="pre">get_usage</span></code> are no-ops).</p></td>
 </tr>
-<tr class="row-even"><td><p>native connectors</p></td>
+<tr class="row-odd"><td><p>native connectors</p></td>
 <td><p>No eviction support.</p></td>
 </tr>
 </tbody>
@@ -872,7 +929,7 @@ different watermarks or policies.</p>
 </div>
 </section>
 <section id="combined-l1-l2-eviction-example">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Combined L1 + L2 Eviction Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#combined-l1-l2-eviction-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#combined-l1-l2-eviction-example'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Combined L1 + L2 Eviction Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#combined-l1-l2-eviction-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#combined-l1-l2-eviction-example'"><span>#</span></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3">--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
@@ -902,7 +959,7 @@ least-recently-used keys.</p></li>
 </section>
 </section>
 <section id="verifying-l2-storage">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Verifying L2 Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
 <p>Set <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> to see L2 activity in the server logs:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -942,6 +999,7 @@ least-recently-used keys.</p></li>
 <li><a :data-current="activeSection === '#nixl-store-nixl-based-persistent-storage'" class="reference internal" href="#nixl-store-nixl-based-persistent-storage"><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> – NIXL-based persistent storage</a></li>
 <li><a :data-current="activeSection === '#nixl-store-dynamic-nixl-based-dynamic-storage-with-persist-recover'" class="reference internal" href="#nixl-store-dynamic-nixl-based-dynamic-storage-with-persist-recover"><code class="docutils literal notranslate"><span class="pre">nixl_store_dynamic</span></code> – NIXL-based dynamic storage with persist/recover</a></li>
 <li><a :data-current="activeSection === '#fs-file-system-backed-storage'" class="reference internal" href="#fs-file-system-backed-storage"><code class="docutils literal notranslate"><span class="pre">fs</span></code> – File-system backed storage</a></li>
+<li><a :data-current="activeSection === '#raw-block-raw-block-device-backed-persistent-storage'" class="reference internal" href="#raw-block-raw-block-device-backed-persistent-storage"><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> – Raw block device backed persistent storage</a></li>
 <li><a :data-current="activeSection === '#mooncake-store-mooncake-store-native-connector'" class="reference internal" href="#mooncake-store-mooncake-store-native-connector"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> – Mooncake Store native connector</a></li>
 <li><a :data-current="activeSection === '#s3-s3-compatible-object-store'" class="reference internal" href="#s3-s3-compatible-object-store"><code class="docutils literal notranslate"><span class="pre">s3</span></code> – S3-compatible object store</a></li>
 <li><a :data-current="activeSection === '#mock-mock-adapter-for-testing'" class="reference internal" href="#mock-mock-adapter-for-testing"><code class="docutils literal notranslate"><span class="pre">mock</span></code> – Mock adapter for testing</a></li>
