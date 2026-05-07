@@ -317,6 +317,49 @@ Reads copy data back into CPU-backed memory objects.</p>
 </span></code></pre></div>
 </div>
 </section>
+<section id="multiprocess-mode">
+<h2>Multiprocess Mode<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiprocess-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiprocess-mode'"><span>#</span></a></h2>
+<p>In LMCache multiprocess mode, Device-DAX is configured as a built-in L2
+adapter named <code class="docutils literal notranslate"><span class="pre">dax</span></code>.  The MP adapter uses the normal L2 adapter
+<code class="docutils literal notranslate"><span class="pre">submit</span> <span class="pre">-&gt;</span> <span class="pre">event</span> <span class="pre">fd</span> <span class="pre">-&gt;</span> <span class="pre">query</span></code> contract; no vLLM connector protocol changes
+are required.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--l1-size-gb<span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-5"><span class="s1">    "type": "dax",</span>
+</span><span id="line-6"><span class="s1">    "device_path": "/dev/dax1.0",</span>
+</span><span id="line-7"><span class="s1">    "max_dax_size_gb": 100,</span>
+</span><span id="line-8"><span class="s1">    "slot_bytes": 268435456,</span>
+</span><span id="line-9"><span class="s1">    "num_store_workers": 1,</span>
+</span><span id="line-10"><span class="s1">    "num_lookup_workers": 1,</span>
+</span><span id="line-11"><span class="s1">    "num_load_workers": 4</span>
+</span><span id="line-12"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON accepts these fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: required path to a readable and writable DAX device.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: required mapped size in GiB. The value must fit within
+the device capacity when capacity can be determined with <code class="docutils literal notranslate"><span class="pre">fstat</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: required fixed slot size in bytes. It must be large enough
+for one full LMCache chunk.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_store_workers</span></code>: optional store worker count, default <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_lookup_workers</span></code>: optional lookup worker count, default <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code>: optional load worker count, default
+<code class="docutils literal notranslate"><span class="pre">min(4,</span> <span class="pre">os.cpu_count())</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code>: accepted by common MP L2 parsing but ignored by
+<code class="docutils literal notranslate"><span class="pre">dax</span></code> in this release.</p></li>
+</ul>
+<p>MP DAX stores opaque <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> values in memory and is volatile-only in
+this release.  Closing and reopening the server on the same DAX path starts
+with an empty index, so previously written bytes are not discoverable after
+restart.</p>
+<p>MP DAX uses one mapped device path per LMCache server.  It does not add
+per-TP DAX partitions, multi-device striping, on-device metadata, or restart
+recovery.  Capacity accounting and eviction are slot-based: a stored object
+occupies one slot even if its payload is smaller than <code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>.</p>
+</section>
 <section id="using-the-batched-restore-path">
 <h2>Using The Batched Restore Path<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-batched-restore-path" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-batched-restore-path'"><span>#</span></a></h2>
 <p>The current DAX optimization is a staged batched restore path for retrieval.
@@ -404,6 +447,7 @@ asynchronous batched restore returns only the consecutive hit prefix.</p></li>
 <ul>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#multiprocess-mode'" class="reference internal" href="#multiprocess-mode">Multiprocess Mode</a></li>
 <li><a :data-current="activeSection === '#using-the-batched-restore-path'" class="reference internal" href="#using-the-batched-restore-path">Using The Batched Restore Path</a></li>
 <li><a :data-current="activeSection === '#runtime-requirements'" class="reference internal" href="#runtime-requirements">Runtime Requirements</a></li>
 <li><a :data-current="activeSection === '#validation-and-current-limits'" class="reference internal" href="#validation-and-current-limits">Validation and Current Limits</a></li>
