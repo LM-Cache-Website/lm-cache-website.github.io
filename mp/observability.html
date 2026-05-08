@@ -550,6 +550,19 @@ on each time-series — this is standard OTel behavior.</p>
 <td><p>Counter</p></td>
 <td><p>Number of keys evicted by the EvictionController.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_eviction_loop_ticks</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>L1 eviction-loop iterations (every cycle, regardless of whether
+the watermark was crossed). Driven by <code class="docutils literal notranslate"><span class="pre">L1_EVICTION_LOOP_TICK</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_eviction_loop_triggered</span></code></p></td>
+<td><p>Counter</p></td>
+<td><p>L1 eviction-loop iterations where <code class="docutils literal notranslate"><span class="pre">usage</span> <span class="pre">&gt;=</span> <span class="pre">watermark</span></code> and the
+eviction policy actually ran. The two counters distinguish “loop
+is alive” from “eviction fired” — important when debugging
+short-lived benchmarks that complete faster than the 1 Hz
+polling cycle.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -999,19 +1012,28 @@ value may indicate slow L2 backends or polling delays.</p></td>
 indicates a leak; saturating at the configured <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>
 indicates working set exceeds capacity.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_stores</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l1_usage_ratio</span></code></p></td>
+<td><p>ObservableGauge</p></td>
+<td><p>L1 used/total ratio (<code class="docutils literal notranslate"><span class="pre">0.0</span></code>–<code class="docutils literal notranslate"><span class="pre">1.0</span></code>), sampled at scrape time
+from <code class="docutils literal notranslate"><span class="pre">L1Manager.get_memory_usage()</span></code>. Returns <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the
+gauge target is not yet wired up or <code class="docutils literal notranslate"><span class="pre">total_bytes</span></code> is zero, so
+the callback never raises during a scrape. Compare against the
+eviction watermark (default <code class="docutils literal notranslate"><span class="pre">0.8</span></code>) to read whether the
+eviction loop is below or above its trigger threshold.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_stores</span></code></p></td>
 <td><p>ObservableGauge (attrs: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>L2 store tasks currently executing, per adapter.  Sustained
 non-zero values indicate the adapter cannot keep up with the
 L1 → L2 write rate.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_loads</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_loads</span></code></p></td>
 <td><p>ObservableGauge (attrs: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>L2 → L1 prefetch load tasks currently executing, per adapter.
 Pair with <code class="docutils literal notranslate"><span class="pre">num_inflight_l2_stores</span></code> to see whether read or write
 traffic dominates a given backend.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.inflight_load_memory_usage_bytes</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.inflight_load_memory_usage_bytes</span></code></p></td>
 <td><p>ObservableGauge (attrs: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>L1 bytes reserved by in-flight L2 → L1 prefetch loads, per
 adapter.  Rising in-flight bytes alongside rising
