@@ -407,27 +407,49 @@ same process, and any configured runtime plugins are spawned by
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>Check prefix cache hits and submit prefetch tasks.</p></td>
+<td><p>Submit a prefix lookup; the prefetch job is tracked server-side by
+request_id.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">QUERY_PREFETCH_STATUS</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>Poll a prefetch job by request_id. Returns the loaded chunk count
+when done, or <code class="docutils literal notranslate"><span class="pre">None</span></code> while the prefetch is still in progress.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">QUERY_PREFETCH_LOOKUP_HITS</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>Query the lookup-phase hit chunk count by request_id, before the
+prefetch finishes. Returns <code class="docutils literal notranslate"><span class="pre">None</span></code> while the lookup is still
+running.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FREE_LOOKUP_LOCKS</span></code></p></td>
-<td><p>SYNC</p></td>
-<td><p>Release read locks from a cancelled lookup.</p></td>
+<td><p>BLOCKING</p></td>
+<td><p>Release read locks from a cancelled lookup without doing a full
+RETRIEVE.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">END_SESSION</span></code></p></td>
-<td><p>SYNC</p></td>
+<td><p>BLOCKING</p></td>
 <td><p>Remove session state for a finished request.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CLEAR</span></code></p></td>
-<td><p>SYNC</p></td>
+<td><p>BLOCKING</p></td>
 <td><p>Clear all cached data.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET_CHUNK_SIZE</span></code></p></td>
 <td><p>SYNC</p></td>
 <td><p>Return the server’s chunk size.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PING</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>Liveness ping; the handler always returns <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REPORT_BLOCK_ALLOCATION</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>Fire-and-forget channel for the vLLM scheduler to report GPU block
+allocation events to the observability subsystem.</p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NOOP</span></code></p></td>
 <td><p>SYNC</p></td>
-<td><p>Debug ping – returns “OK”.</p></td>
+<td><p>Debug heartbeat – returns a confirmation string.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_REGISTER_KV_CACHE</span></code></p></td>
 <td><p>SYNC</p></td>
@@ -452,6 +474,17 @@ same process, and any configured runtime plugins are spawned by
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code></p></td>
 <td><p>BLOCKING</p></td>
 <td><p>(Blend) Store final blended chunks.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED_V2</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>(Blend V2) Lookup pre-computed chunks; returns
+<code class="docutils literal notranslate"><span class="pre">CBMatchResult</span></code> entries (with old/cur ranges and per-chunk hashes)
+so the retrieve step can skip re-hashing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED_V2</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>(Blend V2) Retrieve pre-computed chunks using the
+<code class="docutils literal notranslate"><span class="pre">CBMatchResult</span></code> list returned by <code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED_V2</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -666,8 +699,9 @@ CLI flag if needed.</p></li>
 <ol class="arabic simple">
 <li><p>Add a new member to <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> in <code class="docutils literal notranslate"><span class="pre">protocols/base.py</span></code>.</p></li>
 <li><p>Create a <code class="docutils literal notranslate"><span class="pre">ProtocolDefinition</span></code> in the appropriate <code class="docutils literal notranslate"><span class="pre">protocols/*.py</span></code> file
-(engine, controller, or debug).</p></li>
-<li><p>Implement the handler method on <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> (or <code class="docutils literal notranslate"><span class="pre">BlendEngine</span></code>).</p></li>
+(<code class="docutils literal notranslate"><span class="pre">engine</span></code>, <code class="docutils literal notranslate"><span class="pre">controller</span></code>, <code class="docutils literal notranslate"><span class="pre">observability</span></code>, <code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">blend_v2</span></code>) and add the request name to that module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
+<li><p>Implement the handler method on <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> (or <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>).</p></li>
 <li><p>Register the handler in <code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> via <code class="docutils literal notranslate"><span class="pre">add_handler_helper()</span></code>.</p></li>
 </ol>
 </section>
