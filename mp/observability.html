@@ -316,13 +316,17 @@ producers (L1Manager, StorageManager, MPCacheEngine) from subscribers.</p>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#logging" id="id19">Logging</a></p></li>
-<li><p><a class="reference internal" href="#tracing" id="id20">Tracing</a></p></li>
-<li><p><a class="reference internal" href="#trace-recording" id="id21">Trace Recording</a></p>
+<li><p><a class="reference internal" href="#tracing" id="id20">Tracing</a></p>
 <ul>
-<li><p><a class="reference internal" href="#capturing-a-trace" id="id22">Capturing a trace</a></p></li>
-<li><p><a class="reference internal" href="#replay" id="id23">Replay</a></p></li>
-<li><p><a class="reference internal" href="#what-is-captured-and-what-is-not" id="id24">What is captured (and what is not)</a></p></li>
-<li><p><a class="reference internal" href="#file-format" id="id25">File format</a></p></li>
+<li><p><a class="reference internal" href="#per-request-hit-rate-attributes" id="id21">Per-Request Hit-Rate Attributes</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#trace-recording" id="id22">Trace Recording</a></p>
+<ul>
+<li><p><a class="reference internal" href="#capturing-a-trace" id="id23">Capturing a trace</a></p></li>
+<li><p><a class="reference internal" href="#replay" id="id24">Replay</a></p></li>
+<li><p><a class="reference internal" href="#what-is-captured-and-what-is-not" id="id25">What is captured (and what is not)</a></p></li>
+<li><p><a class="reference internal" href="#file-format" id="id26">File format</a></p></li>
 </ul>
 </li>
 </ul>
@@ -1100,9 +1104,65 @@ the tracing subscriber creates OTel spans from START/END event pairs:</p>
 </span><span id="line-9"><span class="w">    </span>--enable-tracing<span class="w"> </span>--otlp-endpoint<span class="w"> </span>http://localhost:4317
 </span></code></pre></div>
 </div>
+<section id="per-request-hit-rate-attributes">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Per-Request Hit-Rate Attributes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#per-request-hit-rate-attributes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#per-request-hit-rate-attributes'"><span>#</span></a></h3>
+<p>Each session is wrapped in a per-request root span — <code class="docutils literal notranslate"><span class="pre">request</span></code> for the
+standard MP path and <code class="docutils literal notranslate"><span class="pre">cb.request</span></code> for the CacheBlend path — that nests
+all child spans (<code class="docutils literal notranslate"><span class="pre">mp.store</span></code>, <code class="docutils literal notranslate"><span class="pre">mp.retrieve</span></code>, <code class="docutils literal notranslate"><span class="pre">mp.lookup_prefetch</span></code>)
+beneath it.  When the lookup phase ends, the root span is annotated with
+three OTel attributes that summarise the request-level cache hit rate:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>OTel type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hit_tokens</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Tokens served from L1+L2 (numerator).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">requested_tokens</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Chunk-aligned tokens submitted for lookup (denominator).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hit_rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hit_tokens</span> <span class="pre">/</span> <span class="pre">requested_tokens</span></code>; <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the denominator is
+zero.  Stored as a precomputed float because trace UIs (Tempo,
+Jaeger) cannot derive it from two integer attributes at query time.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The attributes are written when <code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code> (standard MP
+path) or <code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_END</span></code> (CacheBlend path) is processed — while the
+root span is still open.  <strong>Store-only requests</strong> that never call
+<code class="docutils literal notranslate"><span class="pre">lookup_prefetch_start()</span></code> emit no end event for the lookup phase, so
+their root span will not carry these attributes.</p>
+<p>Example TraceQL queries (Grafana Tempo):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"># Requests with less than 50% cache hit rate
+</span><span id="line-2">{ name = "request" &amp;&amp; span.hit_rate &lt; 0.5 }
+</span><span id="line-3">
+</span><span id="line-4"># Full cache hits only
+</span><span id="line-5">{ name = "request" &amp;&amp; span.hit_rate = 1.0 }
+</span><span id="line-6">
+</span><span id="line-7"># Complete misses (lookup ran but nothing was cached)
+</span><span id="line-8">{ name = "request" &amp;&amp; span.requested_tokens &gt; 0 &amp;&amp; span.hit_tokens = 0 }
+</span></code></pre></div>
+</div>
+<p>For the full event-to-span mapping and the registry pattern that links
+child spans back to the root see
+<code class="docutils literal notranslate"><span class="pre">docs/design/observability/request-event-span.md</span></code> in the source tree.</p>
+</section>
 </section>
 <section id="trace-recording">
-<span id="id1"></span><h2><a class="toc-backref" href="#id21" role="doc-backlink">Trace Recording</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#trace-recording" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#trace-recording'"><span>#</span></a></h2>
+<span id="id1"></span><h2><a class="toc-backref" href="#id22" role="doc-backlink">Trace Recording</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#trace-recording" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#trace-recording'"><span>#</span></a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Trace recording is <strong>distinct from</strong> <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code> (OTel
@@ -1121,7 +1181,7 @@ for later replay.</p>
 (a single boolean check per <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call). When on,
 recording happens on the EventBus drain thread, off the request path.</p>
 <section id="capturing-a-trace">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">Capturing a trace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#capturing-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#capturing-a-trace'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Capturing a trace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#capturing-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#capturing-a-trace'"><span>#</span></a></h3>
 <p>With an explicit output path:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -1141,13 +1201,13 @@ recording happens on the EventBus drain thread, off the request path.</p>
 the EventBus stop path).</p>
 </section>
 <section id="replay">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">Replay</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Replay</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h3>
 <p>Replaying a recorded trace, plus the full set of CLI flags for
 driving, monitoring, and exporting replay results, is covered in
 its own page: <a class="reference internal" href="tracing_and_debugging.html"><span class="doc">Tracing and Debugging</span></a>.</p>
 </section>
 <section id="what-is-captured-and-what-is-not">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">What is captured (and what is not)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-captured-and-what-is-not" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-captured-and-what-is-not'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">What is captured (and what is not)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-captured-and-what-is-not" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-captured-and-what-is-not'"><span>#</span></a></h3>
 <p><strong>Captured:</strong></p>
 <ul class="simple">
 <li><p>The fully-qualified name of every decorated <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> call.</p></li>
@@ -1168,7 +1228,7 @@ trace level.</p></li>
 </ul>
 </section>
 <section id="file-format">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">File format</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#file-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#file-format'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">File format</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#file-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#file-format'"><span>#</span></a></h3>
 <p>A length-prefixed <a class="reference external" href="https://msgpack.org/">msgpack</a> stream:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Header</span><span class="p">]</span>
 </span><span id="line-2"><span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="n">byte</span> <span class="n">big</span><span class="o">-</span><span class="n">endian</span> <span class="n">length</span><span class="p">][</span><span class="n">msgpack</span> <span class="n">Record</span><span class="p">]</span>
@@ -1230,7 +1290,10 @@ strings without bumping the format version.</p>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#logging'" class="reference internal" href="#logging">Logging</a></li>
-<li><a :data-current="activeSection === '#tracing'" class="reference internal" href="#tracing">Tracing</a></li>
+<li><a :data-current="activeSection === '#tracing'" class="reference internal" href="#tracing">Tracing</a><ul>
+<li><a :data-current="activeSection === '#per-request-hit-rate-attributes'" class="reference internal" href="#per-request-hit-rate-attributes">Per-Request Hit-Rate Attributes</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#trace-recording'" class="reference internal" href="#trace-recording">Trace Recording</a><ul>
 <li><a :data-current="activeSection === '#capturing-a-trace'" class="reference internal" href="#capturing-a-trace">Capturing a trace</a></li>
 <li><a :data-current="activeSection === '#replay'" class="reference internal" href="#replay">Replay</a></li>
