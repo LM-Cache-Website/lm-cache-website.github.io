@@ -332,6 +332,30 @@ metrics endpoints. See <a class="reference internal" href="../mp/quickstart.html
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Where does</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> <strong>resolve to?</strong> This depends on your vLLM version:</p>
+<ul>
+<li><p><strong>vLLM &lt; 0.20.0</strong> – <code class="docutils literal notranslate"><span class="pre">"kv_connector":"LMCacheMPConnector"</span></code> always
+resolves to vLLM’s built-in
+<code class="docutils literal notranslate"><span class="pre">vllm.distributed.kv_transfer.kv_connector.v1.LMCacheMPConnector</span></code>;
+there is no way to redirect it to the LMCache-shipped implementation.</p></li>
+<li><p><strong>vLLM &gt;= 0.20.0</strong> – <code class="docutils literal notranslate"><span class="pre">"kv_connector":"LMCacheMPConnector"</span></code> still
+defaults to vLLM’s built-in connector, but you can opt in to the
+LMCache-shipped implementation
+(<code class="xref py py-mod docutils literal notranslate"><span class="pre">lmcache.integration.vllm.lmcache_mp_connector</span></code>) by adding
+<code class="docutils literal notranslate"><span class="pre">kv_connector_module_path</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_connector_module_path":"lmcache.integration.vllm.lmcache_mp_connector", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p>The LMCache-shipped connector tracks the latest LMCache server
+protocol and ships fixes/features ahead of the version vendored
+into vLLM, so prefer it whenever you are on vLLM 0.20.0 or newer.</p>
+</li>
+</ul>
+</div>
 <p><strong>Test</strong> – open a new terminal and send two requests whose
 prompts share a prefix:</p>
 <p><strong>First request</strong></p>
