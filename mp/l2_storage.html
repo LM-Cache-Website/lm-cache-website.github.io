@@ -729,33 +729,56 @@ the extension is skipped.</p></li>
 </span></code></pre></div>
 </div>
 <p><strong>LMCache-specific fields:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code>: Number of C++ worker threads for the shared pool
+(default <code class="docutils literal notranslate"><span class="pre">4</span></code>, must be &gt; 0).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_op_workers</span></code> (<code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">int]</span></code>, optional): A dict mapping lane keys
+to dedicated worker thread counts.  Supported keys:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code>: Number of C++ worker threads (default <code class="docutils literal notranslate"><span class="pre">4</span></code>, must
-be &gt; 0).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">"lookup"</span></code> — threads for <code class="docutils literal notranslate"><span class="pre">EXISTS</span></code> operations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">"retrieve"</span></code> — threads for <code class="docutils literal notranslate"><span class="pre">GET</span></code> / load operations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">"store"</span></code> — threads for <code class="docutils literal notranslate"><span class="pre">SET</span></code> / put operations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">"delete"</span></code> — threads for <code class="docutils literal notranslate"><span class="pre">DELETE</span></code> operations.</p></li>
+</ul>
+<p>Operations whose lane key is <strong>not</strong> present in the dict use the
+shared <code class="docutils literal notranslate"><span class="pre">num_workers</span></code> pool.  There is no requirement to set all
+keys — you can configure only the lanes that need dedicated pools.</p>
+</li>
 </ul>
 <p><strong>Mooncake fields:</strong></p>
 <p>All other keys in the JSON config (except <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">num_workers</span></code>,
-and <code class="docutils literal notranslate"><span class="pre">eviction</span></code>) are forwarded <strong>as-is</strong> to Mooncake’s
-<code class="docutils literal notranslate"><span class="pre">store.setup(config:</span> <span class="pre">dict)</span></code> API (introduced in
-<a class="reference external" href="https://github.com/kvcache-ai/Mooncake/pull/1445">Mooncake PR #1445</a>).
-Older Mooncake builds that only expose the positional-arg <code class="docutils literal notranslate"><span class="pre">setup()</span></code>
-signature are still supported – LMCache transparently falls back to
-the legacy form on <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypeError</span></code></a>.  Refer to the
+<code class="docutils literal notranslate"><span class="pre">per_op_workers</span></code>, and <code class="docutils literal notranslate"><span class="pre">eviction</span></code>) are forwarded <strong>as-is</strong> to Mooncake’s
+<code class="docutils literal notranslate"><span class="pre">setup_internal(ConfigDict)</span></code>.  Refer to the
 <a class="reference external" href="https://github.com/kvcache-ai/Mooncake">Mooncake documentation</a>
 for available setup keys (e.g., <code class="docutils literal notranslate"><span class="pre">local_hostname</span></code>,
 <code class="docutils literal notranslate"><span class="pre">metadata_server</span></code>, <code class="docutils literal notranslate"><span class="pre">master_server_addr</span></code>, <code class="docutils literal notranslate"><span class="pre">protocol</span></code>,
 <code class="docutils literal notranslate"><span class="pre">rdma_devices</span></code>, <code class="docutils literal notranslate"><span class="pre">global_segment_size</span></code>).</p>
 <p><strong>Configuration example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-2"><span class="s1">  "type": "mooncake_store",</span>
-</span><span id="line-3"><span class="s1">  "num_workers": 4,</span>
-</span><span id="line-4"><span class="s1">  "local_hostname": "node01",</span>
-</span><span id="line-5"><span class="s1">  "metadata_server": "http://localhost:8080/metadata",</span>
-</span><span id="line-6"><span class="s1">  "master_server_addr": "localhost:50051",</span>
-</span><span id="line-7"><span class="s1">  "protocol": "tcp",</span>
-</span><span id="line-8"><span class="s1">  "local_buffer_size": "3221225472"</span>
-</span><span id="line-9"><span class="s1">  "global_segment_size": "3221225472"</span>
-</span><span id="line-10"><span class="s1">}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Shared pool (default)</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-3"><span class="s1">  "type": "mooncake_store",</span>
+</span><span id="line-4"><span class="s1">  "num_workers": 4,</span>
+</span><span id="line-5"><span class="s1">  "local_hostname": "node01",</span>
+</span><span id="line-6"><span class="s1">  "metadata_server": "http://localhost:8080/metadata",</span>
+</span><span id="line-7"><span class="s1">  "master_server_addr": "localhost:50051",</span>
+</span><span id="line-8"><span class="s1">  "protocol": "tcp",</span>
+</span><span id="line-9"><span class="s1">  "local_buffer_size": "3221225472",</span>
+</span><span id="line-10"><span class="s1">  "global_segment_size": "3221225472"</span>
+</span><span id="line-11"><span class="s1">}'</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Per-operation pools (GET-heavy workload)</span>
+</span><span id="line-14">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-15"><span class="s1">  "type": "mooncake_store",</span>
+</span><span id="line-16"><span class="s1">  "per_op_workers": {</span>
+</span><span id="line-17"><span class="s1">    "lookup": 2,</span>
+</span><span id="line-18"><span class="s1">    "retrieve": 16,</span>
+</span><span id="line-19"><span class="s1">    "store": 4</span>
+</span><span id="line-20"><span class="s1">  },</span>
+</span><span id="line-21"><span class="s1">  "local_hostname": "node01",</span>
+</span><span id="line-22"><span class="s1">  "metadata_server": "http://localhost:8080/metadata",</span>
+</span><span id="line-23"><span class="s1">  "master_server_addr": "localhost:50051",</span>
+</span><span id="line-24"><span class="s1">  "protocol": "tcp"</span>
+</span><span id="line-25"><span class="s1">}'</span>
 </span></code></pre></div>
 </div>
 <p>For full Mooncake setup instructions (master service, metadata server,
