@@ -341,6 +341,44 @@ tokens into the pinned CPU RAM from the disk or remote storage (<em>if</em> the 
 tokens are already stored there). This can preemptively avoid the latency of the disk and
 remote KV transfer if we predict these tokens will be requested soon (e.g. structured or agentic workflows).</p>
 </section>
+<section id="hugepage-support">
+<span id="cpu-ram-hugepage-support"></span><h2>Hugepage Support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hugepage-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hugepage-support'"><span>#</span></a></h2>
+<p>By default LMCache allocates CPU-pinned memory using regular 4 KiB pages.
+For large KV cache buffers (multiple gigabytes), enabling <strong>Linux hugepages</strong>
+(2 MiB pages) can reduce TLB (Translation Lookaside Buffer) pressure and
+improve memory access performance.</p>
+<p><strong>System prerequisite</strong></p>
+<p>Hugepages must be pre-allocated at the OS level before LMCache starts.
+TO find the number of pages needed, divide the desired buffer size by 2 MiB and round up.
+For example, 5 GB requires at least 2560 pages:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Allocate 2560 hugepages (5 GB)</span>
+</span><span id="line-2">sudo<span class="w"> </span>sysctl<span class="w"> </span>-w<span class="w"> </span>vm.nr_hugepages<span class="o">=</span><span class="m">2560</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Make persistent across reboots</span>
+</span><span id="line-5"><span class="nb">echo</span><span class="w"> </span><span class="s1">'vm.nr_hugepages=2560'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>-a<span class="w"> </span>/etc/sysctl.conf
+</span></code></pre></div>
+</div>
+<p>Verify that pages are available:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">grep<span class="w"> </span>HugePages<span class="w"> </span>/proc/meminfo
+</span><span id="line-2"><span class="c1"># HugePages_Total:    2560</span>
+</span><span id="line-3"><span class="c1"># HugePages_Free:     2560</span>
+</span></code></pre></div>
+</div>
+<p><strong>Configuration</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">local_cpu_use_hugepages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+</div>
+<p>Or via environment variable:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_LOCAL_CPU_USE_HUGEPAGES</span><span class="o">=</span><span class="nb">true</span>
+</span></code></pre></div>
+</div>
+<p><strong>Restrictions</strong></p>
+<ul class="simple">
+<li><p>Hugepages are <strong>not compatible with P2P mode</strong> (<code class="docutils literal notranslate"><span class="pre">enable_p2p:</span> <span class="pre">true</span></code>).</p></li>
+<li><p>Hugepages are <strong>not compatible with shared memory</strong> (<code class="docutils literal notranslate"><span class="pre">shm_name</span></code> is set).</p></li>
+<li><p>On non-CUDA platforms, hugepages are not supported. Regular allocation will be used as fallback.</p></li>
+</ul>
+</section>
 <section id="online-inference-example">
 <span id="cpu-ram-online-inference-example"></span><h2>Online Inference Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#online-inference-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#online-inference-example'"><span>#</span></a></h2>
 <p>Let’s feel the TTFT (time to first token) differential!</p>
@@ -551,6 +589,7 @@ real time!</p>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#two-ways-to-configure-lmcache-cpu-offloading'" class="reference internal" href="#two-ways-to-configure-lmcache-cpu-offloading">Two ways to configure LMCache CPU Offloading:</a></li>
 <li><a :data-current="activeSection === '#cpu-ram-explanation'" class="reference internal" href="#cpu-ram-explanation">CPU RAM Explanation:</a></li>
+<li><a :data-current="activeSection === '#hugepage-support'" class="reference internal" href="#hugepage-support">Hugepage Support</a></li>
 <li><a :data-current="activeSection === '#online-inference-example'" class="reference internal" href="#online-inference-example">Online Inference Example</a></li>
 <li><a :data-current="activeSection === '#tips'" class="reference internal" href="#tips">Tips:</a></li>
 </ul>
