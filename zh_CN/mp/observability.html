@@ -863,15 +863,28 @@ attribute — the registered adapter type (e.g. <code class="docutils literal no
 <td><p>可观察仪表</p></td>
 <td><p>L1 使用/总比率 (<code class="docutils literal notranslate"><span class="pre">0.0</span></code>–<code class="docutils literal notranslate"><span class="pre">1.0</span></code>)，在抓取时从 <code class="docutils literal notranslate"><span class="pre">L1Manager.get_memory_usage()</span></code> 采样。当计量目标尚未连接或 <code class="docutils literal notranslate"><span class="pre">total_bytes</span></code> 为零时返回 <code class="docutils literal notranslate"><span class="pre">0.0</span></code>，因此在抓取期间回调不会触发。与逐出水位线 (默认 <code class="docutils literal notranslate"><span class="pre">0.8</span></code>) 进行比较，以判断逐出循环是否低于或高于触发阈值。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_stores</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.l2_usage_bytes</span></code></p></td>
+<td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>)</p></td>
+<td><p>Bytes currently held in each L2 adapter, sampled at scrape time
+from <code class="docutils literal notranslate"><span class="pre">adapter.get_usage()</span></code>.  One observation per configured
+adapter, tagged by <code class="docutils literal notranslate"><span class="pre">l2_name</span></code> (the adapter type, e.g. <code class="docutils literal notranslate"><span class="pre">"fs"</span></code>,
+<code class="docutils literal notranslate"><span class="pre">"nixl_store"</span></code>, <code class="docutils literal notranslate"><span class="pre">"mooncake_store"</span></code>).  Parallel to
+<code class="docutils literal notranslate"><span class="pre">l1_memory_usage_bytes</span></code> for the L2 tier — use it to see how
+much each L2 backend currently holds.  Adapters whose
+<code class="docutils literal notranslate"><span class="pre">get_usage()</span></code> raises are skipped silently rather than poisoning
+the observation, so a missing datapoint for one <code class="docutils literal notranslate"><span class="pre">l2_name</span></code> can
+mean either "not configured" or "adapter errored on this
+scrape" — cross-check with the L2 store/load counters.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_stores</span></code></p></td>
 <td><p>可观察的仪表 (属性: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>每个适配器当前正在执行的 L2 存储任务。 持续的非零值表明适配器无法跟上 L1 → L2 写入速率。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_loads</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.num_inflight_l2_loads</span></code></p></td>
 <td><p>可观察的仪表 (属性: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>每个适配器当前正在执行的 L2 → L1 预取加载任务。与 <code class="docutils literal notranslate"><span class="pre">num_inflight_l2_stores</span></code> 配对，以查看给定后端是以读取流量还是写入流量为主。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.inflight_load_memory_usage_bytes</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.inflight_load_memory_usage_bytes</span></code></p></td>
 <td><p>可观察的仪表 (属性: <code class="docutils literal notranslate"><span class="pre">l2_name</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>)</p></td>
 <td><p>每个适配器保留的 L1 字节，用于正在进行的 L2 → L1 预取加载。随着正在进行的字节和 <code class="docutils literal notranslate"><span class="pre">l1_memory_usage_bytes</span></code> 的增加，预取保留正在挤占可缓存数据。每个适配器的字节归属遵循每个请求的 <code class="docutils literal notranslate"><span class="pre">load_plan</span></code> 位图，因此跨适配器求和时不会重复计算。</p></td>
 </tr>
