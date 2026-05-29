@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>lmcache 基准引擎 | LMCache</title>
-<meta content="lmcache 基准引擎 | LMCache" property="og:title"/>
-<meta content="lmcache 基准引擎 | LMCache" name="twitter:title"/>
+<title>lmcache bench | LMCache</title>
+<meta content="lmcache bench | LMCache" property="og:title"/>
+<meta content="lmcache bench | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -21,8 +21,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="搜索"/>
 <link href="../genindex.html" rel="index" title="索引"/>
-<link href="bench_server.html" rel="next" title="lmcache bench server"/>
-<link href="index.html" rel="prev" title="CLI 参考"/>
+<link href="kvcache.html" rel="next" title="lmcache kvcache"/>
+<link href="query.html" rel="prev" title="lmcache query"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -98,7 +98,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/benchmarking.html">基准测试</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache 大小计算器</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../getting_started/cli.html">CLI 参考</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/troubleshoot.html">故障排除</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/faq.html">常见问题解答</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/quickstart/standalone_starter.html">独立启动器</a></li>
@@ -217,10 +216,14 @@
 <p class="caption" role="heading"><span class="caption-text">CLI</span></p>
 <ul class="current">
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">CLI 参考<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">lmcache 基准引擎</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bench_server.html">lmcache bench server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bench_l2.html">lmcache bench l2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="server.html">lmcache server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="describe.html">lmcache describe</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ping.html">lmcache ping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query.html">lmcache query</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">lmcache bench</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trace.html">lmcache trace</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tool.html">lmcache tool</a></li>
 </ul>
 </li>
 </ul>
@@ -288,11 +291,43 @@
 </svg>
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">CLI 参考</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">lmcache 基准引擎</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">lmcache bench</span>
 </nav>
 <div id="content" role="main">
-<section id="lmcache-bench-engine">
-<span id="id1"></span><h1>lmcache 基准引擎<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-bench-engine"><span>#</span></a></h1>
+<section id="lmcache-bench">
+<span id="id1"></span><h1>lmcache bench<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-bench"><span>#</span></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span></code> command runs sustained performance benchmarks. It has
+three sub-commands, each targeting a different layer of the stack:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 80.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Sub-command</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">engine</span></code></p></td>
+<td><p>Benchmark an inference engine (e.g. vLLM) with workloads that
+exercise different KV-cache reuse patterns.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<td><p>End-to-end sanity test against a running LMCache MP cache server
+(ZMQ + HTTP). Requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install and a GPU.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2</span></code></p></td>
+<td><p>Throughput / latency benchmark against an L2 cache adapter
+(store / lookup / load).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span><span class="o">{</span>engine,server,l2<span class="o">}</span><span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<section id="engine">
+<span id="lmcache-bench-engine"></span><h2>engine<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine'"><span>#</span></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> 命令对推理引擎（例如 vLLM）进行持续性能基准测试。它支持多种工作负载类型，以测试不同的缓存模式，并报告 TTFT、解码速度和吞吐量指标。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
@@ -304,7 +339,7 @@
 <li><p><strong>配置文件</strong> -- 将配置保存为 JSON 并使用 <code class="docutils literal notranslate"><span class="pre">--config</span></code> 进行重放。</p></li>
 </ol>
 <section id="quick-start">
-<h2>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h2>
+<h3>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h3>
 <p><strong>最小化（包含所有必需参数）：</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
@@ -344,7 +379,7 @@
 <p>如果您没有 LMCache 服务器，可以直接传递 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code>，而不是 <a href="#id1"><span class="problematic" id="id2">``</span></a>--lmcache-url``（有关如何找到此值，请参见 <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">查找 --tokens-per-gb-kvcache</span></a>）。</p>
 </section>
 <section id="general-options">
-<h2>常规选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#general-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#general-options'"><span>#</span></a></h2>
+<h3>常规选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#general-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#general-options'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -417,7 +452,7 @@
 </tbody>
 </table>
 <section id="finding-tokens-per-gb-kvcache">
-<span id="bench-tokens-per-gb"></span><h3>查找 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#finding-tokens-per-gb-kvcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#finding-tokens-per-gb-kvcache'"><span>#</span></a></h3>
+<span id="bench-tokens-per-gb"></span><h4>查找 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#finding-tokens-per-gb-kvcache"><span>#</span></a></h4>
 <p>如果您有一个正在运行的 LMCache 服务器，最简单的方法是传递 <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> 并让工具自动检测该值。</p>
 <p>如果您正在使用 <strong>vLLM 而没有 LMCache</strong>，请在 vLLM 的启动日志中查找这些行：</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">INFO: Available KV cache memory: 12.34 GiB
@@ -431,9 +466,9 @@
 </section>
 </section>
 <section id="workloads">
-<h2>工作负载<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workloads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workloads'"><span>#</span></a></h2>
+<h3>工作负载<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workloads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workloads'"><span>#</span></a></h3>
 <section id="long-doc-qa">
-<h3>长文档问答<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-qa" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#long-doc-qa'"><span>#</span></a></h3>
+<h4>长文档问答<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-qa"><span>#</span></a></h4>
 <p>模拟对长文档的重复问答。热身阶段将每个文档发送一次以填充 KV Cache，然后以信号量控制的并发方式发送基准查询。</p>
 <table class="docutils align-default">
 <colgroup>
@@ -479,7 +514,7 @@
 </div>
 </section>
 <section id="multi-round-chat">
-<h3>多轮聊天<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-round-chat" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multi-round-chat'"><span>#</span></a></h3>
+<h4>多轮聊天<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-round-chat"><span>#</span></a></h4>
 <p>模拟具有状态的多轮聊天。创建并发用户会话，以固定的 QPS 速率调度请求，并在会话历史中记录响应，以便每个后续查询都包含先前的上下文。</p>
 <table class="docutils align-default">
 <colgroup>
@@ -531,7 +566,7 @@
 </div>
 </section>
 <section id="long-doc-permutator">
-<h3>long-doc-permutator<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-permutator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#long-doc-permutator'"><span>#</span></a></h3>
+<h4>long-doc-permutator<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-permutator"><span>#</span></a></h4>
 <p>通过发送一组上下文文档的排列组合，压力测试混合 KV Cache 的重用。每个请求以不同的顺序连接所有上下文文档：</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[System Prompt] + [Doc_i1] + [Doc_i2] + ... + [Doc_iN]
 </span></code></pre></div>
@@ -585,7 +620,7 @@
 </div>
 </section>
 <section id="prefix-suffix-tuner">
-<h3>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefix-suffix-tuner'"><span>#</span></a></h3>
+<h4>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner"><span>#</span></a></h4>
 <p>一个两遍顺序工作负载，旨在 <strong>不变</strong> 地在三个 LMCache 配置中运行，以展示每个缓存层级（L0 HBM、L1 DRAM、L2 磁盘）的价值：</p>
 <table class="docutils align-default">
 <colgroup>
@@ -680,7 +715,7 @@
 </div>
 </section>
 <section id="random-prefill">
-<h3>随机预填充<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#random-prefill'"><span>#</span></a></h3>
+<h4>随机预填充<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill"><span>#</span></a></h4>
 <p>同时发送所有请求，<code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code>，以测量纯粹的 Prefill 性能。没有预热阶段。</p>
 <table class="docutils align-default">
 <colgroup>
@@ -717,7 +752,7 @@
 </section>
 </section>
 <section id="interactive-mode">
-<h2>交互模式<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#interactive-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#interactive-mode'"><span>#</span></a></h2>
+<h3>交互模式<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#interactive-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#interactive-mode'"><span>#</span></a></h3>
 <a class="reference internal image-reference" href="../_images/bench_interactive_demo.gif"><img alt="交互模式演示" src="../_images/bench_interactive_demo.gif" style="width: 100%;"/>
 </a>
 <p>当未提供 <code class="docutils literal notranslate"><span class="pre">--engine-url</span></code> 或 <code class="docutils literal notranslate"><span class="pre">--workload``（并且未设置</span> <span class="pre">``--no-interactive</span></code>）时，工具将进入交互模式。它将引导您完成四个阶段：</p>
@@ -770,7 +805,7 @@
 <p>当您选择“导出配置”时，所有自动检测到的值（模型名称、每 GB 的令牌数）将被解析并保存到一个可移植的 JSON 文件中。</p>
 </section>
 <section id="config-file">
-<h2>配置文件<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#config-file" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#config-file'"><span>#</span></a></h2>
+<h3>配置文件<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#config-file" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#config-file'"><span>#</span></a></h3>
 <p>配置文件存储基准测试参数，但**不**存储特定于环境的值，例如引擎 URL 或 LMCache URL。这使您可以在不同环境中重用相同的配置。</p>
 <p>您可以通过三种方式创建配置文件：</p>
 <ol class="arabic simple">
@@ -804,13 +839,13 @@
 </div>
 </section>
 <section id="output">
-<h2>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#output'"><span>#</span></a></h2>
+<h3>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#output'"><span>#</span></a></h3>
 <section id="terminal-real-time-progress">
-<h3>终端（实时进度）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-real-time-progress" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#terminal-real-time-progress'"><span>#</span></a></h3>
+<h4>终端（实时进度）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-real-time-progress"><span>#</span></a></h4>
 <p>在基准测试期间，实时进度显示会显示正在进行的请求、平均 TTFT、解码速度和吞吐量。使用 <code class="docutils literal notranslate"><span class="pre">-q</span></code> 可以抑制它。</p>
 </section>
 <section id="terminal-final-summary">
-<h3>终端（最终摘要）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-final-summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#terminal-final-summary'"><span>#</span></a></h3>
+<h4>终端（最终摘要）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-final-summary"><span>#</span></a></h4>
 <p>完成后，将打印一个摘要表：</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">======= Engine Benchmark Result (long-doc-qa) ========
 </span><span id="line-2">---------------------- Configuration ------------------
@@ -832,15 +867,13 @@
 </span><span id="line-18">P99 TTFT (ms):                    837.32
 </span><span id="line-19">------------------ Decoding Speed ---------------------
 </span><span id="line-20">Mean decode (tok/s):              48.23
-</span><span id="line-21">P50 decode (tok/s):               47.91
-</span><span id="line-22">P90 decode (tok/s):               42.10
-</span><span id="line-23">P99 decode (tok/s):               38.55
-</span><span id="line-24">======================================================
+</span><span id="line-21">P99 decode (tok/s):               38.55
+</span><span id="line-22">======================================================
 </span></code></pre></div>
 </div>
 </section>
 <section id="csv-and-json">
-<h3>CSV 和 JSON<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#csv-and-json" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#csv-and-json'"><span>#</span></a></h3>
+<h4>CSV 和 JSON<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#csv-and-json"><span>#</span></a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">bench_results.csv</span></code> -- 每个请求的指标（TTFT、延迟、解码速度、令牌计数）。默认情况下写入；使用 <code class="docutils literal notranslate"><span class="pre">--no-csv</span></code> 跳过。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bench_summary.json</span></code> -- 聚合统计数据，包括百分位数和配置元数据。通过 <code class="docutils literal notranslate"><span class="pre">--json</span></code> 选项启用。</p></li>
@@ -849,7 +882,7 @@
 </section>
 </section>
 <section id="exit-codes">
-<h2>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#exit-codes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#exit-codes'"><span>#</span></a></h2>
+<h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#exit-codes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#exit-codes'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 15.0%"/>
@@ -871,18 +904,524 @@
 </table>
 </section>
 </section>
+<section id="server">
+<span id="lmcache-bench-server"></span><h2>server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> command is an end-to-end sanity test for the
+LMCache Multi-Process (MP) cache server. It connects to a running server
+over ZMQ and exercises the full KV-cache data path for a sequence of
+synthetic requests, then optionally verifies per-chunk checksums through
+the HTTP API.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
+<strong>not</strong> require an inference engine. It only needs a running LMCache MP
+server (ZMQ + HTTP) and a GPU. It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install
+(not the lightweight <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
+<section id="what-it-does">
+<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
+<p>For each sequence in <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code>, the tool runs two passes:</p>
+<ol class="arabic simple">
+<li><p><strong>Cold pass</strong> -- <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to miss, so the generated KV
+tensors are <code class="docutils literal notranslate"><span class="pre">STORE</span></code>d on the server.</p></li>
+<li><p><strong>Warm pass</strong> -- <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to hit; the tool issues
+<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> and compares the retrieved KV chunks' checksums to the
+originals.</p></li>
+</ol>
+<p>The full RPC path exercised is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">REGISTER_KV_CACHE → GET_CHUNK_SIZE → LOOKUP
+</span><span id="line-2">  → QUERY_PREFETCH_STATUS → RETRIEVE → STORE
+</span><span id="line-3">  → END_SESSION
+</span></code></pre></div>
+</div>
+<p>When <code class="docutils literal notranslate"><span class="pre">--url</span></code> points to the server's HTTP endpoint, per-chunk checksums
+are additionally cross-checked against the server-side computation, so a
+mismatch between producer and consumer surfaces as a loud
+<code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code> log line.</p>
+</section>
+<section id="id2">
+<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
+<p>Start the MP server in one terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">15556</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Then in another terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p>By default the tool runs forever (<code class="docutils literal notranslate"><span class="pre">--end</span></code> unset); stop it with
+<code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> at any time. Pass <code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code> for a bounded run.</p>
+</section>
+<section id="options">
+<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#options'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rpc-url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost:5555</span></code></p></td>
+<td><p>ZMQ endpoint of the MP cache server.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
+<td><p>HTTP base URL of the server's checksum API. Used to
+verify per-chunk checksums end-to-end.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
+<td><p>Run mode. Only <code class="docutils literal notranslate"><span class="pre">gpu</span></code> is supported today; CPU mode is a
+planned follow-up.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
+<td><p>Tokens per synthetic request.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
+<td><p>Number of paged blocks allocated on the GPU.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p>Tokens per paged block.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>First sequence number to run.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Exclusive upper bound on sequence numbers. When omitted the
+loop runs forever.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
+<td><p>Delay between successive sub-passes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
+<td><p>KV cache shape spec (see below).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="kv-cache-shape-spec">
+<h3>KV cache shape spec<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-cache-shape-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kv-cache-shape-spec'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span></code> flag describes how KV tensors are laid out on
+the GPU. A spec is one or more groups separated by <code class="docutils literal notranslate"><span class="pre">;</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">(kv_size,NB,BS,NH,HS):dtype:layers[;(...):dtype:layers...]
+</span></code></pre></div>
+</div>
+<p>Fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kv_size</span></code> -- 2 for classical attention (separate K/V), 1 for MLA.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NB</span></code> -- number of paged blocks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BS</span></code> -- block size (tokens per block).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NH</span></code> -- number of attention heads per layer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HS</span></code> -- head size (in elements).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtype</span></code> -- element dtype (e.g. <code class="docutils literal notranslate"><span class="pre">float16</span></code>, <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code>, <code class="docutils literal notranslate"><span class="pre">float32</span></code>,
+<code class="docutils literal notranslate"><span class="pre">uint8</span></code>). The full set matches the keys of <code class="docutils literal notranslate"><span class="pre">DTYPE_MAP</span></code> in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> -- number of layers in this group.</p></li>
+</ul>
+<p>Multi-group specs let you model heterogeneous layers (for example, MLA
+layers + classical attention layers in the same model):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):float16:4;(2,1024,16,8,128):float16:28"</span>
+</span></code></pre></div>
+</div>
+<p>All groups must share the same <code class="docutils literal notranslate"><span class="pre">NB</span></code> and <code class="docutils literal notranslate"><span class="pre">BS</span></code> (this is a physical
+constraint of paged KV). Layer counts across groups sum to the total
+layer count registered with the server.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code> in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>
+for the authoritative parsing rules and validation errors.</p>
+</section>
+<section id="example-output">
+<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
+</span><span id="line-2">Server chunk_size = 256
+</span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
+</span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)
+</span><span id="line-5">[seq=0] STORE:        2 chunks stored (1.74 ms)
+</span><span id="line-6">[seq=0] LOOKUP warm:  2/2 chunks hit (1.31 ms)
+</span><span id="line-7">[seq=0] RETRIEVE:     2 chunks retrieved (1.48 ms)
+</span><span id="line-8">[seq=0] CHECKSUM MATCH OK
+</span><span id="line-9">[seq=1] ...
+</span></code></pre></div>
+</div>
+<p>Any <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code>, <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>, or Python traceback in the log
+indicates a real problem worth investigating.</p>
+</section>
+<section id="id3">
+<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>代码</p></th>
+<th class="head"><p>含义</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Test loop completed (or was interrupted cleanly with Ctrl-C)
+with no checksum mismatches.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Fatal error (for example, CUDA unavailable in <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">gpu</span></code>,
+server unreachable, or a checksum mismatch).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="l2">
+<span id="lmcache-bench-l2"></span><h2>l2<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> command benchmarks an L2 cache adapter
+(e.g. the local-filesystem adapter) end-to-end through the same
+<code class="docutils literal notranslate"><span class="pre">parse_args_to_l2_adapters_config</span></code> + <code class="docutils literal notranslate"><span class="pre">create_l2_adapter</span></code> pipeline that
+LMCache uses in production. Any registered adapter type can be tested
+without code changes: you describe the adapter with a single JSON spec
+and pick the operations to exercise.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command
+does <strong>not</strong> require an inference engine or an LMCache MP server. It
+only needs the adapter's own backing storage to be reachable (for the
+<code class="docutils literal notranslate"><span class="pre">fs</span></code> adapter, that simply means a writable directory).</p>
+<section id="id4">
+<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
+<p>For each measured operation the tool drives the adapter directly via
+its public submit/wait API:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Store</span></code>  -- <code class="docutils literal notranslate"><span class="pre">submit_store_task</span></code> writes <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> MemoryObjs per
+submit and waits for the store eventfd.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Lookup</span></code> -- <code class="docutils literal notranslate"><span class="pre">submit_lookup_and_lock_task</span></code> checks key existence
+(no payload transfer) and waits for the lookup eventfd.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Load</span></code>   -- <code class="docutils literal notranslate"><span class="pre">submit_load_task</span></code> reads <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> MemoryObjs per
+submit and waits for the load eventfd.</p></li>
+</ul>
+<p>Each measured <strong>round</strong> issues <code class="docutils literal notranslate"><span class="pre">--in-flight</span></code> submits sequentially from
+a single producer thread and then waits for all of them to complete; the
+round duration is the wall-clock time from the first submit until the
+last completion. Warmup rounds run before measurement and their results
+are discarded from the final summary.</p>
+<p>All three operations share the same key idx universe, so running
+<code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">store</span></code> followed by <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">load</span></code> (or <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">lookup</span></code>) with
+identical other flags hits exactly the same keys. This makes the
+benchmark useful as a quick regression test for adapters that should
+support a clean store -&gt; load round-trip.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">--only</span></code> is not given, the three operations are run <strong>in a
+single process in the order</strong> <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>. For
+adapters whose backing storage sits behind an OS-level cache --
+most notably the local-filesystem (<code class="docutils literal notranslate"><span class="pre">fs</span></code>) adapter, which is
+subject to the Linux <strong>page cache</strong> -- this means <code class="docutils literal notranslate"><span class="pre">lookup</span></code> and
+<code class="docutils literal notranslate"><span class="pre">load</span></code> will almost always observe the data that <code class="docutils literal notranslate"><span class="pre">store</span></code> just
+wrote still hot in RAM, and the reported numbers reflect
+page-cache throughput rather than the underlying device.</p>
+<p>To benchmark each operation against a cold cache, run them
+separately with <code class="docutils literal notranslate"><span class="pre">--only</span></code> and drop the OS caches in between, for
+example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">store</span>
+</span><span id="line-2"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-3"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">lookup</span>
+</span><span id="line-4"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-5"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">load</span>
+</span></code></pre></div>
+</div>
+<p>For adapters that bypass the page cache (e.g. <code class="docutils literal notranslate"><span class="pre">fs</span></code> with
+<code class="docutils literal notranslate"><span class="pre">"use_odirect":</span> <span class="pre">true</span></code>) or that talk to a remote service without
+a local cache, the default combined run is usually fine.</p>
+</div>
+</section>
+<section id="id5">
+<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id5" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id5'"><span>#</span></a></h3>
+<p>Benchmark the local filesystem adapter with default parameters:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span></code></pre></div>
+</div>
+<p>This runs all three operations (store, lookup, load) with one warmup
+round and one measurement round.</p>
+<p>Stress the adapter with more in-flight submits and larger payloads:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span>--warmup-rounds<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Run only one operation (useful to isolate store vs. load throughput):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>store
+</span></code></pre></div>
+</div>
+<p>Lookup with a controlled hit rate (the benchmark splits the lookup keys
+between a potentially-existing range and a guaranteed-non-existent
+range):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>lookup<span class="w"> </span>--lookup-max-hit-rate<span class="w"> </span><span class="m">0</span>.5
+</span></code></pre></div>
+</div>
+<p>Enable a store -&gt; load round-trip data integrity check on the last
+measured round:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--no-skip-verify
+</span></code></pre></div>
+</div>
+<p>If you prefer to keep the JSON spec out of the command line, set the
+<code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> environment variable instead of passing
+<code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">L2_ADAPTER_JSON</span><span class="o">=</span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span><span id="line-2">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="id6">
+<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id6" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id6'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">JSON</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>L2 adapter spec as JSON with a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field plus
+adapter-specific configs, e.g.
+<code class="docutils literal notranslate"><span class="pre">'{"type":"fs","base_path":"/tmp/bench"}'</span></code>. May be passed
+multiple times; only the first spec is benchmarked. If not
+provided, falls back to the <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> environment
+variable. Either the flag or the env var is <strong>required</strong>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-keys</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>Number of keys per submit.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--in-flight</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>In-flight submits per round. Each round issues this many
+submits sequentially from a single producer thread, then waits
+for all of them.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>Data size per key, in KiB.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Measurement rounds per operation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Warmup rounds run before measurement; their results are
+discarded.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>Upper bound on the lookup hit rate, in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>. The benchmark
+requests <code class="docutils literal notranslate"><span class="pre">floor(N</span> <span class="pre">*</span> <span class="pre">rate)</span></code> keys from the
+potentially-existing range and <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">-</span> <span class="pre">hit</span></code> keys from a
+guaranteed-non-existent range, where <code class="docutils literal notranslate"><span class="pre">N</span></code> is the total number
+of lookup keys. The actual hit rate may be lower if those keys
+were never stored in this run.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code></p></td>
+<td><p>Skip the store -&gt; load round-trip data integrity check (the
+default). Pass <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> to enable verification on
+the last measured round; this requires both <code class="docutils literal notranslate"><span class="pre">store</span></code> and
+<code class="docutils literal notranslate"><span class="pre">load</span></code> to be exercised.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">{lookup,store,load}</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Run only the specified operation. When omitted, all three
+operations are run in the order <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="adapter-json-spec">
+<h3>Adapter JSON spec<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adapter-json-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adapter-json-spec'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON is parsed by
+<code class="docutils literal notranslate"><span class="pre">lmcache.v1.distributed.l2_adapters.config.parse_args_to_l2_adapters_config</span></code>,
+the same entry point LMCache uses everywhere else. The minimum required
+field is <code class="docutils literal notranslate"><span class="pre">type</span></code>; all remaining fields are forwarded to the adapter
+implementation as keyword arguments.</p>
+<p>Example for the local-filesystem adapter:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"fs"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"base_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/data/lmcache-bench"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"relative_tmp_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tmp"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"read_ahead_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"use_odirect"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+</span><span id="line-7"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>See the source under <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/</span></code> for the
+full list of adapter types and their accepted fields.</p>
+</section>
+<section id="id7">
+<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id7'"><span>#</span></a></h3>
+<p>Per-round progress (suppressed by <code class="docutils literal notranslate"><span class="pre">-q</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">============================================================
+</span><span id="line-2">L2 Adapter Benchmark
+</span><span id="line-3">============================================================
+</span><span id="line-4">  Adapter config         : FSL2AdapterConfig
+</span><span id="line-5">  L2 adapter JSON        : {"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}
+</span><span id="line-6">  Keys / submit          : 32
+</span><span id="line-7">  In-flight / round      : 3
+</span><span id="line-8">  Keys / round           : 96
+</span><span id="line-9">  Data size / key        : 256 KB
+</span><span id="line-10">  Data / round           : 24.00 MB
+</span><span id="line-11">  Rounds                 : 1 (+ 1 warmup)
+</span><span id="line-12">  Lookup max hit rate    : 0.00%
+</span><span id="line-13">============================================================
+</span><span id="line-14">
+</span><span id="line-15">[Init] Creating adapter...
+</span><span id="line-16">[Init] Adapter created successfully (FSL2Adapter).
+</span><span id="line-17">
+</span><span id="line-18">[Store] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-19">  [Store] Round 1: 47.83 ms, success_keys=96/96
+</span><span id="line-20">  [Store] Round 2: 46.19 ms, success_keys=96/96
+</span><span id="line-21">
+</span><span id="line-22">[Lookup] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-23">  [Lookup] Round 1:  5.36 ms, found=96/96
+</span><span id="line-24">  [Lookup] Round 2:  5.03 ms, found=96/96
+</span><span id="line-25">
+</span><span id="line-26">[Load] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-27">  [Load] Round 1: 18.15 ms, loaded=96/96
+</span><span id="line-28">  [Load] Round 2: 17.63 ms, loaded=96/96
+</span></code></pre></div>
+</div>
+<p>Final summary (one section per exercised operation):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">====== L2 Adapter Benchmark Result (FSL2Adapter) =======
+</span><span id="line-2">----------------------- Configuration -------------------
+</span><span id="line-3">Adapter:                          FSL2Adapter
+</span><span id="line-4">Keys / submit:                    32
+</span><span id="line-5">In-flight / round:                3
+</span><span id="line-6">Data size / key (KB):             256
+</span><span id="line-7">Measurement rounds:               1
+</span><span id="line-8">Warmup rounds:                    1
+</span><span id="line-9">Lookup max hit rate:              0.0
+</span><span id="line-10">--------------------------- Store -----------------------
+</span><span id="line-11">Operation:                        Store
+</span><span id="line-12">Rounds:                           1
+</span><span id="line-13">Keys / round:                     96
+</span><span id="line-14">Total keys:                       96
+</span><span id="line-15">Total success:                    96
+</span><span id="line-16">Duration avg (ms):                46.19
+</span><span id="line-17">...
+</span><span id="line-18">Throughput avg (MB/s):            519.62
+</span><span id="line-19">Avg ops/s:                        2078.50
+</span><span id="line-20">Avg latency / key (ms):           0.481
+</span><span id="line-21">--------------------------- Lookup ----------------------
+</span><span id="line-22">...
+</span><span id="line-23">---------------------------- Load -----------------------
+</span><span id="line-24">...
+</span><span id="line-25">=========================================================
+</span></code></pre></div>
+</div>
+<p>Each operation section reports per-round duration statistics
+(avg / min / max / p50 / p99 / std), aggregate throughput
+(<code class="docutils literal notranslate"><span class="pre">avg_throughput_mbps</span></code> -- 0 for <code class="docutils literal notranslate"><span class="pre">Lookup</span></code> since it has no payload),
+average key-rate (<code class="docutils literal notranslate"><span class="pre">avg_ops_per_sec</span></code>), and a per-key latency.</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">Lookup</span></code>, three additional fields are reported when
+<code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span></code> is non-zero or some keys were found:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">max</span> <span class="pre">hit</span> <span class="pre">rate</span></code> -- the configured upper bound.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">hit</span> <span class="pre">keys</span></code> -- <code class="docutils literal notranslate"><span class="pre">floor(total_keys</span> <span class="pre">*</span> <span class="pre">rate)</span></code>, scaled for
+the measured rounds only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Actual</span> <span class="pre">hit</span> <span class="pre">rate</span></code> -- the measured hit rate over the kept rounds.</p></li>
+</ul>
+</section>
+<section id="round-trip-verification">
+<h3>Round-trip verification<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#round-trip-verification" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#round-trip-verification'"><span>#</span></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> is passed and both <code class="docutils literal notranslate"><span class="pre">store</span></code> and <code class="docutils literal notranslate"><span class="pre">load</span></code> were
+run, the benchmark compares the load buffers from the last measured
+round against the byte pattern that <code class="docutils literal notranslate"><span class="pre">store</span></code> wrote (see
+<code class="docutils literal notranslate"><span class="pre">make_memory_objects</span></code> in
+<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/bench/l2_adapter_bench/data.py</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[Verify] Checking store -&gt; load data integrity for last measured round...
+</span><span id="line-2">[Verify] OK
+</span></code></pre></div>
+</div>
+<p>Verification is <strong>off</strong> by default because the stricter byte pattern
+also forces every key to allocate its own <code class="docutils literal notranslate"><span class="pre">data_size</span></code> buffer
+(otherwise the runner is free to reuse a single shared buffer across
+keys to keep the memory footprint small).</p>
+</section>
+<section id="id8">
+<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>代码</p></th>
+<th class="head"><p>含义</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>All requested operations completed and (when enabled) the
+round-trip verification passed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Adapter creation failed, round-trip verification failed, or
+an operation hit a fatal error (e.g. all rounds timed out).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON / <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> env var was
+missing or could not be parsed.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="index.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="query.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        CLI 参考
+        lmcache query
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="bench_server.html">
-        lmcache bench server
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="kvcache.html">
+        lmcache kvcache
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -891,6 +1430,7 @@
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
+<li><a :data-current="activeSection === '#engine'" class="reference internal" href="#engine">engine</a><ul>
 <li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">快速开始</a></li>
 <li><a :data-current="activeSection === '#general-options'" class="reference internal" href="#general-options">常规选项</a><ul>
 <li><a :data-current="activeSection === '#finding-tokens-per-gb-kvcache'" class="reference internal" href="#finding-tokens-per-gb-kvcache">查找 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code></a></li>
@@ -913,6 +1453,27 @@
 </ul>
 </li>
 <li><a :data-current="activeSection === '#exit-codes'" class="reference internal" href="#exit-codes">退出代码</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#server'" class="reference internal" href="#server">server</a><ul>
+<li><a :data-current="activeSection === '#what-it-does'" class="reference internal" href="#what-it-does">What it does</a></li>
+<li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">Quick start</a></li>
+<li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">Options</a></li>
+<li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV cache shape spec</a></li>
+<li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">Example output</a></li>
+<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Exit codes</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#l2'" class="reference internal" href="#l2">l2</a><ul>
+<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">What it does</a></li>
+<li><a :data-current="activeSection === '#id5'" class="reference internal" href="#id5">Quick start</a></li>
+<li><a :data-current="activeSection === '#id6'" class="reference internal" href="#id6">Options</a></li>
+<li><a :data-current="activeSection === '#adapter-json-spec'" class="reference internal" href="#adapter-json-spec">Adapter JSON spec</a></li>
+<li><a :data-current="activeSection === '#id7'" class="reference internal" href="#id7">Example output</a></li>
+<li><a :data-current="activeSection === '#round-trip-verification'" class="reference internal" href="#round-trip-verification">Round-trip verification</a></li>
+<li><a :data-current="activeSection === '#id8'" class="reference internal" href="#id8">Exit codes</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </aside>
