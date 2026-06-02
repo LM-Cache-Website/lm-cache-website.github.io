@@ -332,13 +332,13 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_buffer_size</span></code>: NIXL 传输的缓冲区大小。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_pool_size</span></code>: 初始化时为 nixl 后端打开的描述符数量。设置为 0 以启用动态模式。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_path</span></code>: 存储文件将保存的目录（例如 /mnt/nixl/）。对于将数据存储到文件的 NIXL 后端，这是必需的。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nixl_buffer_device</span></code>: 指定 NIXL 管理的内存应该位于何处。对于 "GDS"、"GDS_MT" 和 "OBJ" 后端，支持 "cpu" 或 "cuda"；对于 "POSIX"、"HF3FS" 和 "AZURE_BLOB"，必须为 "cpu"。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nixl_buffer_device</span></code>: dictates where the memory managed by NIXL should be on. "cpu" or "cuda" is supported for "GDS", "GDS_MT", and "OBJ" backends - for "POSIX", "HF3FS", "AZURE_BLOB" &amp; "DOCA_MEMOS", must be "cpu".</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_backend</span></code>: 配置用于存储的 nixl 后端。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_use_hugepages</span></code>: 是否为 NIXL CPU 缓冲区使用 Linux 大页（2 MiB）。不支持 GPU 缓冲区。需要预分配的大页（<code class="docutils literal notranslate"><span class="pre">sysctl</span> <span class="pre">vm.nr_hugepages</span></code>）。默认值：<code class="docutils literal notranslate"><span class="pre">false</span></code>。</p></li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>支持的后端包括：["GDS", "GDS_MT", "POSIX", "HF3FS", "OBJ", "AZURE_BLOB"]。</p>
+<p>Supported backends are: ["GDS", "GDS_MT", "POSIX", "HF3FS", "OBJ", "AZURE_BLOB", "DOCA_MEMOS"].</p>
 <p>后端特定参数应通过 <code class="docutils literal notranslate"><span class="pre">extra_config.nixl_backend_params</span></code> 提供。有关具体信息，请参阅 NIXL 文档。</p>
 </div>
 <p>示例 <code class="docutils literal notranslate"><span class="pre">lmcache-config.yaml</span></code> 用于使用 S3 API 的 OBJ 后端：</p>
@@ -411,6 +411,9 @@
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>当设置 <code class="docutils literal notranslate"><span class="pre">nixl_endpoint_list</span></code> 时，<code class="docutils literal notranslate"><span class="pre">nixl_backend_params</span></code> 中的任何 <code class="docutils literal notranslate"><span class="pre">endpoint_override</span></code> 值将被忽略（会记录警告）。</p>
+<p><code class="docutils literal notranslate"><span class="pre">nixl_endpoint_list</span></code> is only honored for the OBJ backend; it is ignored
+for all other backends (including DOCA_MEMOS, AZURE_BLOB, and the file
+backends).</p>
 </div>
 </section>
 <section id="dynamic-mode">
@@ -420,7 +423,7 @@
 <section id="restrictions">
 <h4>限制<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#restrictions"><span>#</span></a></h4>
 <ul class="simple">
-<li><p>动态模式目前仅支持 nixl OBJ 和 AZURE_BLOB 后端。</p></li>
+<li><p>Dynamic mode is supported for object backends ("OBJ", "AZURE_BLOB", "DOCA_MEMOS") and file backends ("POSIX", "GDS", "GDS_MT", "HF3FS").</p></li>
 <li><p>save_unfull_chunk 必须设置为 False。</p></li>
 </ul>
 <p>示例 <code class="docutils literal notranslate"><span class="pre">lmcache-config.yaml</span></code> 用于动态模式的 OBJ 后端：</p>
@@ -469,6 +472,30 @@
 </div>
 </section>
 </section>
+<section id="doca-memos-backend-nvidia-cmx">
+<h3>DOCA_MEMOS Backend (NVIDIA CMX)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#doca-memos-backend-nvidia-cmx" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#doca-memos-backend-nvidia-cmx'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">DOCA_MEMOS</span></code> stores KV cache on NVIDIA CMX (Context Memory Storage), a
+BlueField-4 context-memory tier accessed through NIXL. It is an object-style
+backend (like <code class="docutils literal notranslate"><span class="pre">OBJ</span></code>), supported in both static (<code class="docutils literal notranslate"><span class="pre">nixl_pool_size</span></code> &gt; 0) and
+dynamic (<code class="docutils literal notranslate"><span class="pre">nixl_pool_size</span></code> = 0) mode. <code class="docutils literal notranslate"><span class="pre">nixl_buffer_device</span></code> must be <code class="docutils literal notranslate"><span class="pre">cpu</span></code>.
+<code class="docutils literal notranslate"><span class="pre">nixl_endpoint_list</span></code> is not supported for DOCA_MEMOS.</p>
+<p>Object names are 128-bit lowercase-hex strings: the NIXL DOCA_MEMOS plugin
+passes object names as strings and hex-decodes them on the device side, so
+each name is exactly 32 hex characters. In dynamic mode this name is a
+truncated SHA-256 of the cache key, so names are opaque (they carry no
+model/chunk debug information) and uniqueness is probabilistic at 128 bits.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">nixl_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1073741824</span><span class="w"> </span><span class="c1"># 1GB</span>
+</span><span id="line-3"><span class="nt">nixl_buffer_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu</span>
+</span><span id="line-4"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">enable_nixl_storage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">nixl_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DOCA_MEMOS</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">nixl_pool_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">nixl_backend_params</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">    </span><span class="c1"># refer to NIXL DOCA_MEMOS plugin docs for connection params</span>
+</span></code></pre></div>
+</div>
+</section>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -501,6 +528,7 @@
 <li><a :data-current="activeSection === '#restrictions'" class="reference internal" href="#restrictions">限制</a></li>
 </ul>
 </li>
+<li><a :data-current="activeSection === '#doca-memos-backend-nvidia-cmx'" class="reference internal" href="#doca-memos-backend-nvidia-cmx">DOCA_MEMOS Backend (NVIDIA CMX)</a></li>
 </ul>
 </li>
 </ul>
