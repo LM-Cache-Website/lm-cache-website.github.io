@@ -312,7 +312,7 @@
 </ul>
 </li>
 <li><p><a class="reference internal" href="#production-best-practices" id="id10">生产最佳实践</a></p></li>
-<li><p><a class="reference internal" href="#non-gpu-transfer-mode-shm-name" id="id11">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name" id="id11">Non-GPU Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
 </ul>
 </nav>
 <section id="docker">
@@ -475,9 +475,26 @@
 </ul>
 <p><strong>日志记录:</strong> 在初始设置期间使用 <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> 来验证 L2 存储/加载活动。 在生产中切换到 <a href="#id1"><span class="problematic" id="id2">``</span></a>INFO``（默认）以减少日志量。</p>
 </section>
-<section id="non-gpu-transfer-mode-shm-name">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#non-gpu-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#non-gpu-transfer-mode-shm-name'"><span>#</span></a></h2>
-<p>默认情况下，LMCache 为服务器和 vLLM 工作节点之间的非 GPU KV 传输创建一个共享内存 (SHM) 池。 <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> 选项让您可以控制此行为：</p>
+<section id="non-gpu-transfer-mode-supported-transfer-mode-shm-name">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Non-GPU Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#non-gpu-transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
+<p>LMCache supports two worker → server transfer paths: a <strong>GPU</strong> path
+(CUDA IPC, used for STORE/RETRIEVE) and a <strong>non-GPU</strong> path
+(PREPARE/COMMIT, used by CPU-only or non-CUDA accelerator workers).
+The server picks which paths to load via <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">auto</span></code> <em>(default)</em> -- load both paths.  Workers of either device
+type can connect without manual configuration; the server has no
+upfront knowledge of the connecting worker's device.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code> -- load only the GPU IPC path.  Use when every worker is a
+CUDA device and you want to skip allocating the non-GPU resources
+(SHM pool, pickle codec).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> -- load only the non-GPU path.  Use when serving CPU-only
+or non-CUDA accelerator workers.</p></li>
+</ul>
+<p>When the non-GPU path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>), LMCache by
+default creates a shared-memory (SHM) pool for non-GPU KV transfers
+between the server and vLLM workers.  The <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> option lets
+you control this behavior:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -541,7 +558,7 @@
 </ul>
 </li>
 <li><a :data-current="activeSection === '#production-best-practices'" class="reference internal" href="#production-best-practices">生产最佳实践</a></li>
-<li><a :data-current="activeSection === '#non-gpu-transfer-mode-shm-name'" class="reference internal" href="#non-gpu-transfer-mode-shm-name">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></li>
+<li><a :data-current="activeSection === '#non-gpu-transfer-mode-supported-transfer-mode-shm-name'" class="reference internal" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name">Non-GPU Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></li>
 </ul>
 </div>
 </aside>

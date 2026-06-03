@@ -362,9 +362,29 @@
 </section>
 <section id="server-variants">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">服务器变体</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server-variants" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server-variants'"><span>#</span></a></h2>
-<p>所有三个服务器入口点共享相同的 <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> 和 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 核心。</p>
-<p><strong>``server.py``</strong> -- 默认的仅 ZMQ 服务器。创建一个 <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> 和一个 <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code>，为所有核心 <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> 值注册处理程序，并在保持活动循环中阻塞。</p>
-<p><strong>``blend_server_v2.py``</strong> -- 扩展了 <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code>，增加了 <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>，该引擎添加了 CacheBlend 操作 (<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_KV_CACHE</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code>)。 使得在文档段落之间能够重用非前缀 KV Cache。</p>
+<p>All server entry points share the same <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> and
+<code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> core. <code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code> is now a thin compositor:
+it holds an <code class="docutils literal notranslate"><span class="pre">MPCacheEngineContext</span></code> and a list of <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
+instances assembled by <code class="docutils literal notranslate"><span class="pre">build_engine_modules()</span></code> (in <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
+based on <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> and <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>.</p>
+<p><strong>``server.py``</strong> -- The default ZMQ-only server.  Creates an
+<code class="docutils literal notranslate"><span class="pre">MPCacheEngine</span></code>, assembles the engine modules
+(<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code> + <code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code> + <code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>
+and/or <code class="docutils literal notranslate"><span class="pre">NonGPUTransferModule</span></code> depending on
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> — <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> loads just one,
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> (default) loads both — plus <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> when
+<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code>), starts a <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code>, registers
+handlers for every <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> exposed by the loaded modules, and
+blocks in a keep-alive loop.</p>
+<p><strong>``modules/blend.py``</strong> -- Defines <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> and <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>,
+which add CacheBlend operations (<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_KV_CACHE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_PRE_COMPUTED</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code> and their V2
+variants). Enables non-prefix KV cache reuse across document
+paragraphs. Selected by passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>; <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> requires
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code> and will refuse
+to load when it is <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>.</p>
 <p><strong>``http_server.py``</strong> -- 在 FastAPI 应用程序中封装 <code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> (来自 <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)。 端点由 <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> 下的模块贡献，并通过 <code class="docutils literal notranslate"><span class="pre">HTTPAPIRegistry</span></code> 自动注册：<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code> (基本存活检查)、<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/healthcheck</span></code> 用于 Kubernetes 探针、<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/clear-cache</span></code> 用于清除 L1 (CPU) 内存中的所有 KV 缓存数据，以及 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code> 用于检查详细的内部状态。 ZMQ 服务器作为同一进程的一部分运行，任何配置的运行时插件在 FastAPI 启动期间由 <code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> 生成。</p>
 </section>
 <section id="zmq-protocol">
@@ -497,7 +517,11 @@
 </span><span id="line-8"><span class="n">add_observability_args</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>    <span class="c1"># from mp_observability/config.py</span>
 </span></code></pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">blend_server_v2.py</span></code> 和 <code class="docutils literal notranslate"><span class="pre">http_server.py</span></code> 都重用了这个模式，为 HTTP 变体添加了 <code class="docutils literal notranslate"><span class="pre">add_http_frontend_args()</span></code>。</p>
+<p><code class="docutils literal notranslate"><span class="pre">http_server.py</span></code> reuses this pattern, adding
+<code class="docutils literal notranslate"><span class="pre">add_http_frontend_args()</span></code> for the HTTP variant. CacheBlend is no
+longer a separate entry point — it is opted into at runtime by passing
+<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to <code class="docutils literal notranslate"><span class="pre">server.py</span></code> (or <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>), which
+appends <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> to the engine module list.</p>
 </section>
 <section id="distributed-storage">
 <h2><a class="toc-backref" href="#id6" role="doc-backlink">分布式存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#distributed-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#distributed-storage'"><span>#</span></a></h2>
@@ -657,8 +681,19 @@
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/config.py</span></code></p></td>
 <td><p>MPServerConfig, HTTPFrontendConfig</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/blend_server_v2.py</span></code></p></td>
-<td><p>BlendEngineV2 (extends MPCacheEngine)</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/engine_context.py</span></code></p></td>
+<td><p>MPCacheEngineContext (shared state passed to every EngineModule)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/engine_module.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EngineModule</span></code> protocol, <code class="docutils literal notranslate"><span class="pre">HandlerSpec</span></code>, <code class="docutils literal notranslate"><span class="pre">ThreadPoolType</span></code>
+(per-module handler registration)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/modules/</span></code></p></td>
+<td><p>Engine module implementations: <code class="docutils literal notranslate"><span class="pre">lookup.py</span></code> (<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>),
+<code class="docutils literal notranslate"><span class="pre">management.py</span></code> (<code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code>), <code class="docutils literal notranslate"><span class="pre">gpu_transfer.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">non_gpu_transfer.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">NonGPUTransferModule</span></code>), and <code class="docutils literal notranslate"><span class="pre">blend.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> / <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_server.py</span></code></p></td>
 <td><p>带健康检查和许多其他有用 API 的 FastAPI 包装器</p></td>
