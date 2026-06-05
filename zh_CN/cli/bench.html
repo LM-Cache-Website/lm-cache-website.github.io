@@ -911,7 +911,11 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
-<p>与 <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a> 不同，此命令**不**需要推理引擎。它只需要一个运行中的 LMCache MP 服务器（ZMQ + HTTP）和一个 GPU。它还需要完整的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 安装（而不是轻量级的 <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> 包）。</p>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
+<strong>not</strong> require an inference engine. It only needs a running LMCache MP
+server (ZMQ + HTTP). GPU mode additionally requires a CUDA-capable device.
+It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install (not the lightweight
+<code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
 <section id="what-it-does">
 <h3>它的功能<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
 <p>对于 <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code> 中的每个序列，该工具运行两个阶段：</p>
@@ -967,35 +971,45 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
 <td><p>服务器的校验和 API 的 HTTP 基础 URL。用于端到端验证每个块的校验和。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu}</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
-<td><p>运行模式。目前仅支持 <code class="docutils literal notranslate"><span class="pre">gpu</span></code>；CPU 模式是计划中的后续功能。</p></td>
+<td><p>Run mode. <code class="docutils literal notranslate"><span class="pre">gpu</span></code> allocates real CUDA tensors and uses CUDA IPC
+(handle path). <code class="docutils literal notranslate"><span class="pre">cpu</span></code> allocates POSIX-SHM-backed tensors and
+uses the data-transfer path (gather/scatter via slot descriptors).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">{auto,handle,data}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
+<td><p>Transport routing for STORE/RETRIEVE. <code class="docutils literal notranslate"><span class="pre">handle</span></code> forces the
+single-shot path (<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code> + <code class="docutils literal notranslate"><span class="pre">STORE</span></code>/<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>).
+<code class="docutils literal notranslate"><span class="pre">data</span></code> forces the two-phase gather/scatter path
+(<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_NON_GPU_CONTEXT</span></code> + <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code>/<code class="docutils literal notranslate"><span class="pre">COMMIT</span></code>).
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> maps gpu→handle and cpu→data.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
 <td><p>每个合成请求的令牌数。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
 <td><p>在 GPU 上分配的分页块数量。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
 <td><p>每个分页块的令牌数。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td><p>运行的第一个序列号。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
 <td><p><em>(未设置)</em></p></td>
 <td><p>序列号的独占上限。当省略时，循环将无限运行。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
 <td><p>连续子通道之间的延迟。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
 <td><p>KV Cache 形状规格（见下文）。</p></td>
 </tr>
@@ -1029,7 +1043,7 @@
 </section>
 <section id="example-output">
 <h3>示例输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu, transfer=auto) ...
 </span><span id="line-2">Server chunk_size = 256
 </span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
 </span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)
@@ -1063,6 +1077,11 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">handle</span></code> on CPU mode is not yet implemented and
+will be added in a future release.</p>
+</div>
 </section>
 </section>
 <section id="l2">
