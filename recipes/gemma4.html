@@ -305,6 +305,7 @@
 <h2>Validated models<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#validated-models" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#validated-models'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://huggingface.co/google/gemma-4-31B-it">google/gemma-4-31B-it</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/google/gemma-4-E4B-it">google/gemma-4-E4B-it</a></p></li>
 </ul>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio"/>
@@ -326,6 +327,15 @@ vLLM</label><div class="sd-tab-content docutils">
 </span><span id="line-2"><span class="w">    </span>--tensor-parallel-size<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<div class="line-block">
+<div class="line"><br/></div>
+</div>
+<p>The smaller <code class="docutils literal notranslate"><span class="pre">google/gemma-4-E4B-it</span></code> runs on a single GPU:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>google/gemma-4-E4B-it<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
 <div class="line-block">
@@ -377,7 +387,21 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 </section>
 <section id="caveats">
 <h2>Caveats<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#caveats'"><span>#</span></a></h2>
-<p>None known.</p>
+<ul class="simple">
+<li><p><strong>Hybrid KV cache with heterogeneous block sizes.</strong> Gemma 4 interleaves
+sliding-window and full-attention layers whose head dimensions differ
+(sliding 256, full 512), so vLLM unifies the physical page size by giving the
+two attention types different <code class="docutils literal notranslate"><span class="pre">block_size</span></code>s (e.g. <code class="docutils literal notranslate"><span class="pre">google/gemma-4-E4B-it</span></code>:
+sliding 32, full 16). LMCache stores and retrieves each KV cache group in its
+own block size; no extra flags are required.</p></li>
+<li><p><strong>Cross-layer KV sharing.</strong> <code class="docutils literal notranslate"><span class="pre">google/gemma-4-E4B-it</span></code> reuses some layers’ KV
+caches across layers. LMCache stores the cache-owning layers only; the sharing
+layers’ KV lives in the same blocks and is restored automatically.</p></li>
+<li><p><strong>Determinism.</strong> Gemma 4 runs on the Triton attention backend, which is not
+bit-exact under vLLM’s batch-invariant mode, so a retrieved result may differ
+from a freshly computed one by a small numerical margin rather than being
+byte-identical.</p></li>
+</ul>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
