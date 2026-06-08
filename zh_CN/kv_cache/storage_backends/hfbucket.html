@@ -367,6 +367,89 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">metadata_cache_ttl_secs``（可选，默认值为</span> <span class="pre">``30</span></code>）：缓存确切存在性和大小元数据的生存时间（TTL）。</p></li>
 </ul>
 </section>
+<section id="mp-mode-configuration">
+<h2>MP Mode Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mp-mode-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mp-mode-configuration'"><span>#</span></a></h2>
+<p>In multi-process (MP) mode, Hugging Face Buckets are configured as an L2
+adapter through a JSON spec passed to the LMCache server. This is separate from
+the non-MP <code class="docutils literal notranslate"><span class="pre">remote_storage_plugins</span></code> configuration above. Each
+<code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> argument takes a JSON object whose <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"hfbucket"</span></code>
+field selects the HFBucket adapter.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hfbucket"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"bucket_handle"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hf://buckets/my-org/lmcache-kv/prod"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"token_env"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HF_TOKEN"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"create_bucket_if_missing"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"download_tmp_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/tmp/lmcache-hfbucket-mp"</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">"metadata_cache_ttl_secs"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"num_workers"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">"max_capacity_gb"</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">"eviction"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="line-11"><span class="w">    </span><span class="nt">"eviction_policy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LRU"</span><span class="p">,</span>
+</span><span id="line-12"><span class="w">    </span><span class="nt">"trigger_watermark"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.85</span><span class="p">,</span>
+</span><span id="line-13"><span class="w">    </span><span class="nt">"eviction_ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span>
+</span><span id="line-14"><span class="w">  </span><span class="p">}</span>
+</span><span id="line-15"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<section id="hfbucket-l2-adapter-fields">
+<h3>HFBucket L2 Adapter Fields<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hfbucket-l2-adapter-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hfbucket-l2-adapter-fields'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p><strong>type</strong> (required): must be <code class="docutils literal notranslate"><span class="pre">"hfbucket"</span></code>.</p></li>
+<li><p><strong>bucket_handle</strong> (required): Hugging Face Bucket handle in
+<code class="docutils literal notranslate"><span class="pre">hf://buckets/&lt;namespace&gt;/&lt;bucket&gt;[/&lt;prefix&gt;]</span></code> format.</p></li>
+<li><p><strong>token_env</strong>: environment variable used to resolve the Hugging Face access
+token (default <code class="docutils literal notranslate"><span class="pre">"HF_TOKEN"</span></code>).</p></li>
+<li><p><strong>token</strong>: optional direct token fallback. <code class="docutils literal notranslate"><span class="pre">token_env</span></code> takes precedence
+when the environment variable is set. Prefer <code class="docutils literal notranslate"><span class="pre">token_env</span></code> for production
+deployments so secrets do not live in adapter JSON.</p></li>
+<li><p><strong>create_bucket_if_missing</strong>: lazily create the bucket on the first store
+operation (default <code class="docutils literal notranslate"><span class="pre">false</span></code>). This only helps when the bucket is missing and
+the token has permission to create it; it does not fix invalid credentials,
+invalid handles, or network failures.</p></li>
+<li><p><strong>download_tmp_dir</strong>: root directory for temporary load downloads (default
+<code class="docutils literal notranslate"><span class="pre">/tmp/lmcache-hfbucket-mp</span></code>). The MP adapter downloads bucket files into
+per-task temporary files and then copies their bytes into the destination
+<code class="docutils literal notranslate"><span class="pre">MemoryObj</span></code> buffers supplied by the MP controller.</p></li>
+<li><p><strong>metadata_cache_ttl_secs</strong>: TTL for cached exact path-size metadata (default
+<code class="docutils literal notranslate"><span class="pre">30</span></code>). Set this lower when another process may modify the same bucket
+prefix outside LMCache and fresher metadata is more important than reducing
+Hugging Face metadata calls.</p></li>
+<li><p><strong>num_workers</strong>: number of worker threads used for blocking Hugging Face Hub
+bucket API calls (default <code class="docutils literal notranslate"><span class="pre">4</span></code>). The HFBucket Python APIs are synchronous,
+so MP mode runs upload, lookup, load, and delete work on a bounded thread
+pool behind the adapter's eventfd-based completion interface.</p></li>
+<li><p><strong>max_capacity_gb</strong>: capacity used by <code class="docutils literal notranslate"><span class="pre">get_usage()</span></code> for watermark-based L2
+eviction. Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> (default) to disable aggregate capacity tracking;
+<code class="docutils literal notranslate"><span class="pre">get_usage()</span></code> then reports the adapter as not providing an eviction signal.</p></li>
+<li><p><strong>eviction</strong>: optional sub-dict enabling the L2 eviction controller for this
+adapter. When present, keys that are currently being loaded are protected by
+the lookup-and-lock path and skipped by <code class="docutils literal notranslate"><span class="pre">delete()</span></code> until they are unlocked.</p></li>
+</ul>
+</section>
+<section id="differences-vs-non-mp-hfbucket">
+<h3>Differences vs Non-MP HFBucket<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#differences-vs-non-mp-hfbucket" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#differences-vs-non-mp-hfbucket'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p>Hugging Face bucket operations are synchronous but the adapter makes submission
+non-blocking by running the blocking calls on worker threads.</p></li>
+<li><p>MP loads do not allocate and return new memory. The MP controller provides
+destination <code class="docutils literal notranslate"><span class="pre">MemoryObj</span></code> buffers, and the adapter copies downloaded bytes
+into those buffers.</p></li>
+<li><p>Keys are identified by <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> (<code class="docutils literal notranslate"><span class="pre">model_name</span></code> + <code class="docutils literal notranslate"><span class="pre">kv_rank</span></code> +
+<code class="docutils literal notranslate"><span class="pre">chunk_hash</span></code> + optional <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>) rather than <code class="docutils literal notranslate"><span class="pre">CacheEngineKey</span></code>.
+The serialized MP object name is
+<code class="docutils literal notranslate"><span class="pre">&lt;model&gt;@&lt;kv_rank_hex&gt;@&lt;chunk_hash_hex&gt;[@&lt;cache_salt&gt;]</span></code> and is then
+encoded for the bucket path. This naming is not compatible with the non-MP
+HFBucket connector's <code class="docutils literal notranslate"><span class="pre">CacheEngineKey</span></code> object names, so a bucket prefix
+populated by non-MP LMCache cannot be read directly by MP LMCache and vice
+versa.</p></li>
+<li><p>Full object writes are batch based. Hugging Face batch writes are not
+transactional, so a failed store task may still leave some objects in the
+bucket. The MP adapter reconciles backend metadata after such failures so
+any objects that actually landed are counted for usage and later deletion
+(submitted store task is still reported as failed).</p></li>
+</ul>
+</section>
+</section>
 <section id="notes">
 <h2>注意事项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
 <ul class="simple">
@@ -399,6 +482,11 @@
 <li><a :data-current="activeSection === '#minimal-configuration'" class="reference internal" href="#minimal-configuration">最小配置</a></li>
 <li><a :data-current="activeSection === '#multiple-instances'" class="reference internal" href="#multiple-instances">多个实例</a></li>
 <li><a :data-current="activeSection === '#configuration-reference'" class="reference internal" href="#configuration-reference">配置参考</a></li>
+<li><a :data-current="activeSection === '#mp-mode-configuration'" class="reference internal" href="#mp-mode-configuration">MP Mode Configuration</a><ul>
+<li><a :data-current="activeSection === '#hfbucket-l2-adapter-fields'" class="reference internal" href="#hfbucket-l2-adapter-fields">HFBucket L2 Adapter Fields</a></li>
+<li><a :data-current="activeSection === '#differences-vs-non-mp-hfbucket'" class="reference internal" href="#differences-vs-non-mp-hfbucket">Differences vs Non-MP HFBucket</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#notes'" class="reference internal" href="#notes">注意事项</a></li>
 </ul>
 </div>

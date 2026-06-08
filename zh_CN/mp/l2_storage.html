@@ -319,25 +319,26 @@
 <li><p><a class="reference internal" href="#raw-block-raw-block-device-backed-persistent-storage" id="id10"><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> -- 原始块设备支持的持久存储</a></p></li>
 <li><p><a class="reference internal" href="#mooncake-store-mooncake-store-native-connector" id="id11"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> -- Mooncake Store 原生连接器</a></p></li>
 <li><p><a class="reference internal" href="#s3-s3-compatible-object-store" id="id12"><code class="docutils literal notranslate"><span class="pre">s3</span></code> -- S3 兼容对象存储</a></p></li>
-<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id13"><code class="docutils literal notranslate"><span class="pre">mock</span></code> -- 测试用的模拟适配器</a></p></li>
+<li><p><a class="reference internal" href="#hfbucket-hugging-face-buckets" id="id13"><code class="docutils literal notranslate"><span class="pre">hfbucket</span></code> -- Hugging Face Buckets</a></p></li>
+<li><p><a class="reference internal" href="#mock-mock-adapter-for-testing" id="id14"><code class="docutils literal notranslate"><span class="pre">mock</span></code> -- 测试用的模拟适配器</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id14">多个适配器（级联）</a></p></li>
-<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id15">存储和预取策略</a></p>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id15">多个适配器（级联）</a></p></li>
+<li><p><a class="reference internal" href="#store-and-prefetch-policies" id="id16">存储和预取策略</a></p>
 <ul>
-<li><p><a class="reference internal" href="#prefetch-concurrency" id="id16">预取并发性</a></p></li>
-<li><p><a class="reference internal" href="#buffer-only-mode" id="id17">仅缓冲区模式</a></p></li>
+<li><p><a class="reference internal" href="#prefetch-concurrency" id="id17">预取并发性</a></p></li>
+<li><p><a class="reference internal" href="#buffer-only-mode" id="id18">仅缓冲区模式</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#serde-compression-quantization" id="id18">序列化（压缩 / 量化）</a></p></li>
-<li><p><a class="reference internal" href="#eviction" id="id19">逐出</a></p>
+<li><p><a class="reference internal" href="#serde-compression-quantization" id="id19">序列化（压缩 / 量化）</a></p></li>
+<li><p><a class="reference internal" href="#eviction" id="id20">逐出</a></p>
 <ul>
-<li><p><a class="reference internal" href="#l1-eviction" id="id20">L1 逐出</a></p></li>
-<li><p><a class="reference internal" href="#l2-eviction" id="id21">L2 逐出</a></p></li>
-<li><p><a class="reference internal" href="#combined-l1-l2-eviction-example" id="id22">L1 + L2 逐出示例</a></p></li>
+<li><p><a class="reference internal" href="#l1-eviction" id="id21">L1 逐出</a></p></li>
+<li><p><a class="reference internal" href="#l2-eviction" id="id22">L2 逐出</a></p></li>
+<li><p><a class="reference internal" href="#combined-l1-l2-eviction-example" id="id23">L1 + L2 逐出示例</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#verifying-l2-storage" id="id23">验证 L2 存储</a></p></li>
+<li><p><a class="reference internal" href="#verifying-l2-storage" id="id24">验证 L2 存储</a></p></li>
 </ul>
 </nav>
 <section id="data-flow">
@@ -724,8 +725,55 @@
 </span></code></pre></div>
 </div>
 </section>
+<section id="hfbucket-hugging-face-buckets">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">hfbucket</span></code> -- Hugging Face Buckets</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hfbucket-hugging-face-buckets" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hfbucket-hugging-face-buckets'"><span>#</span></a></h3>
+<p>An L2 adapter that stores KV cache objects in a <a class="reference external" href="https://huggingface.co/docs/hub/storage-backends">Hugging Face Bucket</a> using the
+<code class="docutils literal notranslate"><span class="pre">huggingface_hub</span></code> bucket APIs.  Blocking Hub calls run on a bounded thread
+pool driven by an asyncio loop on a daemon thread, so the L2 controller thread
+is never blocked on network I/O.</p>
+<p>Object names are derived from the MP <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> as
+<code class="docutils literal notranslate"><span class="pre">&lt;model&gt;@&lt;kv_rank_hex&gt;@&lt;chunk_hash_hex&gt;[@&lt;cache_salt&gt;]</span></code> and then encoded with
+the standard HFBucket object-name encoding plus the optional bucket prefix.
+Because Hugging Face batch writes are not transactional, a store task that
+partially fails reconciles backend metadata so that any objects that actually
+landed are still counted for usage accounting and later deletion.</p>
+<p>This is a persistent remote backend best suited to warm and cold KV cache
+tiers; prefer a lower-latency local adapter for the hottest cache tier.</p>
+<p><strong>必填字段：</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bucket_handle</span></code>: Bucket location in the form
+<code class="docutils literal notranslate"><span class="pre">hf://buckets/&lt;namespace&gt;/&lt;bucket&gt;[/&lt;prefix&gt;]</span></code>.</p></li>
+</ul>
+<p><strong>可选字段：</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">token_env</span></code> (string, default <code class="docutils literal notranslate"><span class="pre">"HF_TOKEN"</span></code>): Environment variable used to
+resolve the Hugging Face access token.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">token</span></code> (string): Direct token fallback used when <code class="docutils literal notranslate"><span class="pre">token_env</span></code> is unset.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">create_bucket_if_missing</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">false</span></code>): Create the bucket
+lazily on the first store instead of requiring it to exist.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">download_tmp_dir</span></code> (string): Root directory for temporary load downloads.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata_cache_ttl_secs</span></code> (float, default <code class="docutils literal notranslate"><span class="pre">30.0</span></code>): TTL for the
+path-size metadata cache that backs lookups and usage accounting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">4</span></code>): Number of worker threads for blocking
+Hugging Face Hub API calls.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> (float, default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>): Aggregate capacity used by
+<code class="docutils literal notranslate"><span class="pre">get_usage()</span></code>.  A value of <code class="docutils literal notranslate"><span class="pre">0</span></code> disables aggregate eviction.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eviction</span></code> (dict): Optional eviction policy, see <code class="docutils literal notranslate"><span class="pre">L2AdapterConfigBase</span></code>.</p></li>
+</ul>
+<p><strong>配置示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Minimal: use an existing bucket with a token from $HF_TOKEN</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "hfbucket", "bucket_handle": "hf://buckets/my-org/lmcache-kv/prod"}'</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Create the bucket on first store and bound the worker pool</span>
+</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "hfbucket", "bucket_handle": "hf://buckets/my-org/lmcache-kv/prod", "create_bucket_if_missing": true, "num_workers": 8}'</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="c1"># Enable aggregate eviction with a capacity cap</span>
+</span><span id="line-8">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "hfbucket", "bucket_handle": "hf://buckets/my-org/lmcache-kv/prod", "max_capacity_gb": 50, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
+</span></code></pre></div>
+</div>
+</section>
 <section id="mock-mock-adapter-for-testing">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> -- 测试用的模拟适配器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">mock</span></code> -- 测试用的模拟适配器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mock-mock-adapter-for-testing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mock-mock-adapter-for-testing'"><span>#</span></a></h3>
 <p>模拟具有可配置大小和带宽的 L2 存储。对于在没有真实存储硬件的情况下测试 L2 管道非常有用。</p>
 <p><strong>字段：</strong></p>
 <ul class="simple">
@@ -738,7 +786,7 @@
 </section>
 </section>
 <section id="multiple-adapters-cascade">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">多个适配器（级联）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">多个适配器（级联）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h2>
 <p>您可以通过重复 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> 参数来配置多个 L2 适配器。适配器按指定的顺序使用。<code class="docutils literal notranslate"><span class="pre">StoreController</span></code> 将数据推送到所有配置的适配器，而 <code class="docutils literal notranslate"><span class="pre">PrefetchController</span></code> 在查找期间按顺序查询适配器。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SSD (fast, smaller) + NVMe GDS (larger capacity)</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/ssd/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
@@ -747,7 +795,7 @@
 </div>
 </section>
 <section id="store-and-prefetch-policies">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">存储和预取策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#store-and-prefetch-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#store-and-prefetch-policies'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">存储和预取策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#store-and-prefetch-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#store-and-prefetch-policies'"><span>#</span></a></h2>
 <p><strong>存储策略</strong> 控制键从 L1 流向 L2 的方式：哪些适配器接收每个键，以及在成功存储到 L2 后是否从 L1 删除键。 <strong>预取策略</strong> 控制键从 L2 流回 L1 的方式：当多个适配器具有相同的键时，该策略决定哪个适配器加载它。</p>
 <p>通过 CLI 选择策略：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-store-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
@@ -787,7 +835,7 @@
 </tbody>
 </table>
 <section id="prefetch-concurrency">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">预取并发性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefetch-concurrency" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefetch-concurrency'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">预取并发性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefetch-concurrency" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefetch-concurrency'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-max-in-flight</span></code> 标志限制了 <code class="docutils literal notranslate"><span class="pre">PrefetchController</span></code> 在任何时候可以同时进行的预取请求数量。更高的值会增加 L2 到 L1 的吞吐量，但也会增加来自在飞数据的 L1 内存压力。</p>
 <table class="docutils align-default">
 <colgroup>
@@ -810,7 +858,7 @@
 </table>
 </section>
 <section id="buffer-only-mode">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">仅缓冲区模式</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">仅缓冲区模式</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
 <p>当 L1 仅作为写缓冲区使用（所有数据存储在 L2 中）时，使用 <code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span> <span class="pre">skip_l1</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code>。此组合会在将键存储到 L2 后立即从 L1 中删除这些键，并完全禁用 LRU 逐出跟踪器，从而减少内存和 CPU 开销。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--eviction-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--l2-store-policy<span class="w"> </span>skip_l1<span class="w"> </span><span class="se">\</span>
@@ -821,14 +869,14 @@
 </section>
 </section>
 <section id="serde-compression-quantization">
-<h2><a class="toc-backref" href="#id18" role="doc-backlink">序列化（压缩 / 量化）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#serde-compression-quantization" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#serde-compression-quantization'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">序列化（压缩 / 量化）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#serde-compression-quantization" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#serde-compression-quantization'"><span>#</span></a></h2>
 <p>每个适配器可以选择性地运行一个 <a href="#id1"><span class="problematic" id="id2">**</span></a>serde**（序列化器/反序列化器），在数据进出 L2 时进行转换——例如，针对磁盘后端的 fp8 量化，或针对远程适配器的加密。有关详细信息和配置，请参见 <a class="reference internal" href="serde.html"><span class="doc">L2 序列化（Serialization / Deserialization）</span></a>。</p>
 </section>
 <section id="eviction">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h2>
 <p>LMCache 支持在两个存储层次上进行逐出，以便每个层次可以在固定的容量预算内运行。</p>
 <section id="l1-eviction">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">L1 逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-eviction'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">L1 逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-eviction'"><span>#</span></a></h3>
 <p>L1 逐出运行一个后台线程，监控整体 L1 内存使用情况。当使用量超过 <code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code> 时，逐出策略会逐出一部分最近最少使用的键。</p>
 <p><strong>命令行标志：</strong></p>
 <table class="docutils align-default">
@@ -866,7 +914,7 @@
 </div>
 </section>
 <section id="l2-eviction">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">L2 逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-eviction'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">L2 逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-eviction'"><span>#</span></a></h3>
 <p>L2 逐出是 <strong>每个适配器</strong> 和 <strong>自愿选择</strong> 的。每个适配器可以通过在其 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON 规范中添加 <code class="docutils literal notranslate"><span class="pre">"eviction"</span></code> 子对象来独立声明逐出策略。没有 <code class="docutils literal notranslate"><span class="pre">"eviction"</span></code> 键的适配器没有逐出控制器。</p>
 <p>当为适配器启用 L2 逐出时，一个专用的后台线程会监视该适配器的 <code class="docutils literal notranslate"><span class="pre">get_usage()</span></code> 值。一旦使用量超过 <code class="docutils literal notranslate"><span class="pre">trigger_watermark</span></code>，该策略将逐出键，直到使用量降低到 <code class="docutils literal notranslate"><span class="pre">eviction_ratio</span></code>。</p>
 <p><strong>``"eviction"`` 子对象字段:</strong></p>
@@ -938,16 +986,23 @@
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">s3</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">delete</span></code> 从存储桶中删除对象并释放聚合字节计数。当 <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> 为 <code class="docutils literal notranslate"><span class="pre">0``（禁用）时，``get_usage</span></code> 报告 <code class="docutils literal notranslate"><span class="pre">usage_fraction</span> <span class="pre">==</span> <span class="pre">-1.0</span></code>；设置非零的 <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> 以启用基于水印的逐出控制器。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dax</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">hfbucket</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">delete</span></code> removes objects from the bucket and frees aggregate
+byte accounting. <code class="docutils literal notranslate"><span class="pre">get_usage</span></code> reports <code class="docutils literal notranslate"><span class="pre">usage_fraction</span> <span class="pre">==</span> <span class="pre">-1.0</span></code>
+when <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> is <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled); set a non-zero
+<code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> to enable the watermark-triggered eviction
+controller. Locked keys (in-flight loads) are skipped.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dax</span></code></p></td>
 <td><p>完全支持。<code class="docutils literal notranslate"><span class="pre">delete</span></code> 会立即从内存索引中移除未锁定的键，并在活动读取借用耗尽后回收固定槽。使用基于槽的方式。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code></p></td>
 <td><p>不支持逐出（原生连接器适配器）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
 <td><p>不支持逐出（<code class="docutils literal notranslate"><span class="pre">delete</span></code> 和 <code class="docutils literal notranslate"><span class="pre">get_usage</span></code> 是无操作）。</p></td>
 </tr>
-<tr class="row-even"><td><p>原生连接器</p></td>
+<tr class="row-odd"><td><p>原生连接器</p></td>
 <td><p>不支持逐出。</p></td>
 </tr>
 </tbody>
@@ -958,7 +1013,7 @@
 </div>
 </section>
 <section id="combined-l1-l2-eviction-example">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">L1 + L2 逐出示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#combined-l1-l2-eviction-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#combined-l1-l2-eviction-example'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">L1 + L2 逐出示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#combined-l1-l2-eviction-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#combined-l1-l2-eviction-example'"><span>#</span></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3">--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
@@ -985,7 +1040,7 @@
 </section>
 </section>
 <section id="verifying-l2-storage">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">验证 L2 存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">验证 L2 存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-l2-storage'"><span>#</span></a></h2>
 <p>将 <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> 设置为在服务器日志中查看 L2 活动：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -1030,6 +1085,7 @@
 <li><a :data-current="activeSection === '#raw-block-raw-block-device-backed-persistent-storage'" class="reference internal" href="#raw-block-raw-block-device-backed-persistent-storage"><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> -- 原始块设备支持的持久存储</a></li>
 <li><a :data-current="activeSection === '#mooncake-store-mooncake-store-native-connector'" class="reference internal" href="#mooncake-store-mooncake-store-native-connector"><code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code> -- Mooncake Store 原生连接器</a></li>
 <li><a :data-current="activeSection === '#s3-s3-compatible-object-store'" class="reference internal" href="#s3-s3-compatible-object-store"><code class="docutils literal notranslate"><span class="pre">s3</span></code> -- S3 兼容对象存储</a></li>
+<li><a :data-current="activeSection === '#hfbucket-hugging-face-buckets'" class="reference internal" href="#hfbucket-hugging-face-buckets"><code class="docutils literal notranslate"><span class="pre">hfbucket</span></code> -- Hugging Face Buckets</a></li>
 <li><a :data-current="activeSection === '#mock-mock-adapter-for-testing'" class="reference internal" href="#mock-mock-adapter-for-testing"><code class="docutils literal notranslate"><span class="pre">mock</span></code> -- 测试用的模拟适配器</a></li>
 </ul>
 </li>
