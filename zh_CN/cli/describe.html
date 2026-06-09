@@ -319,29 +319,37 @@
 </span><span id="line-12">Model:           meta-llama/Llama-3.1-70B-Instruct
 </span><span id="line-13">World size:                                      4
 </span><span id="line-14">GPU IDs:                                0, 1, 2, 3
-</span><span id="line-15">Attention backend:    vLLM non-MLA flash attention
-</span><span id="line-16">GPU KV shape:             NL x [2, NB, BS, NH, HS]
-</span><span id="line-17">GPU KV tensor shape:   80 x [2, 2048, 128, 8, 128]
-</span><span id="line-18">Num layers:                                     80
-</span><span id="line-19">Block size:                                    128
-</span><span id="line-20">Hidden dim sizes:                             1024
-</span><span id="line-21">Dtype:                               torch.float16
-</span><span id="line-22">MLA:                                         False
-</span><span id="line-23">Num blocks:                                   2048
-</span><span id="line-24">------------- L2: NixlStoreL2Adapter -------------
-</span><span id="line-25">Type:                           NixlStoreL2Adapter
-</span><span id="line-26">Health:                                         OK
-</span><span id="line-27">Backend:                                 nixl_rdma
-</span><span id="line-28">Stored objects:                                512
-</span><span id="line-29">Pool used:                       480 / 512 (93.8%)
-</span><span id="line-30">==================================================
+</span><span id="line-15">Num layers:                                     80
+</span><span id="line-16">Num blocks:                                   2048
+</span><span id="line-17">Cache size per token (bytes):               327680
+</span><span id="line-18">--- Kernel group 0 (meta-llama/Llama-3.1-70B-Instruct) ---
+</span><span id="line-19">Kernel group index:                              0
+</span><span id="line-20">Engine group index:                              0
+</span><span id="line-21">Object group index:                              0
+</span><span id="line-22">Num layers:                                     80
+</span><span id="line-23">Physical block size:                           128
+</span><span id="line-24">Compress ratio:                                  1
+</span><span id="line-25">Dtype:                               torch.float16
+</span><span id="line-26">MLA:                                         False
+</span><span id="line-27">Attention backend:    vLLM non-MLA flash attention
+</span><span id="line-28">GPU KV shape:             NL x [2, NB, BS, NH, HS]
+</span><span id="line-29">GPU KV tensor shape:   80 x [2, 2048, 128, 8, 128]
+</span><span id="line-30">------------- L2: NixlStoreL2Adapter -------------
+</span><span id="line-31">Type:                           NixlStoreL2Adapter
+</span><span id="line-32">Health:                                         OK
+</span><span id="line-33">Backend:                                 nixl_rdma
+</span><span id="line-34">Stored objects:                                512
+</span><span id="line-35">Pool used:                       480 / 512 (93.8%)
+</span><span id="line-36">==================================================
 </span></code></pre></div>
 </div>
 <p>输出显示：</p>
 <ul class="simple">
 <li><p><strong>概述</strong> — 健康状态、引擎类型、块大小。</p></li>
 <li><p><strong>L1 存储</strong> — 容量、使用情况、逐出策略、缓存对象数量。</p></li>
-<li><p><strong>注册模型</strong> — 每个模型的 KV Cache 布局，包括 GPU KV 张量形状（符号和具体）、注意力后端和层详细信息。</p></li>
+<li><p><strong>Registered models</strong> — per-model KV cache layout: a context-wide summary
+followed by one kernel group section per kernel group, each with the GPU KV
+tensor shape (symbolic and concrete), attention backend, and group geometry.</p></li>
 <li><p><strong>L2 适配器</strong> — 类型、健康状况、后端、存储对象和利用率。</p></li>
 </ul>
 <section id="options">
@@ -377,7 +385,8 @@
 </section>
 <section id="json-output">
 <h2>JSON 输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#json-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#json-output'"><span>#</span></a></h2>
-<p>使用 <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> 以机器可读的输出格式。模型和 L2 适配器被收集到列表中，以便于程序化访问：</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> for machine-readable output. Models, kernel groups, and
+L2 adapters are collected into lists for easy programmatic access:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>describe<span class="w"> </span>kvcache<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000<span class="w"> </span>--format<span class="w"> </span>json
 </span></code></pre></div>
 </div>
@@ -398,28 +407,38 @@
 </span><span id="line-15"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
 </span><span id="line-16"><span class="w">        </span><span class="nt">"world_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
 </span><span id="line-17"><span class="w">        </span><span class="nt">"gpu_ids"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0, 1, 2, 3"</span><span class="p">,</span>
-</span><span id="line-18"><span class="w">        </span><span class="nt">"attention_backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vLLM non-MLA flash attention"</span><span class="p">,</span>
-</span><span id="line-19"><span class="w">        </span><span class="nt">"gpu_kv_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NL x [2, NB, BS, NH, HS]"</span><span class="p">,</span>
-</span><span id="line-20"><span class="w">        </span><span class="nt">"gpu_kv_concrete_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"80 x [2, 2048, 128, 8, 128]"</span><span class="p">,</span>
-</span><span id="line-21"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
-</span><span id="line-22"><span class="w">        </span><span class="nt">"block_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
-</span><span id="line-23"><span class="w">        </span><span class="nt">"hidden_dim_sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1024</span><span class="p">],</span>
-</span><span id="line-24"><span class="w">        </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"torch.float16"</span><span class="p">,</span>
-</span><span id="line-25"><span class="w">        </span><span class="nt">"is_mla"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span id="line-26"><span class="w">        </span><span class="nt">"num_blocks"</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span>
-</span><span id="line-27"><span class="w">      </span><span class="p">}</span>
-</span><span id="line-28"><span class="w">    </span><span class="p">],</span>
-</span><span id="line-29"><span class="w">    </span><span class="nt">"l2_adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-30"><span class="w">      </span><span class="p">{</span>
-</span><span id="line-31"><span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NixlStoreL2Adapter"</span><span class="p">,</span>
-</span><span id="line-32"><span class="w">        </span><span class="nt">"health"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OK"</span><span class="p">,</span>
-</span><span id="line-33"><span class="w">        </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nixl_rdma"</span><span class="p">,</span>
-</span><span id="line-34"><span class="w">        </span><span class="nt">"stored_object_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
-</span><span id="line-35"><span class="w">        </span><span class="nt">"pool_used"</span><span class="p">:</span><span class="w"> </span><span class="s2">"480 / 512 (93.8%)"</span>
-</span><span id="line-36"><span class="w">      </span><span class="p">}</span>
-</span><span id="line-37"><span class="w">    </span><span class="p">]</span>
-</span><span id="line-38"><span class="w">  </span><span class="p">}</span>
-</span><span id="line-39"><span class="p">}</span>
+</span><span id="line-18"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
+</span><span id="line-19"><span class="w">        </span><span class="nt">"num_blocks"</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span>
+</span><span id="line-20"><span class="w">        </span><span class="nt">"cache_size_per_token"</span><span class="p">:</span><span class="w"> </span><span class="mi">327680</span>
+</span><span id="line-21"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-22"><span class="w">    </span><span class="p">],</span>
+</span><span id="line-23"><span class="w">    </span><span class="nt">"kernel_groups"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-24"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-25"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
+</span><span id="line-26"><span class="w">        </span><span class="nt">"kernel_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-27"><span class="w">        </span><span class="nt">"engine_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-28"><span class="w">        </span><span class="nt">"object_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-29"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
+</span><span id="line-30"><span class="w">        </span><span class="nt">"physical_block_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+</span><span id="line-31"><span class="w">        </span><span class="nt">"compress_ratio"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="line-32"><span class="w">        </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"torch.float16"</span><span class="p">,</span>
+</span><span id="line-33"><span class="w">        </span><span class="nt">"is_mla"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-34"><span class="w">        </span><span class="nt">"attention_backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vLLM non-MLA flash attention"</span><span class="p">,</span>
+</span><span id="line-35"><span class="w">        </span><span class="nt">"gpu_kv_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NL x [2, NB, BS, NH, HS]"</span><span class="p">,</span>
+</span><span id="line-36"><span class="w">        </span><span class="nt">"gpu_kv_concrete_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"80 x [2, 2048, 128, 8, 128]"</span>
+</span><span id="line-37"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-38"><span class="w">    </span><span class="p">],</span>
+</span><span id="line-39"><span class="w">    </span><span class="nt">"l2_adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-40"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-41"><span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NixlStoreL2Adapter"</span><span class="p">,</span>
+</span><span id="line-42"><span class="w">        </span><span class="nt">"health"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OK"</span><span class="p">,</span>
+</span><span id="line-43"><span class="w">        </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nixl_rdma"</span><span class="p">,</span>
+</span><span id="line-44"><span class="w">        </span><span class="nt">"stored_object_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
+</span><span id="line-45"><span class="w">        </span><span class="nt">"pool_used"</span><span class="p">:</span><span class="w"> </span><span class="s2">"480 / 512 (93.8%)"</span>
+</span><span id="line-46"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-47"><span class="w">    </span><span class="p">]</span>
+</span><span id="line-48"><span class="w">  </span><span class="p">}</span>
+</span><span id="line-49"><span class="p">}</span>
 </span></code></pre></div>
 </div>
 </section>
