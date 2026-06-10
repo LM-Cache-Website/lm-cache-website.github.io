@@ -352,15 +352,16 @@
 </span><span id="line-14">StorageManager (distributed/storage_manager.py)
 </span><span id="line-15">     |
 </span><span id="line-16">     |--- L1Manager (l1_manager.py)
-</span><span id="line-17">     |       |--- L1MemoryManager (memory allocator)
-</span><span id="line-18">     |       |--- TTLLock per object (read/write)
-</span><span id="line-19">     |
-</span><span id="line-20">     |--- StoreController  -----&gt; L2 Adapter(s) (async L1-&gt;L2 push)
-</span><span id="line-21">     |--- PrefetchController ---&gt; L2 Adapter(s) (async L2-&gt;L1 load)
-</span><span id="line-22">     |--- EvictionController ----&gt; L1Manager (watermark-triggered eviction)
-</span><span id="line-23">     |
-</span><span id="line-24">     v
-</span><span id="line-25">EventBus + OTel providers (observability)
+</span><span id="line-17">     |       |--- L1MemoryManager (CPU DRAM) or
+</span><span id="line-18">     |       |    GDSL1MemoryManager (NVMe slab via cuFile)
+</span><span id="line-19">     |       |--- TTLLock per object (read/write)
+</span><span id="line-20">     |
+</span><span id="line-21">     |--- StoreController  -----&gt; L2 Adapter(s) (async L1-&gt;L2 push)
+</span><span id="line-22">     |--- PrefetchController ---&gt; L2 Adapter(s) (async L2-&gt;L1 load)
+</span><span id="line-23">     |--- EvictionController ----&gt; L1Manager (watermark-triggered eviction)
+</span><span id="line-24">     |
+</span><span id="line-25">     v
+</span><span id="line-26">EventBus + OTel providers (observability)
 </span></code></pre></div>
 </div>
 </section>
@@ -527,7 +528,17 @@
 </span></code></pre></div>
 </div>
 <p>每个对象都有两个 <code class="docutils literal notranslate"><span class="pre">TTLLock</span></code> 实例（读和写），并具有可配置的超时，以防止因客户端崩溃而导致的死锁。</p>
-<p><code class="docutils literal notranslate"><span class="pre">L1MemoryManager</span></code> 处理底层内存分配（懒惰增长至 <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>）。</p>
+<p>The underlying memory allocation is handled by one of two interchangeable
+tiers selected at startup (both satisfy <code class="docutils literal notranslate"><span class="pre">L1ManagerProtocol</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">L1MemoryManager</span></code> (default) -- pinned CPU DRAM, with lazy growth up to
+<code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GDSL1MemoryManager</span></code> -- an NVMe slab file when <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> is set.
+The bytes live on disk; reads/writes DMA directly between the GPU staging
+buffer and the slab via cuFile, driven by the process-global <code class="docutils literal notranslate"><span class="pre">GDSContext</span></code>
+(<code class="docutils literal notranslate"><span class="pre">gpu_connector/gds_context.py</span></code>) and dispatched from <code class="docutils literal notranslate"><span class="pre">gpu_ops</span></code>. The CPU
+tier is disabled in this mode.</p></li>
+</ul>
 </section>
 <section id="l2-adapters">
 <h3><a class="toc-backref" href="#id9" role="doc-backlink">L2 适配器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h3>
