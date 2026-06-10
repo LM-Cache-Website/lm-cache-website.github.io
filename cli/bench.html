@@ -1261,6 +1261,11 @@ example:</p>
 <p>For adapters that bypass the page cache (e.g. <code class="docutils literal notranslate"><span class="pre">fs</span></code> with
 <code class="docutils literal notranslate"><span class="pre">"use_odirect":</span> <span class="pre">true</span></code>) or that talk to a remote service without
 a local cache, the default combined run is usually fine.</p>
+<p>O_DIRECT adapters may also require the benchmark L1 buffer to
+satisfy the adapter’s block alignment. Use <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> to
+set that alignment, commonly <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local block devices. The
+payload size (<code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code>) must be a multiple of the
+selected alignment.</p>
 </div>
 </section>
 <section id="id5">
@@ -1278,6 +1283,13 @@ round and one measurement round.</p>
 </span><span id="line-3"><span class="w">    </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span>--warmup-rounds<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Benchmark an O_DIRECT adapter with aligned L1 buffers:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"raw_block","device_path":"/dev/nvme0n1","slot_bytes":4194304,"use_odirect":true,"block_align":4096}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span>
 </span></code></pre></div>
 </div>
 <p>Run only one operation (useful to isolate store vs. load throughput):</p>
@@ -1347,16 +1359,24 @@ for all of them.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
 <td><p>Data size per key, in KiB.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Alignment in bytes for benchmark L1 buffers. Use a value
+at least as large as the adapter’s block alignment when
+benchmarking O_DIRECT backends, for example <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local
+block devices. <code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code> must be a multiple of
+this value.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Measurement rounds per operation.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Warmup rounds run before measurement; their results are
 discarded.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
 <td><p>Upper bound on the lookup hit rate, in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>. The benchmark
 requests <code class="docutils literal notranslate"><span class="pre">floor(N</span> <span class="pre">*</span> <span class="pre">rate)</span></code> keys from the
@@ -1365,14 +1385,14 @@ guaranteed-non-existent range, where <code class="docutils literal notranslate">
 of lookup keys. The actual hit rate may be lower if those keys
 were never stored in this run.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code></p></td>
 <td><p>Skip the store -&gt; load round-trip data integrity check (the
 default). Pass <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> to enable verification on
 the last measured round; this requires both <code class="docutils literal notranslate"><span class="pre">store</span></code> and
 <code class="docutils literal notranslate"><span class="pre">load</span></code> to be exercised.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">{lookup,store,load}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">{lookup,store,load}</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>Run only the specified operation. When omitted, all three
 operations are run in the order <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>.</p></td>
@@ -1486,9 +1506,8 @@ round against the byte pattern that <code class="docutils literal notranslate"><
 </span></code></pre></div>
 </div>
 <p>Verification is <strong>off</strong> by default because the stricter byte pattern
-also forces every key to allocate its own <code class="docutils literal notranslate"><span class="pre">data_size</span></code> buffer
-(otherwise the runner is free to reuse a single shared buffer across
-keys to keep the memory footprint small).</p>
+requires both the store and load object batches to stay resident so the
+loaded data can be compared against the original store pattern.</p>
 </section>
 <section id="id8">
 <h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>

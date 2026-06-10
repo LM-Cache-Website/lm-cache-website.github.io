@@ -1120,6 +1120,11 @@ POSIX-SHM-backed KV tensors and exercises the full RPC path.</p>
 </span></code></pre></div>
 </div>
 <p>对于绕过页面缓存的适配器（例如，使用 <code class="docutils literal notranslate"><span class="pre">"use_odirect":</span> <span class="pre">true</span></code> 的 <code class="docutils literal notranslate"><span class="pre">fs</span></code>）或与没有本地缓存的远程服务通信的适配器，默认的组合运行通常是可以的。</p>
+<p>O_DIRECT adapters may also require the benchmark L1 buffer to
+satisfy the adapter's block alignment. Use <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> to
+set that alignment, commonly <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local block devices. The
+payload size (<code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code>) must be a multiple of the
+selected alignment.</p>
 </div>
 </section>
 <section id="id5">
@@ -1136,6 +1141,13 @@ POSIX-SHM-backed KV tensors and exercises the full RPC path.</p>
 </span><span id="line-3"><span class="w">    </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span>--warmup-rounds<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Benchmark an O_DIRECT adapter with aligned L1 buffers:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"raw_block","device_path":"/dev/nvme0n1","slot_bytes":4194304,"use_odirect":true,"block_align":4096}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span>
 </span></code></pre></div>
 </div>
 <p>仅运行一个操作（有助于隔离存储与加载的吞吐量）：</p>
@@ -1193,23 +1205,31 @@ POSIX-SHM-backed KV tensors and exercises the full RPC path.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
 <td><p>每个键的数据大小，以 KiB 为单位。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Alignment in bytes for benchmark L1 buffers. Use a value
+at least as large as the adapter's block alignment when
+benchmarking O_DIRECT backends, for example <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local
+block devices. <code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code> must be a multiple of
+this value.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>每次操作的测量轮数。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>在测量之前运行的预热轮次；它们的结果会被丢弃。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
 <td><p>查找命中率的上限，范围在 <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> 之间。基准测试请求 <code class="docutils literal notranslate"><span class="pre">floor(N</span> <span class="pre">*</span> <span class="pre">rate)</span></code> 个来自潜在存在范围的键，以及 <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">-</span> <span class="pre">hit</span></code> 个来自保证不存在范围的键，其中 <code class="docutils literal notranslate"><span class="pre">N</span></code> 是查找键的总数。如果这些键在此运行中从未存储，则实际命中率可能会更低。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code></p></td>
 <td><p>跳过存储 -&gt; 加载往返数据完整性检查（默认）。传递 <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> 以在最后一次测量的轮次上启用验证；这要求同时执行 <code class="docutils literal notranslate"><span class="pre">store</span></code> 和 <code class="docutils literal notranslate"><span class="pre">load</span></code>。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--仅</span> <span class="pre">{查找,存储,加载}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--仅</span> <span class="pre">{查找,存储,加载}</span></code></p></td>
 <td><p><em>(未设置)</em></p></td>
 <td><p>仅运行指定的操作。省略时，将按顺序运行所有三个操作 <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>。</p></td>
 </tr>
@@ -1307,7 +1327,9 @@ POSIX-SHM-backed KV tensors and exercises the full RPC path.</p>
 </span><span id="line-2">[Verify] OK
 </span></code></pre></div>
 </div>
-<p>默认情况下，验证是 <strong>关闭</strong> 的，因为更严格的字节模式也迫使每个键分配其自己的 <code class="docutils literal notranslate"><span class="pre">data_size</span></code> 缓冲区（否则运行程序可以自由地在键之间重用一个共享缓冲区，以保持内存占用小）。</p>
+<p>Verification is <strong>off</strong> by default because the stricter byte pattern
+requires both the store and load object batches to stay resident so the
+loaded data can be compared against the original store pattern.</p>
 </section>
 <section id="id8">
 <h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
