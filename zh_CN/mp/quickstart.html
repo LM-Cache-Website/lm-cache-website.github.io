@@ -447,6 +447,58 @@
 </div>
 <p>ZMQ 服务器在相同的默认端口（5555）上运行，并接受 vLLM 连接，正如本地快速入门中所示。</p>
 </section>
+<section id="cpu-only-quick-start">
+<h2>CPU-Only Quick Start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-only-quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-only-quick-start'"><span>#</span></a></h2>
+<p>LMCache MP mode works on hosts without a GPU. The server runs with a
+<code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code> and vLLM uses its CPU backend. KV tensors are shared
+between vLLM and the LMCache server via POSIX shared memory (zero-copy,
+no GPU required).</p>
+<p><strong>Step 1: Start the LMCache server (no GPU needed)</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</span></code></pre></div>
+</div>
+<p>预期的日志输出：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: torch_dev=StubCPUDevice(device_type=cpu), ...
+</span><span id="line-2">LMCache INFO: LMCache cache server is running...
+</span></code></pre></div>
+</div>
+<p><strong>Step 2: Start vLLM with the handle transfer mode</strong></p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode=handle</span></code> in
+<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> to enable the POSIX-SHM zero-copy path.
+At startup the vLLM worker migrates each KV cache tensor to a shared
+memory segment (<code class="docutils literal notranslate"><span class="pre">/lmcache_kv_&lt;pid&gt;_&lt;idx&gt;</span></code>) so the LMCache server can
+map the same physical pages directly.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--dtype<span class="w"> </span>bfloat16<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--disable-hybrid-kv-cache-manager<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--no-enable-prefix-caching<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span><span class="s1">'{"kv_connector": "LMCacheMPConnector",</span>
+</span><span id="line-6"><span class="s1">      "kv_role": "kv_both",</span>
+</span><span id="line-7"><span class="s1">      "kv_connector_module_path":</span>
+</span><span id="line-8"><span class="s1">        "lmcache.integration.vllm.lmcache_mp_connector",</span>
+</span><span id="line-9"><span class="s1">      "kv_connector_extra_config": {</span>
+</span><span id="line-10"><span class="s1">        "lmcache.mp.host": "tcp://localhost",</span>
+</span><span id="line-11"><span class="s1">        "lmcache.mp.port": 5555,</span>
+</span><span id="line-12"><span class="s1">        "lmcache.mp.mp_transfer_mode": "handle"</span>
+</span><span id="line-13"><span class="s1">      }}'</span>
+</span></code></pre></div>
+</div>
+<p>Expected log output on the vLLM side:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: lmcache.mp.mp_transfer_mode = handle (overridden, ...)
+</span><span id="line-2">LMCache INFO: Creating transfer context (device_type=cpu, mode=handle)
+</span><span id="line-3">LMCache INFO: Migrated CPU KV cache tensor (nbytes=...) to SHM /lmcache_kv_...
+</span></code></pre></div>
+</div>
+<p><strong>步骤 3：发送请求</strong> 与本地快速入门相同。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">auto</span></code> transfer mode routes CPU tensors to the
+<code class="docutils literal notranslate"><span class="pre">data</span></code> path (worker-side gather/scatter). Use
+<code class="docutils literal notranslate"><span class="pre">mp_transfer_mode=handle</span></code> explicitly to get the zero-copy SHM
+path described above.</p>
+</div>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -471,6 +523,7 @@
 <li><a :data-current="activeSection === '#local-quick-start'" class="reference internal" href="#local-quick-start">本地快速开始</a></li>
 <li><a :data-current="activeSection === '#docker-quick-start'" class="reference internal" href="#docker-quick-start">Docker 快速入门</a></li>
 <li><a :data-current="activeSection === '#http-server-quick-start'" class="reference internal" href="#http-server-quick-start">HTTP 服务器快速入门</a></li>
+<li><a :data-current="activeSection === '#cpu-only-quick-start'" class="reference internal" href="#cpu-only-quick-start">CPU-Only Quick Start</a></li>
 </ul>
 </div>
 </aside>
