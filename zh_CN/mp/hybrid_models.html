@@ -311,10 +311,16 @@
 <nav class="contents local" id="id1">
 <ul class="simple">
 <li><p><a class="reference internal" href="#what-works" id="id2">有效的内容</a></p></li>
-<li><p><a class="reference internal" href="#mamba-linear-attention-hybrids" id="id3">Mamba / Linear-Attention Hybrids</a></p></li>
-<li><p><a class="reference internal" href="#what-is-not-supported-yet" id="id4">尚未支持的内容</a></p></li>
-<li><p><a class="reference internal" href="#verifying-correctness" id="id5">验证正确性</a></p></li>
-<li><p><a class="reference internal" href="#see-also" id="id6">另请参阅</a></p></li>
+<li><p><a class="reference internal" href="#mamba-linear-attention-hybrids" id="id3">Mamba / Linear-Attention Hybrids</a></p>
+<ul>
+<li><p><a class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n" id="id4">Step 1 — find the model's unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
+<li><p><a class="reference internal" href="#step-2-derive-the-three-required-flags-from-n" id="id5">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
+<li><p><a class="reference internal" href="#caveats" id="id6">Caveats</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#what-is-not-supported-yet" id="id7">尚未支持的内容</a></p></li>
+<li><p><a class="reference internal" href="#verifying-correctness" id="id8">验证正确性</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id9">另请参阅</a></p></li>
 </ul>
 </nav>
 <section id="what-works">
@@ -359,58 +365,139 @@
 </section>
 <section id="mamba-linear-attention-hybrids">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">Mamba / Linear-Attention Hybrids</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mamba-linear-attention-hybrids" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mamba-linear-attention-hybrids'"><span>#</span></a></h2>
-<p>Models that interleave <strong>Mamba / Gated-DeltaNet layers</strong> with full attention
-(e.g. <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.5-0.8B</span></code>) are supported. Their recurrent state caches are
-reinterpreted as opaque pages at registration time, so prefix caching and KV
-reuse work end to end. They need three extra flags:</p>
+<p>Models that interleave <strong>Mamba / Gated-DeltaNet (GDN) linear-attention layers</strong>
+with full attention — the Qwen3.5 and Qwen3.6 series (<code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.5-0.8B</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.6-27B</span></code>, …), Qwen3-Next, and other GDN hybrids — are supported.
+Unlike a paged key/value cache, their linear-attention layers keep a recurrent
+<strong>state cache</strong> (a convolution + SSM state). LMCache reinterprets that state as
+an opaque page at registration time, so prefix caching and KV reuse work end to
+end without any model-specific transfer code.</p>
+<p>This section is the <strong>general procedure for any such model</strong>. The only
+per-model variable is the <em>unified block size</em> <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1); everything else
+is identical across models.</p>
+<section id="step-1-find-the-model-s-unified-block-size-n">
+<span id="mamba-block-size"></span><h3><a class="toc-backref" href="#id4" role="doc-backlink">Step 1 — find the model's unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-1-find-the-model-s-unified-block-size-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-1-find-the-model-s-unified-block-size-n'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">N</span></code> is the <strong>single number</strong> that drives every other setting: the LMCache
+server's <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> and vLLM's <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> are both
+derived from it (step 2). Get it wrong and LMCache raises at engine startup.</p>
+<p>For a Mamba / GDN hybrid, vLLM forces <strong>one</strong> block size across all KV cache
+groups, chosen large enough that an attention page is at least as big as a
+Mamba state page. It depends on the model's head dimensions and GDN state size,
+so it is <strong>model-specific — never assume a value, read it from the model</strong>.
+vLLM prints it once at startup:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">INFO</span> <span class="o">...</span> <span class="n">interface</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">670</span><span class="p">]</span> <span class="n">Setting</span> <span class="n">attention</span> <span class="n">block</span> <span class="n">size</span> <span class="n">to</span> <span class="mi">784</span> <span class="n">tokens</span> <span class="n">to</span>
+</span><span id="line-2"><span class="n">ensure</span> <span class="n">that</span> <span class="n">attention</span> <span class="n">page</span> <span class="n">size</span> <span class="ow">is</span> <span class="o">&gt;=</span> <span class="n">mamba</span> <span class="n">page</span> <span class="n">size</span><span class="o">.</span>
+</span></code></pre></div>
+</div>
+<p>You do not need LMCache, a full serving run, or the weights to be quantized to
+read it — just launch vLLM until the line appears, then stop. The snippet below
+does exactly that and prints <code class="docutils literal notranslate"><span class="pre">N</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3.6-27B
+</span><span id="line-2"><span class="nv">LOG</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="k">)</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Launch vLLM just far enough to size the KV cache; cheap settings only.</span>
+</span><span id="line-5">vllm<span class="w"> </span>serve<span class="w"> </span><span class="s2">"</span><span class="nv">$MODEL</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--mamba-cache-mode<span class="w"> </span>align<span class="w"> </span>--enable-prefix-caching<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">8192</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--port<span class="w"> </span><span class="m">8011</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$LOG</span><span class="s2">"</span><span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">&amp;</span>
+</span><span id="line-9"><span class="nv">VLLM_PID</span><span class="o">=</span><span class="nv">$!</span>
+</span><span id="line-10">
+</span><span id="line-11"><span class="c1"># Wait for the block-size line (or a fatal error), then stop vLLM.</span>
+</span><span id="line-12"><span class="k">until</span><span class="w"> </span>grep<span class="w"> </span>-qiE<span class="w"> </span><span class="s2">"Setting attention block size|Error|Traceback"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LOG</span><span class="s2">"</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+</span><span id="line-13"><span class="w">    </span>sleep<span class="w"> </span><span class="m">3</span>
+</span><span id="line-14"><span class="k">done</span>
+</span><span id="line-15">grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">"Setting attention block size"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$LOG</span><span class="s2">"</span>
+</span><span id="line-16"><span class="nb">kill</span><span class="w"> </span><span class="s2">"</span><span class="nv">$VLLM_PID</span><span class="s2">"</span>
+</span></code></pre></div>
+</div>
+<p>The number in <code class="docutils literal notranslate"><span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> is your <code class="docutils literal notranslate"><span class="pre">N</span></code>. Values grow with model size; for
+example:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 25.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>Unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></p></th>
+<th class="head"><p>GPUs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.6-27B</span></code></p></td>
+<td><p>784</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.5-0.8B</span></code></p></td>
+<td><p>544</p></td>
+<td><p>1</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="step-2-derive-the-three-required-flags-from-n">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-2-derive-the-three-required-flags-from-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-2-derive-the-three-required-flags-from-n'"><span>#</span></a></h3>
 <ol class="arabic">
-<li><p>vLLM must run with prefix caching and the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">vllm</span> <span class="n">serve</span> <span class="n">Qwen</span><span class="o">/</span><span class="n">Qwen3</span><span class="mf">.5</span><span class="o">-</span><span class="mf">0.8</span><span class="n">B</span> \
+<li><p><strong>LMCache server</strong> <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> <strong>= N</strong> (or any multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>). This
+is the rule the connector enforces: LMCache's chunk size must be a multiple
+of vLLM's unified block size, or registration fails:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">784</span> <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
+</span></code></pre></div>
+</div>
+</li>
+<li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> <strong>in [N, 2·N)</strong> — setting it equal to
+<code class="docutils literal notranslate"><span class="pre">N</span></code> is the simple, always-valid choice. Outside this range LMCache raises
+at engine startup. <code class="docutils literal notranslate"><span class="pre">align</span></code> mode snapshots the Mamba state only at the
+<em>end</em> of each scheduler step, so each prefill step must advance exactly one
+block; a larger budget would let a step skip block boundaries, leaving no
+snapshot for LMCache to store at those prefixes.</p></li>
+<li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span> <span class="pre">--enable-prefix-caching</span></code> — <code class="docutils literal notranslate"><span class="pre">align</span></code> is
+mandatory (GDN backends do not support the <code class="docutils literal notranslate"><span class="pre">all</span></code> mode):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">vllm</span> <span class="n">serve</span> <span class="o">&lt;</span><span class="n">model</span><span class="o">&gt;</span> \
 </span><span id="line-2">    <span class="o">--</span><span class="n">enable</span><span class="o">-</span><span class="n">prefix</span><span class="o">-</span><span class="n">caching</span> <span class="o">--</span><span class="n">mamba</span><span class="o">-</span><span class="n">cache</span><span class="o">-</span><span class="n">mode</span> <span class="n">align</span> \
-</span><span id="line-3">    <span class="o">--</span><span class="n">kv</span><span class="o">-</span><span class="n">transfer</span><span class="o">-</span><span class="n">config</span> \
-</span><span id="line-4">    <span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
+</span><span id="line-3">    <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">num</span><span class="o">-</span><span class="n">batched</span><span class="o">-</span><span class="n">tokens</span> <span class="mi">784</span> \
+</span><span id="line-4">    <span class="o">--</span><span class="n">kv</span><span class="o">-</span><span class="n">transfer</span><span class="o">-</span><span class="n">config</span> \
+</span><span id="line-5">    <span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
-</li>
-<li><p>The LMCache server's <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> must be a multiple of vLLM's unified
-block size for the model (vLLM logs <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span>
-<span class="pre">tokens</span></code> at startup; for Qwen3.5-0.8B, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code>):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">544</span> <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
-</span></code></pre></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be at least the unified block size and
-below twice it (LMCache raises at engine startup otherwise; setting it
-equal to the block size is the simple choice):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">vllm</span> <span class="n">serve</span> <span class="o">...</span> <span class="o">--</span><span class="nb">max</span><span class="o">-</span><span class="n">num</span><span class="o">-</span><span class="n">batched</span><span class="o">-</span><span class="n">tokens</span> <span class="mi">544</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">align</span></code> mode snapshots the Mamba state only at the <em>end</em> of each
-scheduler step; a larger budget would let one step skip block boundaries,
-leaving no snapshot for LMCache to store at those prefixes.</p>
 </li>
 </ol>
-<p>Caveats:</p>
+<p>So for a freshly-probed model the whole derivation is just: read <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1),
+then pass <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> to the server and <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">N</span></code> to
+vLLM.</p>
+<p>No <code class="docutils literal notranslate"><span class="pre">--no-disable-hybrid-kv-cache-manager</span></code> or attention-backend flag is needed;
+<code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> advertises hybrid support and vLLM auto-selects the GDN
+backend.</p>
+</section>
+<section id="caveats">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Caveats</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#caveats'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p>Generation is <strong>not bit-exact</strong> between a cached and a fresh run: GDN
-backends do not support vLLM's batch-invariant mode. Expect score-level
-equivalence, not token-level.</p></li>
-<li><p>The cached pages are byte-opaque, so content-aware features (CacheGen
+backends do not support vLLM's batch-invariant mode. Validate with a
+<strong>score-level</strong> comparison (see <a class="reference internal" href="#verifying-correctness">Verifying Correctness</a>), not a token-level
+diff.</p></li>
+<li><p>The cached pages are <strong>byte-opaque</strong>, so content-aware features (CacheGen
 compression, CacheBlend) do not apply, and cache entries must not be shared
 across engines with different attention backends or kernel block sizes.</p></li>
+<li><p>Several of these models are <strong>vision-language</strong> (they load a vision tower).
+The validated, supported path is <strong>text</strong> KV caching; image/video KV caching
+is not validated.</p></li>
+<li><p>vLLM's Mamba prefix caching in <code class="docutils literal notranslate"><span class="pre">align</span></code> mode is marked experimental upstream.</p></li>
 </ul>
-<p>See the <a class="reference internal" href="../recipes/qwen3_5.html"><span class="doc">Qwen3.5 recipe</span></a> for the validated
-end-to-end commands.</p>
+<p>See the <a class="reference internal" href="../recipes/qwen3_5.html"><span class="doc">Qwen3.5 / Qwen3.6 recipe</span></a> for the validated
+end-to-end commands and the per-model block sizes.</p>
+</section>
 </section>
 <section id="what-is-not-supported-yet">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">尚未支持的内容</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-not-supported-yet" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-not-supported-yet'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">尚未支持的内容</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-not-supported-yet" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-not-supported-yet'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><strong>DeepSeek-V4-style compressed / indexer caches</strong> are not yet handled by the
 multiprocess connector.</p></li>
 </ul>
 </section>
 <section id="verifying-correctness">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">验证正确性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-correctness" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-correctness'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">验证正确性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-correctness" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-correctness'"><span>#</span></a></h2>
 <p>为了确保混合模型的 KV 被正确缓存和重用，您可以将冷启动与从 LMCache 提供的运行进行比较：</p>
 <ol class="arabic">
 <li><p>对 vLLM + LMCache 运行评估（例如在 <code class="docutils literal notranslate"><span class="pre">gsm8k</span></code> 上使用 <code class="docutils literal notranslate"><span class="pre">lm_eval</span></code>）。这会计算 KV Cache 并 <strong>存储</strong> 在 LMCache 中。</p></li>
@@ -425,7 +512,7 @@ multiprocess connector.</p></li>
 <p>该项目将其作为 <code class="docutils literal notranslate"><span class="pre">hma_lm_eval</span></code> 持续集成测试发布（参见 <code class="docutils literal notranslate"><span class="pre">.buildkite/k3_tests/multiprocess</span></code>）。</p>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">另请参阅</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">另请参阅</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p>：doc:<cite>quickstart</cite> — 启动 LMCache 服务器和 vLLM 客户端。</p></li>
 <li><p>关于如何检测和处理组的设计说明：<code class="docutils literal notranslate"><span class="pre">docs/design/integration/vllm/hybrid-kv-cache-groups.md</span></code> 在源代码树中。</p></li>
@@ -453,7 +540,12 @@ multiprocess connector.</p></li>
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#what-works'" class="reference internal" href="#what-works">有效的内容</a></li>
-<li><a :data-current="activeSection === '#mamba-linear-attention-hybrids'" class="reference internal" href="#mamba-linear-attention-hybrids">Mamba / Linear-Attention Hybrids</a></li>
+<li><a :data-current="activeSection === '#mamba-linear-attention-hybrids'" class="reference internal" href="#mamba-linear-attention-hybrids">Mamba / Linear-Attention Hybrids</a><ul>
+<li><a :data-current="activeSection === '#step-1-find-the-model-s-unified-block-size-n'" class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n">Step 1 — find the model's unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
+<li><a :data-current="activeSection === '#step-2-derive-the-three-required-flags-from-n'" class="reference internal" href="#step-2-derive-the-three-required-flags-from-n">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
+<li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">Caveats</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#what-is-not-supported-yet'" class="reference internal" href="#what-is-not-supported-yet">尚未支持的内容</a></li>
 <li><a :data-current="activeSection === '#verifying-correctness'" class="reference internal" href="#verifying-correctness">验证正确性</a></li>
 <li><a :data-current="activeSection === '#see-also'" class="reference internal" href="#see-also">另请参阅</a></li>
