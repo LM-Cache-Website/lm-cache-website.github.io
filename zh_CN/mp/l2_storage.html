@@ -606,23 +606,42 @@ unsupported under the GDS L1 tier, which exposes no L1 memory buffer.)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">load_checkpoint_on_init</span></code>: 在启动时加载现有的设备元数据检查点（默认值为 <code class="docutils literal notranslate"><span class="pre">true</span></code>）。设置为 <code class="docutils literal notranslate"><span class="pre">false</span></code> 以使用空的内存索引开始。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code>: 尝试在可能的情况下使用对齐的直接缓冲区 I/O。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">io_engine</span></code>: Rust 原始块 I/O 引擎。有效值为 <code class="docutils literal notranslate"><span class="pre">"posix"``（默认同步</span> <span class="pre">``pread</span></code>/<code class="docutils literal notranslate"><span class="pre">pwrite</span></code> 路径），<a href="#id1"><span class="problematic" id="id2">``</span></a>"io_uring"<a href="#id3"><span class="problematic" id="id4">``</span></a>（直接 Rust io_uring 系统调用路径）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code>: Enable NVMe passthrough via io_uring command interface
+for direct device access. Requires <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> and NVMe
+character device node (e.g., <code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iouring_queue_depth</span></code>: <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> 的队列深度。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_data_transfer_size</span></code>: Maximum data transfer size for
+<code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>. Large transfers are split into smaller chunks
+that fit within device limits.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_store_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_lookup_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code>: 每种操作类型的工作线程数量。</p></li>
 </ul>
 <p><strong>注意：</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 是一个由服务器拥有的 MP 适配器。它 <strong>不</strong> 支持 MP 模式下的每个 TP 设备路径映射。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 在两个支持的引擎中保持 <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"raw_block"</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> remains <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"raw_block"</span></code> for all supported engines.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 拥有设备上的槽分配、检查点和通过 <code class="docutils literal notranslate"><span class="pre">RawBlockCore</span></code> 的恢复。槽回收由共享/全局 L2 逐出控制器或显式的 <code class="docutils literal notranslate"><span class="pre">delete()</span></code> 调用驱动。</p></li>
 <li><p>如果启用了 <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>，则服务器的 <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> 应至少为 <code class="docutils literal notranslate"><span class="pre">block_align</span></code>。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> 必须保持为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 以便此适配器正常工作。</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, <code class="docutils literal notranslate"><span class="pre">device_path</span></code> must use the NVMe character
+device node (e.g., <code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>) instead of the block device node
+(<code class="docutils literal notranslate"><span class="pre">/dev/nvme0n1</span></code>). The character device provides direct NVMe
+command passthrough.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code> requires <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> to be set.</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> is ignored for NVMe namespace
+character devices.</p></li>
 </ul>
 <p><strong>配置示例：</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "block_align": 4096, "header_bytes": 4096, "meta_total_bytes": 268435456, "use_odirect": true, "num_store_workers": 2, "num_lookup_workers": 1, "num_load_workers": 4}'</span>
-</span><span id="line-2">
-</span><span id="line-3">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "iouring_queue_depth": 256, "use_odirect": true}'</span>
-</span><span id="line-4">
-</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "load_checkpoint_on_init": false, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Basic raw_block with posix I/O</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "block_align": 4096, "header_bytes": 4096, "meta_total_bytes": 268435456, "use_odirect": true, "num_store_workers": 2, "num_lookup_workers": 1, "num_load_workers": 4}'</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># With io_uring</span>
+</span><span id="line-5">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "iouring_queue_depth": 256, "use_odirect": true}'</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="c1"># With io_uring_cmd (NVMe passthrough)</span>
+</span><span id="line-8">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/ng0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "use_uring_cmd": true, "iouring_queue_depth": 256, "max_data_transfer_size": 131072, "use_odirect": false}'</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># With eviction</span>
+</span><span id="line-11">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "load_checkpoint_on_init": false, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
 </span></code></pre></div>
 </div>
 </section>
