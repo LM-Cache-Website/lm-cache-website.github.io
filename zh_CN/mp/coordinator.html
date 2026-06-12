@@ -317,7 +317,12 @@
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: MP coordinator listening on http://0.0.0.0:9300
 </span></code></pre></div>
 </div>
-<p>CLI 接受 <code class="docutils literal notranslate"><span class="pre">--host</span></code>、<code class="docutils literal notranslate"><span class="pre">--port</span></code>、<code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>；任何标志都会覆盖下面匹配的环境变量。有关详细信息，请参见 <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a>。同样，协调器仍然可以通过 <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code> 作为模块启动。</p>
+<p>The CLI accepts <code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, <code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>, <code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, and <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>; any flag overrides the
+matching environment variable below. See <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
+Equivalently, the coordinator can still be launched as a module with
+<code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code>.</p>
 </section>
 <section id="configuration">
 <h2>配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
@@ -351,6 +356,19 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p>健康检查扫描之间的秒数。<code class="docutils literal notranslate"><span class="pre">0</span></code> 禁用逐出。</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Seconds between L2 eviction sweeps. <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the loop.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_RATIO</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>Fraction of tracked keys (by count) to evict per cycle (0.0 to 1.0).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TRIGGER_WATERMARK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
+<td><p>Eviction fires when usage reaches this fraction of the quota
+(0.0 exclusive to 1.0).</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -382,6 +400,15 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_HEARTBEAT_INTERVAL</span></code></p></td>
 <td><p>心跳之间的秒数（必须为 <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>，默认值为 <code class="docutils literal notranslate"><span class="pre">5</span></code>）。保持远低于协调器的 <code class="docutils literal notranslate"><span class="pre">INSTANCE_TIMEOUT</span></code>。</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_REPORTING</span></code></p></td>
+<td><p>Enable reporting L2 store/lookup events to the coordinator for
+fleet-wide usage tracking and quota-based eviction.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-flush-interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_FLUSH_INTERVAL</span></code></p></td>
+<td><p>Seconds between L2 event batch flushes (must be <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>, default <code class="docutils literal notranslate"><span class="pre">1</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 <p>服务器在其遥测身份下注册 (<code class="docutils literal notranslate"><span class="pre">--service-instance-id</span></code> / OTel <code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code>)；如果未设置，则协调器会分配一个 ID。</p>
@@ -401,6 +428,91 @@
 </span><span id="line-5"><span class="c1"># -&gt; {"status": "healthy"}</span>
 </span></code></pre></div>
 </div>
+</section>
+<section id="l2-usage-tracking-and-eviction">
+<h2>L2 usage tracking and eviction<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-usage-tracking-and-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-usage-tracking-and-eviction'"><span>#</span></a></h2>
+<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>, they stream L2
+store and lookup events to the coordinator. The coordinator aggregates
+per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and selects LRU keys to evict.</p>
+<p>Each event batch carries the server's <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and a monotonically
+increasing sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>) scoped to that instance. These fields
+enable future gap detection to identify lost batches.</p>
+<p><strong>Quota management</strong> -- set per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> byte budgets. Salts without a
+quota default to a 0-byte limit (allowlist semantics).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Set a 10 GiB quota for tenant "user-a"</span>
+</span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:9300/l2/quota/user-a<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"limit_gb": 10.0}'</span>
+</span><span id="line-5"><span class="c1"># -&gt; {"cache_salt": "user-a", "limit_gb": 10.0, "status": "ok"}</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="c1"># Remove the quota</span>
+</span><span id="line-8">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/l2/quota/user-a
+</span><span id="line-9"><span class="c1"># -&gt; {"cache_salt": "user-a", "limit_gb": 0.0, "status": "removed"}</span>
+</span></code></pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">_default</span></code> as the path parameter to target the empty-string salt.</p>
+<p><strong>Event ingestion</strong> -- MP servers POST batched events; this is handled
+automatically by the event listener and is not typically called manually.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/l2/events<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
+</span><span id="line-5"><span class="s1">        "seq": 1,</span>
+</span><span id="line-6"><span class="s1">        "events": [</span>
+</span><span id="line-7"><span class="s1">            {"type": "store", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 1024}</span>
+</span><span id="line-8"><span class="s1">        ]</span>
+</span><span id="line-9"><span class="s1">    }'</span>
+</span><span id="line-10"><span class="c1"># -&gt; {"recorded": 1}</span>
+</span></code></pre></div>
+</div>
+<p><strong>Status queries</strong> -- inspect usage and quota info.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Single salt</span>
+</span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/l2/status/user-a
+</span><span id="line-3"><span class="c1"># -&gt; {"cache_salt": "user-a", "quota_limit_gb": 10.0, "quota_exists": true, "usage_gb": 0.001}</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># All salts</span>
+</span><span id="line-6">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/l2/status
+</span><span id="line-7"><span class="c1"># -&gt; {"total_gb": 0.005, "by_cache_salt": [...]}</span>
+</span></code></pre></div>
+</div>
+<section id="l2-endpoint-summary">
+<h3>L2 endpoint summary<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-endpoint-summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-endpoint-summary'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 12.0%"/>
+<col style="width: 38.0%"/>
+<col style="width: 50.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Path</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/quota/{cache_salt}</span></code></p></td>
+<td><p>Create or update a quota (body: <code class="docutils literal notranslate"><span class="pre">{"limit_gb":</span> <span class="pre">N}</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DELETE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/quota/{cache_salt}</span></code></p></td>
+<td><p>Remove a salt's quota entry.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/events</span></code></p></td>
+<td><p>Ingest a batch of L2 store/lookup events.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/status/{cache_salt}</span></code></p></td>
+<td><p>Quota and usage for a single salt.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/status</span></code></p></td>
+<td><p>Total usage and per-salt breakdown.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -427,6 +539,10 @@
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
 <li><a :data-current="activeSection === '#connecting-mp-servers'" class="reference internal" href="#connecting-mp-servers">连接 MP 服务器</a></li>
 <li><a :data-current="activeSection === '#inspecting-the-fleet'" class="reference internal" href="#inspecting-the-fleet">检查集群</a></li>
+<li><a :data-current="activeSection === '#l2-usage-tracking-and-eviction'" class="reference internal" href="#l2-usage-tracking-and-eviction">L2 usage tracking and eviction</a><ul>
+<li><a :data-current="activeSection === '#l2-endpoint-summary'" class="reference internal" href="#l2-endpoint-summary">L2 endpoint summary</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </aside>
