@@ -504,44 +504,90 @@ unsupported under the GDS L1 tier, which exposes no L1 memory buffer.)</p></li>
 </section>
 <section id="dax-device-dax-fixed-slot-storage">
 <h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">dax</span></code> -- 设备-DAX 固定槽存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dax-device-dax-fixed-slot-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dax-device-dax-fixed-slot-storage'"><span>#</span></a></h3>
-<p>一个 L2 适配器，它映射单个 Device-DAX 路径，例如 <code class="docutils literal notranslate"><span class="pre">/dev/dax1.0</span></code>，并在固定大小的槽中存储 KV Cache 对象。该适配器旨在用于字节可寻址内存设备，例如持久性内存或 CXL 内存。</p>
+<p>An L2 adapter that maps Device-DAX paths, such as <code class="docutils literal notranslate"><span class="pre">/dev/daxX.X</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/dev/daxY.Y</span></code>, and stores KV cache objects in fixed-size slots. This adapter
+is intended for byte-addressable memory devices such as persistent memory or
+CXL memory.</p>
 <p>在此版本中，MP <code class="docutils literal notranslate"><span class="pre">dax</span></code> 适配器是易失性的。它将键索引保存在服务器内存中，并在重启时重建一个空索引。旧字节可能仍然保留在 DAX 设备上，但在 LMCache 服务器重启后无法访问。</p>
-<p><strong>必填字段：</strong></p>
+<p><strong>Required fields for the legacy single-device form:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: 可映射的 DAX 设备或测试文件的路径。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: 从 <code class="docutils literal notranslate"><span class="pre">device_path</span></code> 映射的 GiB 数量。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: 固定槽大小（以字节为单位）。这必须足够大，以容纳一个完整的 LMCache 块，因为 MP 内存描述符不暴露非 MP 完整块的大小。</p></li>
 </ul>
+<p><strong>Required fields for the multi-device form:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>: List of objects with <code class="docutils literal notranslate"><span class="pre">device_path</span></code> and <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>.
+The list may be empty only when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: Fixed slot size in bytes shared by every DAX device in the
+adapter facade.</p></li>
+</ul>
 <p><strong>可选字段：</strong></p>
 <ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">false</span></code>): Enables runtime
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code>, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/remove</span></code>, and <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/resize</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_store_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">1</span></code>): 存储工作线程。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_lookup_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">1</span></code>): 查找工作线程。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">min(4,</span> <span class="pre">os.cpu_count())</span></code>): 加载工作线程。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> (bool): 被常见的 L2 配置解析接受，但对 <code class="docutils literal notranslate"><span class="pre">dax</span></code> 没有影响，因为未实现重启恢复。</p></li>
 </ul>
 <p><strong>配置示例:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-2"><span class="s1">  "type": "dax",</span>
-</span><span id="line-3"><span class="s1">  "device_path": "/dev/dax1.0",</span>
-</span><span id="line-4"><span class="s1">  "max_dax_size_gb": 100,</span>
-</span><span id="line-5"><span class="s1">  "slot_bytes": 268435456,</span>
-</span><span id="line-6"><span class="s1">  "num_store_workers": 1,</span>
-</span><span id="line-7"><span class="s1">  "num_lookup_workers": 1,</span>
-</span><span id="line-8"><span class="s1">  "num_load_workers": 4,</span>
-</span><span id="line-9"><span class="s1">  "eviction": {</span>
-</span><span id="line-10"><span class="s1">    "eviction_policy": "LRU",</span>
-</span><span id="line-11"><span class="s1">    "trigger_watermark": 0.9,</span>
-</span><span id="line-12"><span class="s1">    "eviction_ratio": 0.1</span>
-</span><span id="line-13"><span class="s1">  }</span>
-</span><span id="line-14"><span class="s1">}'</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Backward-compatible single-device form.</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-3"><span class="s1">  "type": "dax",</span>
+</span><span id="line-4"><span class="s1">  "device_path": "/dev/dax1.0",</span>
+</span><span id="line-5"><span class="s1">  "max_dax_size_gb": 100,</span>
+</span><span id="line-6"><span class="s1">  "slot_bytes": 268435456,</span>
+</span><span id="line-7"><span class="s1">  "num_store_workers": 1,</span>
+</span><span id="line-8"><span class="s1">  "num_lookup_workers": 1,</span>
+</span><span id="line-9"><span class="s1">  "num_load_workers": 4,</span>
+</span><span id="line-10"><span class="s1">  "eviction": {</span>
+</span><span id="line-11"><span class="s1">    "eviction_policy": "LRU",</span>
+</span><span id="line-12"><span class="s1">    "trigger_watermark": 0.9,</span>
+</span><span id="line-13"><span class="s1">    "eviction_ratio": 0.1</span>
+</span><span id="line-14"><span class="s1">  }</span>
+</span><span id="line-15"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Multi-device hotplug-ready form.</span>
+</span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-3"><span class="s1">  "type": "dax",</span>
+</span><span id="line-4"><span class="s1">  "devices": [</span>
+</span><span id="line-5"><span class="s1">    {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100},</span>
+</span><span id="line-6"><span class="s1">    {"device_path": "/dev/daxY.Y", "max_dax_size_gb": 100}</span>
+</span><span id="line-7"><span class="s1">  ],</span>
+</span><span id="line-8"><span class="s1">  "slot_bytes": 268435456,</span>
+</span><span id="line-9"><span class="s1">  "hotplug_enabled": true,</span>
+</span><span id="line-10"><span class="s1">  "num_store_workers": 1,</span>
+</span><span id="line-11"><span class="s1">  "num_lookup_workers": 1,</span>
+</span><span id="line-12"><span class="s1">  "num_load_workers": 4</span>
+</span><span id="line-13"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<p>Runtime management uses JSON bodies because DAX paths contain slashes. See the
+<a class="reference internal" href="../kv_cache/storage_backends/dax.html"><span class="doc">Device-DAX backend guide</span></a> for complete
+examples.
+These routes use StorageManager's generic L2 adapter reconfiguration API; the
+HTTP path selects the backend and operation, the DAX adapter interprets the
+operation payload, and the same interface can be reused by future adapters such
+as P2P.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>当前限制：</strong></p>
 <ul class="simple">
-<li><p>使用一个服务器拥有的映射 DAX 路径。未实现每个 TP 的分区和多设备条带化。</p></li>
+<li><p>Runtime hotplug changes only LMCache mappings and metadata. It does not
+create, destroy, or reconfigure kernel CXL or DAX devices.</p></li>
+<li><p>Per-TP partitions and on-device restart metadata are not implemented.</p></li>
 <li><p>仅支持单缓冲区对象。多张量对象会被拒绝。</p></li>
 <li><p>容量是基于插槽的，而不是基于有效载荷字节的。L2 逐出和使用指标计算占用的插槽。</p></li>
 <li><p>查找会获取 DAX 侧的外部锁。<code class="docutils literal notranslate"><span class="pre">submit_unlock</span></code> 在加载/检索完成后释放这些锁，使条目可以再次被逐出。</p></li>
+<li><p>Remove <code class="docutils literal notranslate"><span class="pre">mode="evict"</span></code> is destructive for the DAX tier. Remove
+<code class="docutils literal notranslate"><span class="pre">mode="migrate"</span></code> requires enough capacity on another active DAX device.</p></li>
 </ul>
 </section>
 <section id="fs-native-native-c-file-system-connector">

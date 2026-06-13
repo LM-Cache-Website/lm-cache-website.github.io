@@ -356,7 +356,7 @@ are required.</p>
 </span><span id="line-12"><span class="s1">  }'</span>
 </span></code></pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON accepts these fields:</p>
+<p>The legacy single-device <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON accepts these fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: required path to a readable and writable DAX device.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: required mapped size in GiB. The value must fit within
@@ -370,14 +370,104 @@ for one full LMCache chunk.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code>: accepted by common MP L2 parsing but ignored by
 <code class="docutils literal notranslate"><span class="pre">dax</span></code> in this release.</p></li>
 </ul>
+<p>Runtime hotplug uses the multi-device form. The <code class="docutils literal notranslate"><span class="pre">devices</span></code> list may also be
+empty when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--l1-size-gb<span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-5"><span class="s1">    "type": "dax",</span>
+</span><span id="line-6"><span class="s1">    "devices": [</span>
+</span><span id="line-7"><span class="s1">      {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100},</span>
+</span><span id="line-8"><span class="s1">      {"device_path": "/dev/daxY.Y", "max_dax_size_gb": 100}</span>
+</span><span id="line-9"><span class="s1">    ],</span>
+</span><span id="line-10"><span class="s1">    "slot_bytes": 268435456,</span>
+</span><span id="line-11"><span class="s1">    "hotplug_enabled": true,</span>
+</span><span id="line-12"><span class="s1">    "num_store_workers": 1,</span>
+</span><span id="line-13"><span class="s1">    "num_lookup_workers": 1,</span>
+</span><span id="line-14"><span class="s1">    "num_load_workers": 4</span>
+</span><span id="line-15"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
 <p>MP DAX stores opaque <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> values in memory and is volatile-only in
 this release.  Closing and reopening the server on the same DAX path starts
 with an empty index, so previously written bytes are not discoverable after
 restart.</p>
-<p>MP DAX uses one mapped device path per LMCache server.  It does not add
-per-TP DAX partitions, multi-device striping, on-device metadata, or restart
-recovery.  Capacity accounting and eviction are slot-based: a stored object
+<p>MP DAX uses one stable adapter facade per LMCache server.  The facade owns
+stable event fds and worker pools, and runtime add/remove/resize only changes
+the mapped DAX cores behind that facade.  It does not add kernel-level CXL or
+DAX reconfiguration, per-TP DAX partitions, on-device metadata, or restart
+recovery. Capacity accounting and eviction are slot-based: a stored object
 occupies one slot even if its payload is smaller than <code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>.</p>
+</section>
+<section id="runtime-hotplug-api">
+<h2>Runtime Hotplug API<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-hotplug-api" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-hotplug-api'"><span>#</span></a></h2>
+<p>Runtime hotplug is disabled unless <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>. The API
+changes only LMCache runtime mappings and metadata; the <code class="docutils literal notranslate"><span class="pre">/dev/dax*</span></code> device
+must already exist and be readable and writable by the LMCache server process.
+The runtime endpoints are implemented through StorageManager’s generic L2
+adapter reconfiguration interface, which routes backend, operation name, and
+adapter-specific payload to the selected adapter. DAX owns the path, mode,
+migration, and resize semantics; the generic interface is reusable by other
+adapters such as P2P.
+Use JSON bodies because DAX paths contain slashes:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
+</span><span id="line-5">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/remove<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "mode": "migrate"}'</span>
+</span><span id="line-8">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/resize<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "200GiB"}'</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">size</span></code> is required for add and resize. Use an integer byte count or a string
+such as <code class="docutils literal notranslate"><span class="pre">"100GiB"</span></code>. <code class="docutils literal notranslate"><span class="pre">remove</span></code> supports these modes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>: move DAX-resident KV to other active DAX devices before closing
+the source device.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evict</span></code>: delete DAX-resident KV on the source device. This is destructive
+for the DAX tier.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">drain</span></code>: stop new writes to the source device and leave existing KV
+readable until it is evicted or the server closes.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">resize</span></code> supports <code class="docutils literal notranslate"><span class="pre">migrate</span></code> and <code class="docutils literal notranslate"><span class="pre">evict</span></code> modes. It does not support
+<code class="docutils literal notranslate"><span class="pre">drain</span></code> because resize completes synchronously.</p>
+<p>Hotplug operations are lock-safe by default. A remove or shrink that would
+delete externally locked or borrowed slots returns <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code> unless
+<code class="docutils literal notranslate"><span class="pre">force</span></code> is set. A migration that has no active destination capacity returns
+<code class="docutils literal notranslate"><span class="pre">507</span> <span class="pre">Insufficient</span> <span class="pre">Storage</span></code>. Resize grow preserves the in-memory key index and
+does not move KV payloads. Resize shrink never silently drops keys; entries
+outside the new slot range must migrate first, or the request fails.</p>
+</section>
+<section id="hardware-validation-flow">
+<h2>Hardware Validation Flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hardware-validation-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hardware-validation-flow'"><span>#</span></a></h2>
+<p>Use the same Qwen 8B or 14B long-context workload before and after a runtime
+capacity change. Without hotplug support, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> are not available; changing the DAX device set
+requires restarting LMCache with a new <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> value, which drops the
+volatile DAX key index.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3-8B<span class="w">  </span><span class="c1"># or a local Qwen 8B/14B checkpoint</span>
+</span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-3">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>--model<span class="w"> </span><span class="s2">"</span><span class="nv">$MODEL</span><span class="s2">"</span><span class="w"> </span>--num-documents<span class="w"> </span><span class="m">1</span><span class="w"> </span>--document-length<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">  </span>--output-len<span class="w"> </span><span class="m">16</span><span class="w"> </span>--repeat-count<span class="w"> </span><span class="m">2</span><span class="w"> </span>--repeat-mode<span class="w"> </span>tile<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">  </span>--completions<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--json-output
+</span><span id="line-7">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
+</span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span></code></pre></div>
+</div>
+<p>Record these fields for the comparison:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> before and after <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_used_bytes</span></code> while the Qwen workload is running.</p></li>
+<li><p>Whether an LMCache restart was required.</p></li>
+<li><p>Whether the same cached prompt remains retrievable after the capacity change.</p></li>
+</ul>
 </section>
 <section id="using-the-batched-restore-path">
 <h2>Using The Batched Restore Path<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-batched-restore-path" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-batched-restore-path'"><span>#</span></a></h2>
@@ -467,6 +557,8 @@ asynchronous batched restore returns only the consecutive hit prefix.</p></li>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
 <li><a :data-current="activeSection === '#multiprocess-mode'" class="reference internal" href="#multiprocess-mode">Multiprocess Mode</a></li>
+<li><a :data-current="activeSection === '#runtime-hotplug-api'" class="reference internal" href="#runtime-hotplug-api">Runtime Hotplug API</a></li>
+<li><a :data-current="activeSection === '#hardware-validation-flow'" class="reference internal" href="#hardware-validation-flow">Hardware Validation Flow</a></li>
 <li><a :data-current="activeSection === '#using-the-batched-restore-path'" class="reference internal" href="#using-the-batched-restore-path">Using The Batched Restore Path</a></li>
 <li><a :data-current="activeSection === '#runtime-requirements'" class="reference internal" href="#runtime-requirements">Runtime Requirements</a></li>
 <li><a :data-current="activeSection === '#validation-and-current-limits'" class="reference internal" href="#validation-and-current-limits">Validation and Current Limits</a></li>
