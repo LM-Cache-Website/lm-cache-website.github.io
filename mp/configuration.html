@@ -354,48 +354,59 @@ server.  Arguments are grouped by the config module that defines them.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
+<td><p><em>(unset, default UUID v4)</em></p></td>
+<td><p>Stable identity of this MP server. Used as the coordinator
+membership key and projected onto the OTel
+<code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code> resource attribute on every metric and
+span (so telemetry and coordinator membership share one id).
+When the flag is not passed, defaults to a random UUID v4
+minted at startup.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">localhost</span></code></p></td>
 <td><p>Host address to bind the ZMQ server.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5555</span></code></p></td>
 <td><p>Port to bind the ZMQ server.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
 <td><p>Chunk size for KV cache operations (in tokens).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Base number of worker threads. Sets the default for both the GPU
 (affinity) pool and the CPU (normal) pool. Can be overridden
 per-pool with <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
 <td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>Worker threads for the GPU affinity pool (STORE/RETRIEVE).
 Requests from the same vLLM instance are always dispatched to the
 same thread, eliminating GPU transfer lock contention.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
 <td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>Worker threads for the normal CPU pool (LOOKUP, etc.).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
 <td><p>Hash algorithm for token-based operations.
 Choices: <code class="docutils literal notranslate"><span class="pre">builtin</span></code>, <code class="docutils literal notranslate"><span class="pre">sha256_cbor</span></code>, <code class="docutils literal notranslate"><span class="pre">blake3</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--engine-type</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--engine-type</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
 <td><p>Cache engine backend type. <code class="docutils literal notranslate"><span class="pre">default</span></code> uses standard prefix
-caching; <code class="docutils literal notranslate"><span class="pre">blend</span></code> enables CacheBlend non-prefix KV reuse
-(composes a <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> into the engine, which requires
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>).
-Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>.</p></td>
+caching; <code class="docutils literal notranslate"><span class="pre">blend</span></code> selects the current CacheBlend V3 implementation
+(composes a <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code> into the engine);
+<code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code> selects the original CacheBlend
+(composes a <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>). Both blend variants require
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.
+Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>, <code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
 <td><p>Which worker → server transfer paths the server loads.
 <code class="docutils literal notranslate"><span class="pre">gpu</span></code> enables only GPU-based IPC transfer (STORE/RETRIEVE);
@@ -404,26 +415,26 @@ path; <code class="docutils literal notranslate"><span class="pre">auto</span></
 type can connect without manual configuration.
 Choices: <code class="docutils literal notranslate"><span class="pre">gpu</span></code>, <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>, <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td><p>Zero or more paths to runtime plugin scripts or directories to
 launch alongside the server. Plugins are spawned by
 <code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> and receive the full server config
 via the <code class="docutils literal notranslate"><span class="pre">LMCACHE_RUNTIME_PLUGIN_CONFIG</span></code> environment variable.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-config</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-config</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">"{}"</span></code></p></td>
 <td><p>JSON string of extra key-value config forwarded to runtime
 plugins via <code class="docutils literal notranslate"><span class="pre">LMCACHE_RUNTIME_PLUGIN_EXTRA_CONFIG</span></code>. Example:
 <code class="docutils literal notranslate"><span class="pre">'{"plugin.frontend.heartbeat_url":</span> <span class="pre">"http://localhost:5000/heartbeat"}'</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td><p>Space-separated list of Python module names that scripts posted
 to the HTTP <code class="docutils literal notranslate"><span class="pre">/run_script</span></code> endpoint are allowed to import.
 Example: <code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span> <span class="pre">numpy</span> <span class="pre">pandas</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
 <td><p><em>(not set)</em></p></td>
 <td><p>SHM segment name for non-GPU KV transfer (only used when the
 non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
@@ -878,13 +889,6 @@ logging, tracing).</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">9090</span></code></p></td>
 <td><p>Port for the Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--service-instance-id</span></code></p></td>
-<td><p><em>(unset, default UUID v4)</em></p></td>
-<td><p>Identifier for this MP server instance, attached as the OTel
-Resource attribute <code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code> on every metric and
-span. When the flag is not passed, defaults to a random UUID v4.
-Pass <code class="docutils literal notranslate"><span class="pre">--service-instance-id=""</span></code> to force an empty value.</p></td>
 </tr>
 </tbody>
 </table>
