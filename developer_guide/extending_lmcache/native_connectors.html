@@ -922,6 +922,39 @@ Redis/FS).</p></li>
 <li><p>Unit tests (see <code class="docutils literal notranslate"><span class="pre">examples/lmc_external_native_connector/tests/</span></code>)</p></li>
 </ol>
 </section>
+<section id="built-in-aerospike-backend-optional">
+<h2>Built-in Aerospike backend (optional)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#built-in-aerospike-backend-optional" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#built-in-aerospike-backend-optional'"><span>#</span></a></h2>
+<p>LMCache ships an optional in-tree Aerospike native connector (same
+<code class="docutils literal notranslate"><span class="pre">ConnectorBase</span></code> harness as Redis). It is compiled only when
+<code class="docutils literal notranslate"><span class="pre">BUILD_AEROSPIKE=1</span></code> or <code class="docutils literal notranslate"><span class="pre">AEROSPIKE_INCLUDE_DIR</span></code> is set during
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code>.</p>
+<p><strong>Build:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">See<span class="w"> </span><span class="sb">``</span>.github/workflows/aerospike_integration.yml<span class="sb">``</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>installing<span class="w"> </span>the<span class="w"> </span>C<span class="w"> </span>client<span class="w"> </span>into<span class="w"> </span><span class="sb">``</span>.deps/<span class="sb">``</span>
+</span><span id="line-2"><span class="nb">source</span><span class="w"> </span>.deps/aerospike-client-c.env
+</span><span id="line-3"><span class="nv">BUILD_AEROSPIKE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">aerospike-client-c.env</span></code> file simply points the build at the C client
+headers and shared libraries you unpacked into <code class="docutils literal notranslate"><span class="pre">.deps/</span></code>. Adjust the paths to
+match where the client was installed. Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># .deps/aerospike-client-c.env</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">AEROSPIKE_INCLUDE_DIR</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/.deps/aerospike-install/usr/include"</span>
+</span><span id="line-3"><span class="nb">export</span><span class="w"> </span><span class="nv">AEROSPIKE_LIBRARY_DIR</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/.deps/aerospike-install/usr/lib"</span>
+</span><span id="line-4"><span class="c1"># Needed at build and runtime so the loader can find libaerospike (and</span>
+</span><span id="line-5"><span class="c1"># libyaml if you built it locally):</span>
+</span><span id="line-6"><span class="nb">export</span><span class="w"> </span><span class="nv">LD_LIBRARY_PATH</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">AEROSPIKE_LIBRARY_DIR</span><span class="si">}</span><span class="s2">:</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/.deps/libyaml-install/usr/lib/x86_64-linux-gnu:</span><span class="si">${</span><span class="nv">LD_LIBRARY_PATH</span><span class="k">:-</span><span class="si">}</span><span class="s2">"</span>
+</span></code></pre></div>
+</div>
+<p>Setting <code class="docutils literal notranslate"><span class="pre">AEROSPIKE_INCLUDE_DIR</span></code> is enough to enable the extension, so
+<code class="docutils literal notranslate"><span class="pre">BUILD_AEROSPIKE=1</span></code> is optional once the env file is sourced. Multiple include
+or library directories can be passed as <code class="docutils literal notranslate"><span class="pre">;</span></code>-separated lists.</p>
+<p><strong>MP mode:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "aerospike", "hosts": "127.0.0.1:3000", "namespace": "lmcache", "set_name": "kv_chunks", "num_workers": 8}'</span>
+</span></code></pre></div>
+</div>
+<p>Implementation: <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/aerospike/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/aerospike_l2_adapter.py</span></code>.</p>
+</section>
 <section id="additional-resources">
 <h2>Additional Resources<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-resources'"><span>#</span></a></h2>
 <ul class="simple">
@@ -930,6 +963,7 @@ Redis/FS).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">IStorageConnector</span></code> interface: <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/connector_interface.h</span></code></p></li>
 <li><p>Pybind utilities: <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/connector_pybind_utils.h</span></code></p></li>
 <li><p>Redis reference implementation: <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/redis/</span></code></p></li>
+<li><p>Aerospike implementation (optional): <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/aerospike/</span></code></p></li>
 <li><p>Architecture README: <code class="docutils literal notranslate"><span class="pre">csrc/storage_backends/README.md</span></code></p></li>
 <li><p>External native connector example:
 <code class="docutils literal notranslate"><span class="pre">examples/lmc_external_native_connector/</span></code></p></li>
@@ -983,6 +1017,7 @@ Redis/FS).</p></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#checklist'" class="reference internal" href="#checklist">Checklist</a></li>
+<li><a :data-current="activeSection === '#built-in-aerospike-backend-optional'" class="reference internal" href="#built-in-aerospike-backend-optional">Built-in Aerospike backend (optional)</a></li>
 <li><a :data-current="activeSection === '#additional-resources'" class="reference internal" href="#additional-resources">Additional Resources</a></li>
 </ul>
 </div>
