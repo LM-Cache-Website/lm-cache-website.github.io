@@ -408,9 +408,10 @@ instances assembled by <code class="docutils literal notranslate"><span class="p
 based on <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> and <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>.</p>
 <p><strong>``server.py``</strong> – The default ZMQ-only server.  Creates an
 <code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code>, assembles the engine modules
-(<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code> + <code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code> + <code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>
-and/or <code class="docutils literal notranslate"><span class="pre">NonGPUTransferModule</span></code> depending on
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> — <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> loads just one,
+(<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code> + <code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code> + <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>
+and/or <code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code> depending on
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> — <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> loads
+just one,
 <code class="docutils literal notranslate"><span class="pre">auto</span></code> (default) loads both — plus a CacheBlend module when
 <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> is set: <code class="docutils literal notranslate"><span class="pre">blend</span></code> appends <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code> (the
 current paged-aware implementation), and <code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code> appends
@@ -428,11 +429,13 @@ paragraphs. Selected by passing <code class="docutils literal notranslate"><span
 paged-aware CacheBlend V3 pipeline that runs on the sparse-prefetch
 path. Adds the V3 RPCs (<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_ROPE_V3</span></code>,
 <code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_ROPE_V3</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED_V3</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CB_UNIFIED_LOOKUP</span></code>) and reuses the existing <code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>
-and <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>. Selected by passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to
+<code class="docutils literal notranslate"><span class="pre">CB_UNIFIED_LOOKUP</span></code>) and reuses the existing
+<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code> and <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>. Selected by
+passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to
 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>.</p>
-<p>Both blend variants require <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">gpu</span></code>
-or <code class="docutils literal notranslate"><span class="pre">auto</span></code> and will refuse to load when it is <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>.</p>
+<p>Both blend variants require <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be
+<code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code> and will refuse to load when it is
+<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>.</p>
 <p><strong>``http_server.py``</strong> – Wraps <code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> (from <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
 inside a FastAPI application.  Endpoints are contributed by modules under
 <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> and auto-registered via <code class="docutils literal notranslate"><span class="pre">HTTPAPIRegistry</span></code>: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code> (basic
@@ -467,53 +470,54 @@ same process, and any configured runtime plugins are spawned by
 <td><p>SYNC</p></td>
 <td><p>Unregister KV cache tensors.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_NON_GPU_CONTEXT</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code></p></td>
 <td><p>SYNC</p></td>
-<td><p>Register a non-GPU KV cache context (CPU/accelerator workers using
-the PREPARE/COMMIT transfer path). Loaded only when
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>. Returns a
-<code class="docutils literal notranslate"><span class="pre">RegisterNonGpuContextResponse</span></code> carrying the SHM segment name and
-pool size when the SHM path is in use (empty for the pickle path).</p></td>
+<td><p>Register an engine-driven KV cache context (CPU/accelerator
+workers using the PREPARE/COMMIT transfer path). Loaded only when
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.
+Returns a <code class="docutils literal notranslate"><span class="pre">RegisterEngineDrivenContextResponse</span></code> carrying the
+SHM segment name and pool size when the SHM path is in use
+(empty for the pickle path).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UNREGISTER_KV_CACHE_NON_GPU_CONTEXT</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UNREGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code></p></td>
 <td><p>SYNC</p></td>
-<td><p>Unregister a non-GPU KV cache context.</p></td>
+<td><p>Unregister an engine-driven KV cache context.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">STORE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>Store KV cache chunks from GPU to L1 (CPU). GPU transfer path
-(CUDA IPC); loaded only when <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
-<code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
+<td><p>Store KV cache chunks from GPU to L1 (CPU). LMCache-driven
+transfer path (CUDA IPC); loaded only when
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>Copy KV cache chunks from L1 (CPU) back to GPU. GPU transfer path
-(CUDA IPC); loaded only when <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
-<code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
+<td><p>Copy KV cache chunks from L1 (CPU) back to GPU. LMCache-driven
+transfer path (CUDA IPC); loaded only when
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PREPARE_STORE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Non-GPU path) Worker asks the server to prepare store-side
+<td><p>(Engine-driven path) Worker asks the server to prepare store-side
 transfer state for a key. Loaded when <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>
-is <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
+is <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">COMMIT_STORE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Non-GPU path) Worker commits the chunk’s serialized bytes (pickle
-path) or releases the prepared SHM slot (SHM path) so the server
-can persist into L1 storage.</p></td>
+<td><p>(Engine-driven path) Worker commits the chunk’s serialized bytes
+(pickle path) or releases the prepared SHM slot (SHM path) so the
+server can persist into L1 storage.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PREPARE_RETRIEVE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Non-GPU path) Worker asks the server to prepare the retrieval
-payload for a key. The pickle path returns the bytes inline; the
-SHM path returns slot info so the worker can read from shared
-memory.</p></td>
+<td><p>(Engine-driven path) Worker asks the server to prepare the
+retrieval payload for a key. The pickle path returns the bytes
+inline; the SHM path returns slot info so the worker can read
+from shared memory.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">COMMIT_RETRIEVE</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Non-GPU path) Worker acknowledges retrieval completion so the
-server can release the underlying read locks and reclaim any
+<td><p>(Engine-driven path) Worker acknowledges retrieval completion so
+the server can release the underlying read locks and reclaim any
 transport state.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code></p></td>
@@ -850,7 +854,7 @@ CLI flag if needed.</p></li>
 <code class="docutils literal notranslate"><span class="pre">blend_v2</span></code>, or <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code>) and add the request name to that
 module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
 <li><p>Implement the handler method on the appropriate <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
-(e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>) and
+(e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>) and
 expose it as a <code class="docutils literal notranslate"><span class="pre">HandlerSpec</span></code> from that module’s <code class="docutils literal notranslate"><span class="pre">get_handlers()</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> registers every <code class="docutils literal notranslate"><span class="pre">HandlerSpec</span></code> returned by the
 loaded modules via <code class="docutils literal notranslate"><span class="pre">add_handler_helper()</span></code> — no manual registration
@@ -886,9 +890,9 @@ step is needed.</p></li>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/modules/</span></code></p></td>
 <td><p>Engine module implementations: <code class="docutils literal notranslate"><span class="pre">lookup.py</span></code> (<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>),
-<code class="docutils literal notranslate"><span class="pre">management.py</span></code> (<code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code>), <code class="docutils literal notranslate"><span class="pre">gpu_transfer.py</span></code>
-(<code class="docutils literal notranslate"><span class="pre">GPUTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">non_gpu_transfer.py</span></code>
-(<code class="docutils literal notranslate"><span class="pre">NonGPUTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">blend.py</span></code>
+<code class="docutils literal notranslate"><span class="pre">management.py</span></code> (<code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code>), <code class="docutils literal notranslate"><span class="pre">lmcache_driven_transfer.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">engine_driven_transfer.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">blend.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> / <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>, selected by
 <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend_legacy</span></code>), and <code class="docutils literal notranslate"><span class="pre">blend_v3.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>, the paged-aware CacheBlend V3 pipeline

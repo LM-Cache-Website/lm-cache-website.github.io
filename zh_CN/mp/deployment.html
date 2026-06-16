@@ -291,7 +291,7 @@
 </ul>
 </li>
 <li><p><a class="reference internal" href="#production-best-practices" id="id10">生产最佳实践</a></p></li>
-<li><p><a class="reference internal" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name" id="id11">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#transfer-mode-supported-transfer-mode-shm-name" id="id11">Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
 </ul>
 </nav>
 <section id="docker">
@@ -456,15 +456,25 @@ LMCache DaemonSet pods.  See <a class="reference internal" href="observability/i
 </ul>
 <p><strong>日志记录:</strong> 在初始设置期间使用 <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> 来验证 L2 存储/加载活动。 在生产中切换到 <a href="#id1"><span class="problematic" id="id2">``</span></a>INFO``（默认）以减少日志量。</p>
 </section>
-<section id="non-gpu-transfer-mode-supported-transfer-mode-shm-name">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#non-gpu-transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
-<p>LMCache 支持两种工作进程 → 服务器传输路径：一种是 <strong>GPU</strong> 路径 (CUDA IPC，用于 STORE/RETRIEVE)，另一种是 <strong>非 GPU</strong> 路径 (PREPARE/COMMIT，用于仅 CPU 或非 CUDA 加速器工作进程)。服务器通过 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 选择加载哪些路径：</p>
+<section id="transfer-mode-supported-transfer-mode-shm-name">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
+<p>LMCache supports two worker → server transfer paths: an
+<strong>lmcache-driven</strong> path (server pulls/pushes via CUDA IPC or CPU SHM,
+used for STORE/RETRIEVE) and an <strong>engine-driven</strong> path
+(PREPARE/COMMIT, used by CPU-only or non-CUDA accelerator workers).
+The server picks which paths to load via <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">auto</span></code> <em>(默认)</em> -- 加载两条路径。任一设备类型的工作节点都可以连接，无需手动配置；服务器对连接工作节点的设备没有事先的了解。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code> -- 仅加载 GPU IPC 路径。当每个工作节点都是 CUDA 设备时使用，并且您希望跳过分配非 GPU 资源（SHM 池、pickle 编解码器）。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> -- 仅加载非 GPU 路径。用于服务仅 CPU 或非 CUDA 加速器的工作节点。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> -- load only the server-driven transfer path.
+Supports CUDA devices (IPC) and CPU devices (SHM).  Use to skip
+allocating the engine-driven prepare/commit resources (pickle codec).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> -- load only the engine-driven path.  Use when
+serving CPU-only or non-CUDA accelerator workers.</p></li>
 </ul>
-<p>当加载非 GPU 路径（<code class="docutils literal notranslate"><span class="pre">auto</span></code> 或 <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>）时，LMCache 默认会为服务器和 vLLM 工作节点之间的非 GPU KV 传输创建一个共享内存（SHM）池。<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> 选项允许您控制此行为：</p>
+<p>When the engine-driven path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>),
+LMCache by default creates a shared-memory (SHM) pool for KV transfers
+between the server and vLLM workers.  The <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> option lets
+you control this behavior:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -528,7 +538,7 @@ LMCache DaemonSet pods.  See <a class="reference internal" href="observability/i
 </ul>
 </li>
 <li><a :data-current="activeSection === '#production-best-practices'" class="reference internal" href="#production-best-practices">生产最佳实践</a></li>
-<li><a :data-current="activeSection === '#non-gpu-transfer-mode-supported-transfer-mode-shm-name'" class="reference internal" href="#non-gpu-transfer-mode-supported-transfer-mode-shm-name">非 GPU 传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></li>
+<li><a :data-current="activeSection === '#transfer-mode-supported-transfer-mode-shm-name'" class="reference internal" href="#transfer-mode-supported-transfer-mode-shm-name">Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></li>
 </ul>
 </div>
 </aside>

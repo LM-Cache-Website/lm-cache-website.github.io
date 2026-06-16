@@ -363,12 +363,19 @@ caching; <code class="docutils literal notranslate"><span class="pre">blend</spa
 (composes a <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code> into the engine);
 <code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code> selects the original CacheBlend
 (composes a <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>). Both blend variants require
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">gpu</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.
 Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>, <code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
-<td><p>服务器加载哪些工作进程 → 服务器传输路径。<code class="docutils literal notranslate"><span class="pre">gpu</span></code> 仅启用基于 GPU 的 IPC 传输（STORE/RETRIEVE）；<code class="docutils literal notranslate"><span class="pre">non_gpu</span></code> 仅启用非 GPU（PREPARE/COMMIT）传输路径；<code class="docutils literal notranslate"><span class="pre">auto``（默认）加载两者，以便任一设备类型的工作进程可以在无需手动配置的情况下连接。选择：``gpu</span></code>、<code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>、<code class="docutils literal notranslate"><span class="pre">auto</span></code>。</p></td>
+<td><p>Which worker → server transfer paths the server loads.
+<code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> enables only the server-driven transfer
+path (STORE/RETRIEVE, supports both CUDA IPC and CPU SHM);
+<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> enables only the non-GPU (PREPARE/COMMIT)
+transfer path; <code class="docutils literal notranslate"><span class="pre">auto</span></code> (default) loads both
+so workers of either device type can connect without manual
+configuration.
+Choices: <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code>, <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>, <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
@@ -384,7 +391,13 @@ Choices: <code class="docutils literal notranslate"><span class="pre">default</s
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
 <td><p><em>(未设置)</em></p></td>
-<td><p>非 GPU KV 传输的 SHM 段名称（仅在加载非 GPU 路径时使用，即 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 为 <code class="docutils literal notranslate"><span class="pre">auto</span></code> 或 <code class="docutils literal notranslate"><span class="pre">non_gpu</span></code>）。未设置（默认）：自动分配共享内存池。<a href="#id1"><span class="problematic" id="id2">``</span></a>""<a href="#id3"><span class="problematic" id="id4">``</span></a>（空字符串）：禁用 SHM 并强制使用 pickle 传输路径。任何其他值：将该确切名称用于 SHM 池段。</p></td>
+<td><p>SHM segment name for non-GPU KV transfer (only used when the
+non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>).
+Not set (default): auto-allocate a shared-memory pool.
+<code class="docutils literal notranslate"><span class="pre">""</span></code> (empty string): disable SHM and force the pickle transfer
+path.  Any other value: use that exact name for the SHM pool
+segment.</p></td>
 </tr>
 </tbody>
 </table>
