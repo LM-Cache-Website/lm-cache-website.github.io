@@ -101,7 +101,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache 查询</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache 配额</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache 跟踪</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache 工具</a></li>
 </ul>
@@ -312,11 +312,11 @@
 </li>
 <li><p><a class="reference internal" href="#cacheblend" id="id27">CacheBlend</a></p>
 <ul>
-<li><p><a class="reference internal" href="#additional-prerequisites" id="id28">Additional Prerequisites</a></p></li>
-<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id29">Deploying a CacheBlendEngine</a></p></li>
-<li><p><a class="reference internal" href="#opting-a-vllm-pod-in" id="id30">Opting a vLLM Pod In</a></p></li>
-<li><p><a class="reference internal" href="#verifying-injection" id="id31">Verifying Injection</a></p></li>
-<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id32">CacheBlendEngine Fields</a></p></li>
+<li><p><a class="reference internal" href="#additional-prerequisites" id="id28">附加先决条件</a></p></li>
+<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id29">部署 CacheBlendEngine</a></p></li>
+<li><p><a class="reference internal" href="#opting-a-vllm-pod-in" id="id30">选择 vLLM Pod 参与</a></p></li>
+<li><p><a class="reference internal" href="#verifying-injection" id="id31">验证注入</a></p></li>
+<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id32">CacheBlendEngine 字段</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id33">操作员与手动部署</a></p></li>
@@ -962,41 +962,28 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 </section>
 <section id="cacheblend">
 <h2><a class="toc-backref" href="#id27" role="doc-backlink">CacheBlend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend'"><span>#</span></a></h2>
-<p>CacheBlend reuses cached KV at shifted (non-prefix) positions by recomputing a
-small subset of tokens.  The operator manages it as a second CRD,
-<code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code>, plus a <strong>mutating admission webhook</strong> that injects the
-pure-Python <code class="docutils literal notranslate"><span class="pre">lmcache-cacheblend</span></code> vLLM plugin into your serving pods -- so you
-do <strong>not</strong> rebuild the vLLM image.  See <a class="reference internal" href="../kv_cache_optimizations/blending.html"><span class="doc">混合</span></a>
-for the technique itself.</p>
-<p>It has two halves the operator runs together:</p>
+<p>CacheBlend 通过重计算一小部分令牌来重用在偏移（非前缀）位置的缓存 KV。该操作符将其管理为第二个 CRD <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code>，以及一个 <strong>变更入站 webhook</strong>，该 webhook 将纯 Python 的 <code class="docutils literal notranslate"><span class="pre">lmcache-cacheblend</span></code> vLLM 插件注入到您的服务 Pod 中，因此您 <strong>不</strong> 需要重建 vLLM 镜像。有关该技术的详细信息，请参见 <a class="reference internal" href="../kv_cache_optimizations/blending.html"><span class="doc">混合</span></a>。</p>
+<p>它有两个部分，操作符一起运行：</p>
 <ul class="simple">
-<li><p>a GPU-resident <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code> engine (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>),
-deployed as a DaemonSet with the <strong>same GPU model as</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code>
-(<code class="docutils literal notranslate"><span class="pre">privileged</span></code> + <code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code>
-+ <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, and <strong>no</strong> <code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> claim) so it shares the vLLM GPU
-for same-device CUDA IPC; and</p></li>
-<li><p>the vLLM-side plugin, injected into opted-in pods by the webhook.</p></li>
+<li><p>一个驻留在 GPU 上的 <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code> 引擎 (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>)，作为 DaemonSet 部署，<strong>与</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> <strong>相同的 GPU 型号</strong> (<code class="docutils literal notranslate"><span class="pre">privileged</span></code> + <code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>，并且**没有** <code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> 声明)，因此它共享同设备的 vLLM GPU 进行 CUDA IPC；并且</p></li>
+<li><p>vLLM 侧插件，通过 webhook 注入到选择加入的 pod 中。</p></li>
 </ul>
 <section id="additional-prerequisites">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Additional Prerequisites</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
-<p>Beyond the operator prerequisites above:</p>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">附加先决条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
+<p>超出上述操作符的先决条件：</p>
 <ul>
-<li><p><strong>cert-manager</strong> -- the webhook's serving certificate is issued by a
-cert-manager <code class="docutils literal notranslate"><span class="pre">Issuer</span></code> + <code class="docutils literal notranslate"><span class="pre">Certificate</span></code>.  Install it before <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code>:</p>
+<li><p><strong>cert-manager</strong> -- webhook 的服务证书由 cert-manager <code class="docutils literal notranslate"><span class="pre">Issuer</span></code> + <code class="docutils literal notranslate"><span class="pre">Certificate</span></code> 颁发。在 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code> 之前安装它：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
 </span><span id="line-2">kubectl<span class="w"> </span>-n<span class="w"> </span>cert-manager<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Available<span class="w"> </span>deploy<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>180s
 </span></code></pre></div>
 </div>
 </li>
-<li><p><strong>Deploy with the webhook</strong> -- use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code> (not <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>, which is
-controller-only and disables the webhook via <code class="docutils literal notranslate"><span class="pre">ENABLE_WEBHOOKS=false</span></code>).</p></li>
-<li><p><strong>Pod Security Standards</strong> -- the webhook injects <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>/<code class="docutils literal notranslate"><span class="pre">privileged</span></code>,
-which the <code class="docutils literal notranslate"><span class="pre">baseline</span></code>/<code class="docutils literal notranslate"><span class="pre">restricted</span></code> profiles reject, so label the engine's
-and the vLLM pod's namespaces <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>.</p></li>
+<li><p><strong>使用 Webhook 部署</strong> -- 使用 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy``（而不是</span> <span class="pre">``make</span> <span class="pre">run</span></code>，后者仅为控制器并通过 <code class="docutils literal notranslate"><span class="pre">ENABLE_WEBHOOKS=false</span></code> 禁用 Webhook）。</p></li>
+<li><p><strong>Pod 安全标准</strong> -- webhook 注入 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>/<code class="docutils literal notranslate"><span class="pre">privileged</span></code>，而 <code class="docutils literal notranslate"><span class="pre">baseline</span></code>/<code class="docutils literal notranslate"><span class="pre">restricted</span></code> 配置文件会拒绝这些，因此将引擎和 vLLM pod 的命名空间标记为 <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>。</p></li>
 </ul>
 </section>
 <section id="deploying-a-cacheblendengine">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">Deploying a CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">部署 CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CacheBlendEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1017,17 +1004,11 @@ and the vLLM pod's namespaces <code class="docutils literal notranslate"><span c
 </span><span id="line-18"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-registry-secret</span>
 </span></code></pre></div>
 </div>
-<p>The engine runs <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code> as a DaemonSet and
-emits a <code class="docutils literal notranslate"><span class="pre">my-cacheblend-connection</span></code> ConfigMap with the <code class="docutils literal notranslate"><span class="pre">CBKVConnector</span></code>
-<code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> (the operator wires the node-local Service host/port and
-the <code class="docutils literal notranslate"><span class="pre">cb.*</span></code> tunables).</p>
+<p>该引擎以 DaemonSet 方式运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>，并生成一个包含 <code class="docutils literal notranslate"><span class="pre">CBKVConnector</span></code> <code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> 的 <code class="docutils literal notranslate"><span class="pre">my-cacheblend-connection</span></code> ConfigMap（操作符将节点本地服务的主机/端口和 <code class="docutils literal notranslate"><span class="pre">cb.*</span></code> 可调参数连接起来）。</p>
 </section>
 <section id="opting-a-vllm-pod-in">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Opting a vLLM Pod In</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#opting-a-vllm-pod-in" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#opting-a-vllm-pod-in'"><span>#</span></a></h3>
-<p>Label the pod template for the webhook and bind it to an engine by name.  Launch
-vLLM via the image <strong>ENTRYPOINT</strong> (args only) -- a
-<code class="docutils literal notranslate"><span class="pre">command:</span> <span class="pre">["/bin/sh",</span> <span class="pre">"-c",</span> <span class="pre">...]</span></code> wrapper is skipped, since appended args would
-not reach <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code>:</p>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">选择 vLLM Pod 参与</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#opting-a-vllm-pod-in" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#opting-a-vllm-pod-in'"><span>#</span></a></h3>
+<p>为 webhook 标记 pod 模板，并按名称将其绑定到引擎。通过镜像 <strong>ENTRYPOINT</strong> 启动 vLLM（仅参数）——跳过 <code class="docutils literal notranslate"><span class="pre">command:</span> <span class="pre">[\"/bin/sh\",</span> <span class="pre">\"-c\",</span> <span class="pre">...]</span></code> 包装器，因为附加的参数将无法到达 <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code>：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1055,35 +1036,20 @@ not reach <code class="docutils literal notranslate"><span class="pre">vllm</spa
 </span><span id="line-25"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
 </span></code></pre></div>
 </div>
-<p>The webhook injects the plugin init container, <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>, <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, the
-private-image pull secret, and the required CacheBlend vLLM flags
-(<code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">CUSTOM</span></code>, <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> from the engine's
-connection ConfigMap, <code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">64</span></code>, <code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>,
-<code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-async-scheduling</span></code>, <code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>).
-You supply only the model and your non-CacheBlend flags.</p>
+<p>Webhook 注入插件初始化容器、<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>、<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>、私有镜像拉取密钥，以及所需的 CacheBlend vLLM 标志（<code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">CUSTOM</span></code>、<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> 来自引擎的连接 ConfigMap、<code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">64</span></code>、<code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-async-scheduling</span></code>、<code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>）。您只需提供模型和非 CacheBlend 标志。</p>
 </section>
 <section id="verifying-injection">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">Verifying Injection</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-injection" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-injection'"><span>#</span></a></h3>
-<p>The webhook mutates <strong>Pods</strong>, not the Deployment, so inspect a pod:</p>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-injection" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-injection'"><span>#</span></a></h3>
+<p>该 webhook 变更的是 <strong>Pods</strong>，而不是 Deployment，因此请检查一个 pod：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-cacheblend<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|attention-backend|cacheblend-injected|skip-reason"</span>
 </span></code></pre></div>
 </div>
-<p>If nothing was injected, check the pod's <code class="docutils literal notranslate"><span class="pre">lmcache.ai/cacheblend-skip-reason</span></code>
-annotation: <code class="docutils literal notranslate"><span class="pre">command-override</span></code> (a <code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-c</span></code> wrapper was used),
-<code class="docutils literal notranslate"><span class="pre">kv-transfer-config-present</span></code> (you set your own), <code class="docutils literal notranslate"><span class="pre">engine-not-found</span></code> (the
-<code class="docutils literal notranslate"><span class="pre">&lt;name&gt;-connection</span></code> ConfigMap is missing), <code class="docutils literal notranslate"><span class="pre">payload-image-unset</span></code> (the
-engine's <code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code> has no repository), or
-<code class="docutils literal notranslate"><span class="pre">target-container-not-found</span></code> (the requested <code class="docutils literal notranslate"><span class="pre">targetContainer</span></code> /
-<code class="docutils literal notranslate"><span class="pre">cacheblend-container</span></code> annotation names a container the pod does not have).
-With <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> a
-webhook/cert problem also leaves the pod un-mutated silently -- confirm the
-operator pod is <code class="docutils literal notranslate"><span class="pre">Running</span></code> and the <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> exists.</p>
+<p>如果没有注入任何内容，请检查 pod 的 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/cacheblend-skip-reason</span></code> 注解：<code class="docutils literal notranslate"><span class="pre">command-override``（使用了</span> <span class="pre">``sh</span> <span class="pre">-c</span></code> 包装器）、<code class="docutils literal notranslate"><span class="pre">kv-transfer-config-present``（您设置了自己的）、``engine-not-found``（缺少</span> <span class="pre">``&lt;name&gt;-connection</span></code> ConfigMap）、<code class="docutils literal notranslate"><span class="pre">payload-image-unset``（引擎的</span> <span class="pre">``injection.payloadImage</span></code> 没有仓库），或 <code class="docutils literal notranslate"><span class="pre">target-container-not-found``（请求的</span> <span class="pre">``targetContainer</span></code> / <code class="docutils literal notranslate"><span class="pre">cacheblend-container</span></code> 注解指定了 pod 中不存在的容器）。在 <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> 的情况下，webhook/cert 问题也会使 pod 静默保持未变更 -- 确认操作员 pod 正在 <code class="docutils literal notranslate"><span class="pre">Running</span></code> 状态，并且 <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> 存在。</p>
 </section>
 <section id="cacheblendengine-fields">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">CacheBlendEngine Fields</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">CacheBlendEngineSpec</span></code> mirrors <code class="docutils literal notranslate"><span class="pre">LMCacheEngineSpec</span></code> (every field in the CRD
-Spec Reference above) and adds:</p>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">CacheBlendEngine 字段</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">CacheBlendEngineSpec</span></code> 反映了 <a href="#id1"><span class="problematic" id="id2">``</span></a>LMCacheEngineSpec``（上面的 CRD 规范参考中的每个字段），并添加了：</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -1099,34 +1065,31 @@ Spec Reference above) and adds:</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blend.checkLayer</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
-<td><p>Layer at which token importance is scored (<code class="docutils literal notranslate"><span class="pre">cb.check_layer</span></code>).</p></td>
+<td><p>评分令牌重要性的层级（<code class="docutils literal notranslate"><span class="pre">cb.check_layer</span></code>）。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">blend.recompRatio</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.15</span></code></p></td>
-<td><p>Fraction of non-prefix-hit tokens recomputed (<code class="docutils literal notranslate"><span class="pre">cb.recomp_ratio</span></code>).</p></td>
+<td><p>非前缀命中令牌重计算的比例 (<code class="docutils literal notranslate"><span class="pre">cb.recomp_ratio</span></code>)。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code></p></td>
 <td><p><em>必需</em></p></td>
-<td><p>The (private) cacheblend-plugin init-container image
-(<code class="docutils literal notranslate"><span class="pre">repository</span></code> / <code class="docutils literal notranslate"><span class="pre">tag</span></code> / <code class="docutils literal notranslate"><span class="pre">pullPolicy</span></code>).  Set <code class="docutils literal notranslate"><span class="pre">repository</span></code> -- the
-inherited engine-image default is not a valid payload.</p></td>
+<td><p>(私有) cacheblend-plugin 初始化容器镜像 (<code class="docutils literal notranslate"><span class="pre">repository</span></code> / <code class="docutils literal notranslate"><span class="pre">tag</span></code> / <code class="docutils literal notranslate"><span class="pre">pullPolicy</span></code>)。设置 <code class="docutils literal notranslate"><span class="pre">repository</span></code> -- 继承的引擎镜像默认值不是有效的有效负载。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.imagePullSecrets</span></code></p></td>
 <td><p>--</p></td>
-<td><p>Pull secrets appended to the vLLM pod for the private payload image.</p></td>
+<td><p>附加到 vLLM Pod 的用于私有有效负载镜像的拉取密钥。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.targetContainer</span></code></p></td>
-<td><p>first container</p></td>
-<td><p>Name of the vLLM container to inject into.</p></td>
+<td><p>第一个容器</p></td>
+<td><p>要注入的 vLLM 容器的名称。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.cudagraph</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code> | <code class="docutils literal notranslate"><span class="pre">piecewise</span></code> | <code class="docutils literal notranslate"><span class="pre">full_decode_only</span></code> (never <code class="docutils literal notranslate"><span class="pre">full</span></code>).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code> | <code class="docutils literal notranslate"><span class="pre">逐层</span></code> | <code class="docutils literal notranslate"><span class="pre">仅解码完整</span></code> (从不 <code class="docutils literal notranslate"><span class="pre">完整</span></code>)。</p></td>
 </tr>
 </tbody>
 </table>
-<p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">256</span></code> and must equal 256 (the blend matcher
-requires <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>).</p>
+<p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> 的默认值为 <code class="docutils literal notranslate"><span class="pre">256</span></code>，并且必须等于 256（混合匹配器要求 <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>）。</p>
 </section>
 </section>
 <section id="operator-vs-manual-deployment">
@@ -1267,11 +1230,11 @@ requires <code class="docutils literal notranslate"><span class="pre">chunk_size
 </ul>
 </li>
 <li><a :data-current="activeSection === '#cacheblend'" class="reference internal" href="#cacheblend">CacheBlend</a><ul>
-<li><a :data-current="activeSection === '#additional-prerequisites'" class="reference internal" href="#additional-prerequisites">Additional Prerequisites</a></li>
-<li><a :data-current="activeSection === '#deploying-a-cacheblendengine'" class="reference internal" href="#deploying-a-cacheblendengine">Deploying a CacheBlendEngine</a></li>
-<li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">Opting a vLLM Pod In</a></li>
-<li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">Verifying Injection</a></li>
-<li><a :data-current="activeSection === '#cacheblendengine-fields'" class="reference internal" href="#cacheblendengine-fields">CacheBlendEngine Fields</a></li>
+<li><a :data-current="activeSection === '#additional-prerequisites'" class="reference internal" href="#additional-prerequisites">附加先决条件</a></li>
+<li><a :data-current="activeSection === '#deploying-a-cacheblendengine'" class="reference internal" href="#deploying-a-cacheblendengine">部署 CacheBlendEngine</a></li>
+<li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">选择 vLLM Pod 参与</a></li>
+<li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">验证注入</a></li>
+<li><a :data-current="activeSection === '#cacheblendengine-fields'" class="reference internal" href="#cacheblendengine-fields">CacheBlendEngine 字段</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#operator-vs-manual-deployment'" class="reference internal" href="#operator-vs-manual-deployment">操作员与手动部署</a></li>

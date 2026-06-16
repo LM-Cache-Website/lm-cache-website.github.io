@@ -101,7 +101,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../cli/query.html">lmcache 查询</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cli/bench.html">lmcache bench</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cli/kvcache.html">lmcache kvcache</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/quota.html">lmcache 配额</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cli/trace.html">lmcache 跟踪</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cli/tool.html">lmcache 工具</a></li>
 </ul>
@@ -319,7 +319,7 @@
 </span><span id="line-12"><span class="s1">  }'</span>
 </span></code></pre></div>
 </div>
-<p>The legacy single-device <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON accepts these fields:</p>
+<p>遗留的单设备 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON 接受以下字段：</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: 必须可读写的 DAX 设备路径。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: 必需的映射大小，以 GiB 为单位。当可以通过 <code class="docutils literal notranslate"><span class="pre">fstat</span></code> 确定容量时，值必须适合设备容量。</p></li>
@@ -329,8 +329,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code>: 可选的加载工作线程数量，默认 <code class="docutils literal notranslate"><span class="pre">min(4,</span> <span class="pre">os.cpu_count())</span></code>。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code>: 被通用 MP L2 解析接受，但在此版本中被 <code class="docutils literal notranslate"><span class="pre">dax</span></code> 忽略。</p></li>
 </ul>
-<p>Runtime hotplug uses the multi-device form. The <code class="docutils literal notranslate"><span class="pre">devices</span></code> list may also be
-empty when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<p>运行时热插拔使用多设备形式。当 <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> 为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 时，<code class="docutils literal notranslate"><span class="pre">devices</span></code> 列表也可以为空。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>--l1-size-gb<span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -349,24 +348,11 @@ empty when <code class="docutils literal notranslate"><span class="pre">hotplug_
 </span></code></pre></div>
 </div>
 <p>MP DAX 在内存中存储不透明的 <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> 值，并且在此版本中仅为易失性。关闭并重新打开同一路径上的服务器时，索引将为空，因此之前写入的字节在重启后无法被发现。</p>
-<p>MP DAX uses one stable adapter facade per LMCache server.  The facade owns
-stable event fds and worker pools, and runtime add/remove/resize only changes
-the mapped DAX cores behind that facade.  It does not add kernel-level CXL or
-DAX reconfiguration, per-TP DAX partitions, on-device metadata, or restart
-recovery. Capacity accounting and eviction are slot-based: a stored object
-occupies one slot even if its payload is smaller than <code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>.</p>
+<p>MP DAX 每个 LMCache 服务器使用一个稳定的适配器外观。该外观拥有稳定的事件文件描述符和工作池，运行时的添加/删除/调整大小仅更改该外观后面的映射 DAX 核心。它不添加内核级 CXL 或 DAX 重新配置、每个 TP 的 DAX 分区、设备上的元数据或重启恢复。容量核算和逐出基于插槽：即使存储对象的有效负载小于 <code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>，它也占用一个插槽。</p>
 </section>
 <section id="runtime-hotplug-api">
-<h2>Runtime Hotplug API<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-hotplug-api" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-hotplug-api'"><span>#</span></a></h2>
-<p>Runtime hotplug is disabled unless <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>. The API
-changes only LMCache runtime mappings and metadata; the <code class="docutils literal notranslate"><span class="pre">/dev/dax*</span></code> device
-must already exist and be readable and writable by the LMCache server process.
-The runtime endpoints are implemented through StorageManager's generic L2
-adapter reconfiguration interface, which routes backend, operation name, and
-adapter-specific payload to the selected adapter. DAX owns the path, mode,
-migration, and resize semantics; the generic interface is reusable by other
-adapters such as P2P.
-Use JSON bodies because DAX paths contain slashes:</p>
+<h2>运行时热插拔 API<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-hotplug-api" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-hotplug-api'"><span>#</span></a></h2>
+<p>运行时热插拔在 <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> 为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 时才会启用。该 API 仅更改 LMCache 的运行时映射和元数据；<code class="docutils literal notranslate"><span class="pre">/dev/dax*</span></code> 设备必须已经存在，并且 LMCache 服务器进程必须具有可读写权限。运行时端点通过 StorageManager 的通用 L2 适配器重新配置接口实现，该接口将后端、操作名称和适配器特定有效负载路由到所选适配器。DAX 拥有路径、模式、迁移和调整大小的语义；通用接口可被其他适配器（如 P2P）重用。使用 JSON 主体，因为 DAX 路径包含斜杠：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
 </span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
@@ -379,32 +365,18 @@ Use JSON bodies because DAX paths contain slashes:</p>
 </span><span id="line-10"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "200GiB"}'</span>
 </span></code></pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">size</span></code> is required for add and resize. Use an integer byte count or a string
-such as <code class="docutils literal notranslate"><span class="pre">"100GiB"</span></code>. <code class="docutils literal notranslate"><span class="pre">remove</span></code> supports these modes:</p>
+<p><code class="docutils literal notranslate"><span class="pre">size</span></code> 是添加和调整大小所必需的。使用整数字节数或字符串，例如 <code class="docutils literal notranslate"><span class="pre">"100GiB"</span></code>。<code class="docutils literal notranslate"><span class="pre">remove</span></code> 支持以下模式：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>: move DAX-resident KV to other active DAX devices before closing
-the source device.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">evict</span></code>: delete DAX-resident KV on the source device. This is destructive
-for the DAX tier.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">drain</span></code>: stop new writes to the source device and leave existing KV
-readable until it is evicted or the server closes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>: 在关闭源设备之前，将 DAX 驻留的 KV 移动到其他活动的 DAX 设备。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evict</span></code>: 删除源设备上的 DAX 驻留 KV。这对 DAX 层是破坏性的。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">drain</span></code>: 停止对源设备的新写入，并保持现有的 KV 可读，直到被逐出或服务器关闭。</p></li>
 </ul>
-<p><code class="docutils literal notranslate"><span class="pre">resize</span></code> supports <code class="docutils literal notranslate"><span class="pre">migrate</span></code> and <code class="docutils literal notranslate"><span class="pre">evict</span></code> modes. It does not support
-<code class="docutils literal notranslate"><span class="pre">drain</span></code> because resize completes synchronously.</p>
-<p>Hotplug operations are lock-safe by default. A remove or shrink that would
-delete externally locked or borrowed slots returns <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code> unless
-<code class="docutils literal notranslate"><span class="pre">force</span></code> is set. A migration that has no active destination capacity returns
-<code class="docutils literal notranslate"><span class="pre">507</span> <span class="pre">Insufficient</span> <span class="pre">Storage</span></code>. Resize grow preserves the in-memory key index and
-does not move KV payloads. Resize shrink never silently drops keys; entries
-outside the new slot range must migrate first, or the request fails.</p>
+<p><code class="docutils literal notranslate"><span class="pre">resize</span></code> 支持 <code class="docutils literal notranslate"><span class="pre">migrate</span></code> 和 <code class="docutils literal notranslate"><span class="pre">evict</span></code> 模式。它不支持 <code class="docutils literal notranslate"><span class="pre">drain</span></code>，因为 resize 是同步完成的。</p>
+<p>热插拔操作默认是安全的。删除或缩小会删除外部锁定或借用的槽位时，除非设置了 <code class="docutils literal notranslate"><span class="pre">force</span></code>，否则返回 <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code>。没有活动目标容量的迁移返回 <code class="docutils literal notranslate"><span class="pre">507</span> <span class="pre">Insufficient</span> <span class="pre">Storage</span></code>。扩展的调整大小保留内存中的键索引，并且不移动 KV 负载。缩小的调整大小绝不会静默丢弃键；新槽范围外的条目必须先迁移，否则请求将失败。</p>
 </section>
 <section id="hardware-validation-flow">
-<h2>Hardware Validation Flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hardware-validation-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hardware-validation-flow'"><span>#</span></a></h2>
-<p>Use the same Qwen 8B or 14B long-context workload before and after a runtime
-capacity change. Without hotplug support, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code> and
-<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> are not available; changing the DAX device set
-requires restarting LMCache with a new <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> value, which drops the
-volatile DAX key index.</p>
+<h2>硬件验证流程<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hardware-validation-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hardware-validation-flow'"><span>#</span></a></h2>
+<p>在运行时容量更改之前和之后使用相同的 Qwen 8B 或 14B 长上下文工作负载。如果没有热插拔支持，<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code> 和 <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> 将不可用；更改 DAX 设备集需要使用新的 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> 值重新启动 LMCache，这将丢弃易失性的 DAX 密钥索引。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3-8B<span class="w">  </span><span class="c1"># or a local Qwen 8B/14B checkpoint</span>
 </span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
 </span><span id="line-3">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
@@ -417,12 +389,12 @@ volatile DAX key index.</p>
 </span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
 </span></code></pre></div>
 </div>
-<p>Record these fields for the comparison:</p>
+<p>记录这些字段以进行比较：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> before and after <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">total_used_bytes</span></code> while the Qwen workload is running.</p></li>
-<li><p>Whether an LMCache restart was required.</p></li>
-<li><p>Whether the same cached prompt remains retrievable after the capacity change.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> 在 <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> 之前和之后。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_used_bytes</span></code> 在 Qwen 工作负载运行时。</p></li>
+<li><p>是否需要重启 LMCache。</p></li>
+<li><p>在容量变化后，是否仍然可以检索到相同的缓存提示。</p></li>
 </ul>
 </section>
 <section id="using-the-batched-restore-path">
@@ -492,8 +464,8 @@ volatile DAX key index.</p>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">概述</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
 <li><a :data-current="activeSection === '#multiprocess-mode'" class="reference internal" href="#multiprocess-mode">多进程模式</a></li>
-<li><a :data-current="activeSection === '#runtime-hotplug-api'" class="reference internal" href="#runtime-hotplug-api">Runtime Hotplug API</a></li>
-<li><a :data-current="activeSection === '#hardware-validation-flow'" class="reference internal" href="#hardware-validation-flow">Hardware Validation Flow</a></li>
+<li><a :data-current="activeSection === '#runtime-hotplug-api'" class="reference internal" href="#runtime-hotplug-api">运行时热插拔 API</a></li>
+<li><a :data-current="activeSection === '#hardware-validation-flow'" class="reference internal" href="#hardware-validation-flow">硬件验证流程</a></li>
 <li><a :data-current="activeSection === '#using-the-batched-restore-path'" class="reference internal" href="#using-the-batched-restore-path">使用批量恢复路径</a></li>
 <li><a :data-current="activeSection === '#runtime-requirements'" class="reference internal" href="#runtime-requirements">运行时要求</a></li>
 <li><a :data-current="activeSection === '#validation-and-current-limits'" class="reference internal" href="#validation-and-current-limits">验证和当前限制</a></li>
