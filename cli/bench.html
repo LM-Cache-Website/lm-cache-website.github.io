@@ -1079,6 +1079,22 @@ loop runs forever.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
 <td><p>KV cache shape spec (see below).</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
+<td><p>Stdout output format for the final metrics summary. Available:
+<code class="docutils literal notranslate"><span class="pre">terminal</span></code>, <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Save the final metrics summary to a file at PATH (format chosen
+by <code class="docutils literal notranslate"><span class="pre">--format</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Suppress all progress messages during the run. Only the final
+structured metrics summary is emitted (unless also redirected
+via <code class="docutils literal notranslate"><span class="pre">--output</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1136,9 +1152,69 @@ layer count registered with the server.</p>
 <p>See <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code> in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>
 for the authoritative parsing rules and validation errors.</p>
 </section>
-<section id="example-output">
-<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu, transfer=auto) ...
+<section id="id3">
+<h3>Output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<p>After the run completes (or is interrupted with <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code>), a structured
+metrics summary is printed. The summary includes:</p>
+<ul class="simple">
+<li><p><strong>Configuration</strong> – RPC URL, mode, transfer mode, tokens per request,
+interval.</p></li>
+<li><p><strong>Results</strong> – total requests, checksum OK / FAIL counts, pass rate.</p></li>
+<li><p><strong>Latency sections</strong> – per-operation latency statistics (count, mean,
+min, max, p50, p99) for cold lookup, cold store, warm lookup, and warm
+retrieve.</p></li>
+</ul>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> to get machine-readable output, or <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">FILE</span></code>
+to save the summary to a file.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">================ Server Bench Result =================
+</span><span id="line-2">---------------------- Configuration -----------------
+</span><span id="line-3">RPC URL:                          tcp://localhost:15556
+</span><span id="line-4">Mode:                             gpu
+</span><span id="line-5">Transfer mode:                    auto
+</span><span id="line-6">Tokens / request:                 512
+</span><span id="line-7">Interval (s):                     0.5
+</span><span id="line-8">------------------------- Results --------------------
+</span><span id="line-9">Total requests:                   3
+</span><span id="line-10">Checksum OK:                      3
+</span><span id="line-11">Checksum FAIL:                    0
+</span><span id="line-12">Pass rate (%):                    100.0
+</span><span id="line-13">-------------------- Cold Lookup (ms) ---------------
+</span><span id="line-14">count:                            3
+</span><span id="line-15">mean:                             1.647
+</span><span id="line-16">min:                              1.312
+</span><span id="line-17">max:                              1.823
+</span><span id="line-18">p50:                              1.647
+</span><span id="line-19">p99:                              1.823
+</span><span id="line-20">--------------------- Cold Store (ms) ---------------
+</span><span id="line-21">count:                            3
+</span><span id="line-22">mean:                             1.740
+</span><span id="line-23">min:                              1.521
+</span><span id="line-24">max:                              1.982
+</span><span id="line-25">p50:                              1.740
+</span><span id="line-26">p99:                              1.982
+</span><span id="line-27">-------------------- Warm Lookup (ms) ---------------
+</span><span id="line-28">count:                            3
+</span><span id="line-29">mean:                             1.310
+</span><span id="line-30">min:                              1.102
+</span><span id="line-31">max:                              1.512
+</span><span id="line-32">p50:                              1.310
+</span><span id="line-33">p99:                              1.512
+</span><span id="line-34">------------------- Warm Retrieve (ms) --------------
+</span><span id="line-35">count:                            3
+</span><span id="line-36">mean:                             1.480
+</span><span id="line-37">min:                              1.321
+</span><span id="line-38">max:                              1.612
+</span><span id="line-39">p50:                              1.480
+</span><span id="line-40">p99:                              1.612
+</span><span id="line-41">=====================================================
+</span></code></pre></div>
+</div>
+</section>
+<section id="example-output-progress">
+<h3>Example output (progress)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output-progress" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output-progress'"><span>#</span></a></h3>
+<p>During the run, progress messages are printed to stdout (suppressed by
+<code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
 </span><span id="line-2">Server chunk_size = 256
 </span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
 </span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)
@@ -1152,8 +1228,8 @@ for the authoritative parsing rules and validation errors.</p>
 <p>Any <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code>, <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>, or Python traceback in the log
 indicates a real problem worth investigating.</p>
 </section>
-<section id="id3">
-<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<section id="id4">
+<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 15.0%"/>
@@ -1192,8 +1268,8 @@ and pick the operations to exercise.</p>
 does <strong>not</strong> require an inference engine or an LMCache MP server. It
 only needs the adapter’s own backing storage to be reachable (for the
 <code class="docutils literal notranslate"><span class="pre">fs</span></code> adapter, that simply means a writable directory).</p>
-<section id="id4">
-<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
+<section id="id5">
+<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id5" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id5'"><span>#</span></a></h3>
 <p>For each measured operation the tool drives the adapter directly via
 its public submit/wait API:</p>
 <ul class="simple">
@@ -1244,8 +1320,8 @@ payload size (<code class="docutils literal notranslate"><span class="pre">--dat
 selected alignment.</p>
 </div>
 </section>
-<section id="id5">
-<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id5" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id5'"><span>#</span></a></h3>
+<section id="id6">
+<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id6" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id6'"><span>#</span></a></h3>
 <p>Benchmark the local filesystem adapter with default parameters:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
@@ -1297,8 +1373,8 @@ measured round:</p>
 </span></code></pre></div>
 </div>
 </section>
-<section id="id6">
-<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id6" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id6'"><span>#</span></a></h3>
+<section id="id7">
+<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id7'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1396,8 +1472,8 @@ implementation as keyword arguments.</p>
 <p>See the source under <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/</span></code> for the
 full list of adapter types and their accepted fields.</p>
 </section>
-<section id="id7">
-<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id7'"><span>#</span></a></h3>
+<section id="example-output">
+<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
 <p>Per-round progress (suppressed by <code class="docutils literal notranslate"><span class="pre">-q</span></code>):</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">============================================================
 </span><span id="line-2">L2 Adapter Benchmark
@@ -1566,16 +1642,17 @@ missing or could not be parsed.</p></td>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">Options</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU mode (no GPU)</a></li>
 <li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV cache shape spec</a></li>
-<li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">Example output</a></li>
-<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Exit codes</a></li>
+<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Output</a></li>
+<li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">Example output (progress)</a></li>
+<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">Exit codes</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#l2'" class="reference internal" href="#l2">l2</a><ul>
-<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">What it does</a></li>
-<li><a :data-current="activeSection === '#id5'" class="reference internal" href="#id5">Quick start</a></li>
-<li><a :data-current="activeSection === '#id6'" class="reference internal" href="#id6">Options</a></li>
+<li><a :data-current="activeSection === '#id5'" class="reference internal" href="#id5">What it does</a></li>
+<li><a :data-current="activeSection === '#id6'" class="reference internal" href="#id6">Quick start</a></li>
+<li><a :data-current="activeSection === '#id7'" class="reference internal" href="#id7">Options</a></li>
 <li><a :data-current="activeSection === '#adapter-json-spec'" class="reference internal" href="#adapter-json-spec">Adapter JSON spec</a></li>
-<li><a :data-current="activeSection === '#id7'" class="reference internal" href="#id7">Example output</a></li>
+<li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">Example output</a></li>
 <li><a :data-current="activeSection === '#round-trip-verification'" class="reference internal" href="#round-trip-verification">Round-trip verification</a></li>
 <li><a :data-current="activeSection === '#id8'" class="reference internal" href="#id8">Exit codes</a></li>
 </ul>
