@@ -324,15 +324,17 @@ Mamba cache mode, prefix caching, and a chunk size matched to vLLM’s
 </tbody>
 </table>
 <p>Set the LMCache server’s <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> to that <code class="docutils literal notranslate"><span class="pre">N</span></code> (or a multiple of
-it) and vLLM’s <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p>
-<p><strong>Qwen3.6-27B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">784</span></code>):</p>
+it), and vLLM’s <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to <code class="docutils literal notranslate"><span class="pre">2N-1</span></code> (the largest value
+below <code class="docutils literal notranslate"><span class="pre">2N</span></code>). <code class="docutils literal notranslate"><span class="pre">N</span></code> is also valid but serializes prefill under load — see
+the note below.</p>
+<p><strong>Qwen3.6-27B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">784</span></code> → <code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">=</span> <span class="pre">1567</span></code>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">784</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3.6-27B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--enable-prefix-caching<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--mamba-cache-mode<span class="w"> </span>align<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--max-num-batched-tokens<span class="w"> </span><span class="m">784</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--max-num-batched-tokens<span class="w"> </span><span class="m">1567</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
@@ -340,15 +342,26 @@ it) and vLLM’s <code class="docutils literal notranslate"><span class="pre">--
 <div class="line-block">
 <div class="line"><br/></div>
 </div>
-<p><strong>Qwen3.5-0.8B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code>): identical to the above, with
-<code class="docutils literal notranslate"><span class="pre">784</span></code> replaced by <code class="docutils literal notranslate"><span class="pre">544</span></code> in both <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> and
-<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code>.</p>
+<p><strong>Qwen3.5-0.8B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code> → <code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">=</span> <span class="pre">1087</span></code>): identical to the
+above, with <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">544</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">1087</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span></code> is required (GDN does not support the
-<code class="docutils literal notranslate"><span class="pre">all</span></code> mode). <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be at least the unified
-block size and below twice it — LMCache raises at engine startup
-otherwise. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the Mamba state only at scheduler-step
-ends, so each prefill step must advance exactly one block for every
-block boundary to hold a reusable snapshot.</p>
+<code class="docutils literal notranslate"><span class="pre">all</span></code> mode). <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be in <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code> (at
+least the unified block size and below twice it) — LMCache raises at
+engine startup otherwise. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the Mamba state at
+scheduler-step ends on a block boundary, and the scheduler splits prefills
+into whole <code class="docutils literal notranslate"><span class="pre">N</span></code>-token blocks. <strong>Prefer the maximum, ``2N-1``:</strong> a single
+request still advances exactly one block per step (<code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">&lt;</span> <span class="pre">2N</span></code>), so the
+per-block snapshot LMCache stores is preserved, <em>and</em> the spare <code class="docutils literal notranslate"><span class="pre">N-1</span></code>
+budget lets decodes co-schedule with a prefill block. Setting it to exactly
+<code class="docutils literal notranslate"><span class="pre">N</span></code> makes the per-step budget equal to one block, so once any request is
+decoding (consuming ≥1 token of the budget) no new request can start
+prefill — execution serializes to one request at a time. (Benchmarked on
+Qwen3.6-27B: at <code class="docutils literal notranslate"><span class="pre">N</span></code> a cold / low-hit run ran ~7× slower with GPU batch
+stuck at 1; <code class="docutils literal notranslate"><span class="pre">2N-1</span></code> restored full batching. With a warm LMCache cache
+(~97 % hit) the gap is small since little prefill remains, but <code class="docutils literal notranslate"><span class="pre">2N-1</span></code> is
+the safe default.) If vLLM reports <em>“max_num_seqs exceeds available Mamba
+cache blocks”</em> at <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>, lower <code class="docutils literal notranslate"><span class="pre">--max-num-seqs</span></code> to ≤ that count (each
+decode sequence needs one Mamba block) or raise <code class="docutils literal notranslate"><span class="pre">--gpu-memory-utilization</span></code>.</p>
 <p>For the generic LMCache + vLLM wiring (ports, remote hosts), see
 <a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">Quickstart</span></a>.</p>
 </div>
