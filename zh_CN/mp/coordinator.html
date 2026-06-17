@@ -350,6 +350,31 @@ LMCache chunk size the blend servers use.</p></td>
 <td><p>Positions between CacheBlend match probes. <code class="docutils literal notranslate"><span class="pre">1</span></code> probes every offset
 for full recall.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
+startup that paginates an MP server's <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> and
+backfills usage + eviction trackers from existing L2 contents.
+Disable to start from empty trackers (handy for tests, or
+deployments that start the coordinator before any MP server).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Seconds between registry checks while waiting for the first
+MP server to register so startup resync can begin.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
+<td><p>Maximum seconds startup resync waits for an MP server before
+giving up. The coordinator keeps running with empty trackers
+until normal usage events fill them in.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> forwarded to the MP server's <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code>
+during resync. Larger values reduce RTT count; the server
+clamps to its own ceiling.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -413,8 +438,34 @@ random UUID v4 at startup and registers under that.</p>
 </section>
 <section id="l2-usage-tracking-and-eviction">
 <h2>L2 使用跟踪和逐出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-usage-tracking-and-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-usage-tracking-and-eviction'"><span>#</span></a></h2>
-<p>当 MP 服务器启用 <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code> 时，它们将 L2 存储和查找事件流式传输到协调器。协调器聚合每个 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 的使用情况，强制执行配额，并选择 LRU 键进行逐出。</p>
+<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>, they stream L2
+<code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">lookup</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator. The coordinator
+aggregates per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and selects LRU keys
+to evict.</p>
 <p>每个事件批次携带服务器的 <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> 和一个单调递增的序列号 (<code class="docutils literal notranslate"><span class="pre">seq</span></code>)，该序列号限定于该实例。这些字段使未来的缺口检测成为可能，以识别丢失的批次。</p>
+<p><strong>Active eviction loop.</strong> Every
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code> seconds, the
+coordinator inspects per-salt usage against the registered quotas and,
+for any salt over the trigger watermark, picks LRU victims and
+dispatches a single <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> to a uniformly random registered MP
+server. Because all MP servers share the same backing L2 (e.g. one S3
+bucket), one dispatch evicts the keys for the whole fleet. The MP
+server's L2 adapter fires <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> listeners after the
+delete completes; those listeners ship <code class="docutils literal notranslate"><span class="pre">delete</span></code> events back through
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/events</span></code>, which is what updates the coordinator's LRU +
+per-salt totals. Dispatch failures or no-instances-registered fall
+through to the next cycle — at-least-once semantics, safe because the
+S3 delete is idempotent.</p>
+<p><strong>Startup resync.</strong> On boot, the coordinator waits up to
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code> seconds for the first MP
+server to register, then paginates its
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> and seeds the in-memory usage + eviction trackers
+with whatever is already resident in L2 — so a fresh coordinator
+does not start from zero usage. Set
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC=False</span></code> to skip this
+phase. Best-effort: resync failures are logged and the manager gives
+up; the ongoing usage-event stream from MP servers eventually corrects
+any initial blind spots.</p>
 <p><strong>配额管理</strong> -- 为每个 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 设置字节预算。没有配额的盐默认为 0 字节限制（白名单语义）。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Set a 10 GiB quota for tenant "user-a"</span>
 </span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:9300/l2/quota/user-a<span class="w"> </span><span class="se">\</span>
@@ -428,17 +479,24 @@ random UUID v4 at startup and registers under that.</p>
 </span></code></pre></div>
 </div>
 <p>使用 <code class="docutils literal notranslate"><span class="pre">_default</span></code> 作为路径参数以定位空字符串盐。</p>
-<p><strong>事件摄取</strong> -- MP 服务器通过 POST 批量事件；这由事件监听器自动处理，通常不需要手动调用。</p>
+<p><strong>Event ingestion</strong> -- MP servers POST batched events; this is handled
+automatically by the event listener and is not typically called manually.
+Supported event types are <code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">lookup</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code>. A
+<code class="docutils literal notranslate"><span class="pre">delete</span></code> event subtracts the key's previously-recorded bytes from the
+per-salt totals (the wire <code class="docutils literal notranslate"><span class="pre">bytes</span></code> field is ignored for <code class="docutils literal notranslate"><span class="pre">delete</span></code>;
+the coordinator already knows the size from the original <code class="docutils literal notranslate"><span class="pre">store</span></code>).</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/l2/events<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
 </span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
 </span><span id="line-5"><span class="s1">        "seq": 1,</span>
 </span><span id="line-6"><span class="s1">        "events": [</span>
-</span><span id="line-7"><span class="s1">            {"type": "store", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 1024}</span>
-</span><span id="line-8"><span class="s1">        ]</span>
-</span><span id="line-9"><span class="s1">    }'</span>
-</span><span id="line-10"><span class="c1"># -&gt; {"recorded": 1}</span>
+</span><span id="line-7"><span class="s1">            {"type": "store",  "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 1024},</span>
+</span><span id="line-8"><span class="s1">            {"type": "lookup", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0},</span>
+</span><span id="line-9"><span class="s1">            {"type": "delete", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0}</span>
+</span><span id="line-10"><span class="s1">        ]</span>
+</span><span id="line-11"><span class="s1">    }'</span>
+</span><span id="line-12"><span class="c1"># -&gt; {"recorded": 3}</span>
 </span></code></pre></div>
 </div>
 <p><strong>状态查询</strong> -- 检查使用情况和配额信息。</p>
@@ -476,7 +534,7 @@ random UUID v4 at startup and registers under that.</p>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/l2/events</span></code></p></td>
-<td><p>摄取一批 L2 存储/查找事件。</p></td>
+<td><p>Ingest a batch of L2 <code class="docutils literal notranslate"><span class="pre">store</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup</span></code> / <code class="docutils literal notranslate"><span class="pre">delete</span></code> events.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/l2/status/{cache_salt}</span></code></p></td>
