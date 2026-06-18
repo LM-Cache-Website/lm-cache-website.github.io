@@ -321,9 +321,19 @@
 <li><p><a class="reference internal" href="#cacheblendengine-fields" id="id32">CacheBlendEngine 字段</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id33">操作员与手动部署</a></p></li>
-<li><p><a class="reference internal" href="#security-considerations" id="id34">安全考虑事项</a></p></li>
-<li><p><a class="reference internal" href="#development" id="id35">开发</a></p></li>
+<li><p><a class="reference internal" href="#lmcachecoordinator" id="id33">LMCacheCoordinator</a></p>
+<ul>
+<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id34">Deploying a Coordinator</a></p></li>
+<li><p><a class="reference internal" href="#connecting-an-engine" id="id35">Connecting an Engine</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id36">Coordinator CRD Spec Reference</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-resources-created" id="id37">Coordinator Resources Created</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id38">Coordinator Status &amp; Conditions</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id39">Coordinator Validation Rules</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id40">操作员与手动部署</a></p></li>
+<li><p><a class="reference internal" href="#security-considerations" id="id41">安全考虑事项</a></p></li>
+<li><p><a class="reference internal" href="#development" id="id42">开发</a></p></li>
 </ul>
 </nav>
 <section id="why-use-the-operator">
@@ -1094,8 +1104,346 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 <p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> 的默认值为 <code class="docutils literal notranslate"><span class="pre">256</span></code>，并且必须等于 256（混合匹配器要求 <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>）。</p>
 </section>
 </section>
+<section id="lmcachecoordinator">
+<h2><a class="toc-backref" href="#id33" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> CRD runs the <strong>mp coordinator</strong> -- a fleet-wide HTTP
+service that tracks mp server instances, evicts those whose heartbeats lapse,
+performs L2 quota eviction, and hosts the global CacheBlend fingerprint
+directory.  It is a plain (non-GPU) <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> exposed through a ClusterIP
+Service; engines reach it via <code class="docutils literal notranslate"><span class="pre">coordinator.ref</span></code> or <code class="docutils literal notranslate"><span class="pre">coordinator.url</span></code>.</p>
+<section id="deploying-a-coordinator">
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Deploying a Coordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
+<p>A ready-to-edit manifest lives at
+<code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcachecoordinator.yaml</span></code> in the operator
+repo.  A minimal coordinator:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
+</span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheCoordinator</span>
+</span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-coordinator</span>
+</span><span id="line-5"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9300</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>lmcc<span class="w"> </span>my-coordinator<span class="w">   </span><span class="c1"># shortName: lmcc</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="connecting-an-engine">
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Connecting an Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
+<p>Point an <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> / <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> at the coordinator through its
+<code class="docutils literal notranslate"><span class="pre">coordinator</span></code> block.  Use <code class="docutils literal notranslate"><span class="pre">ref</span></code> to name a coordinator in the same namespace
+(the operator resolves it to the in-cluster Service URL), or <code class="docutils literal notranslate"><span class="pre">url</span></code> for an
+explicit endpoint:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">coordinator</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">ref</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-coordinator</span><span class="w">       </span><span class="c1"># or: url: http://my-coordinator.default.svc:9300</span>
+</span><span id="line-5"><span class="w">    </span><span class="nt">heartbeatInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">          </span><span class="c1"># seconds; must be &gt; 0</span>
+</span><span id="line-6"><span class="w">    </span><span class="nt">l2EventReporting</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">       </span><span class="c1"># report L2 store/lookup events for fleet eviction</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="coordinator-crd-spec-reference">
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">Coordinator CRD Spec Reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
+<section id="topology">
+<h4>Topology<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#topology"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">replicas</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Coordinator pods.  The registry is per-process in-memory, so &gt;1 only
+makes sense behind a shared durable backend.  Must be &gt;= 0.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">image.repository</span></code> / <code class="docutils literal notranslate"><span class="pre">image.tag</span></code> / <code class="docutils literal notranslate"><span class="pre">image.pullPolicy</span></code></p></td>
+<td><p>shared engine image</p></td>
+<td><p>Runs the same lmcache binary as the engines.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">imagePullSecrets</span></code></p></td>
+<td><p>--</p></td>
+<td><p>镜像拉取密钥引用。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="http-server">
+<h4>HTTP Server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#http-server"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">host</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code></p></td>
+<td><p>Address the coordinator's HTTP server binds to.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">port</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9300</span></code></p></td>
+<td><p>HTTP port (1--65535).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="membership-health">
+<h4>Membership &amp; Health<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#membership-health"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instanceTimeout</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30</span></code></p></td>
+<td><p>Seconds without a heartbeat after which an instance is evicted.  Set
+comfortably above the engines' <code class="docutils literal notranslate"><span class="pre">coordinator.heartbeatInterval</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">healthCheckInterval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>Seconds between health-check sweeps; <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the loop.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l2-quota-eviction">
+<h4>L2 Quota Eviction<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-quota-eviction"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">evictionCheckInterval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Seconds between L2 eviction sweeps; <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the loop.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">evictionRatio</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>Fraction of tracked keys (by count) to evict per cycle, [0.0, 1.0].</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">triggerWatermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
+<td><p>Usage fraction of the quota that fires eviction, (0.0, 1.0].</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="global-cacheblend-directory">
+<h4>Global CacheBlend Directory<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#global-cacheblend-directory"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blendChunkSize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>Tokens per chunk for the global CacheBlend directory (the match unit).
+<strong>Must equal</strong> the LMCache chunk size the blend servers use.  Must be &gt; 0.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">blendProbeStride</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Positions between match probes.  <code class="docutils literal notranslate"><span class="pre">1</span></code> probes every offset for full
+recall; raise it to trade recall for coordinator CPU.  Must be &gt; 0.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prometheus-scheduling-overrides">
+<h4>Prometheus, Scheduling &amp; Overrides<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scheduling-overrides"><span>#</span></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 20.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prometheus.enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Expose the metrics container port.  See the note below.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prometheus.port</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9090</span></code></p></td>
+<td><p>Metrics port.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prometheus.serviceMonitor.enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Create a ServiceMonitor CR (and headless metrics Service).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prometheus.serviceMonitor.interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30s</span></code></p></td>
+<td><p>抓取间隔。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">logLevel</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">INFO</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> | <code class="docutils literal notranslate"><span class="pre">INFO</span></code> | <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> | <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">resourceOverrides</span></code></p></td>
+<td><p>--</p></td>
+<td><p>Pod resource requests/limits (no auto-compute; the coordinator is
+CPU/memory light).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nodeSelector</span></code> / <code class="docutils literal notranslate"><span class="pre">affinity</span></code> / <code class="docutils literal notranslate"><span class="pre">tolerations</span></code> / <code class="docutils literal notranslate"><span class="pre">priorityClassName</span></code></p></td>
+<td><p>--</p></td>
+<td><p>Pod scheduling controls.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">env</span></code> / <code class="docutils literal notranslate"><span class="pre">volumes</span></code> / <code class="docutils literal notranslate"><span class="pre">volumeMounts</span></code> / <code class="docutils literal notranslate"><span class="pre">podAnnotations</span></code> / <code class="docutils literal notranslate"><span class="pre">podLabels</span></code> / <code class="docutils literal notranslate"><span class="pre">serviceAccountName</span></code></p></td>
+<td><p>--</p></td>
+<td><p>Standard pod-shaping fields.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">extraArgs</span></code></p></td>
+<td><p>--</p></td>
+<td><p>Extra CLI flags (appended last, can override any auto-generated flag).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The coordinator process does <strong>not</strong> yet expose a <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint.  The
+Prometheus wiring is present for parity but is only useful once metrics are
+added; <code class="docutils literal notranslate"><span class="pre">serviceMonitor.enabled</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+</div>
+</section>
+</section>
+<section id="coordinator-resources-created">
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Coordinator Resources Created</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
+<p>For an <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> named <code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code>:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 50.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>资源</p></th>
+<th class="head"><p>名称</p></th>
+<th class="head"><p>目的</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Deployment</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code></p></td>
+<td><p>Runs the coordinator HTTP server pods.</p></td>
+</tr>
+<tr class="row-odd"><td><p>服务 (ClusterIP)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code></p></td>
+<td><p>Fleet-wide discovery on the HTTP port.</p></td>
+</tr>
+<tr class="row-even"><td><p>无头服务</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">my-coordinator-metrics</span></code></p></td>
+<td><p>Prometheus scrape target (when <code class="docutils literal notranslate"><span class="pre">serviceMonitor.enabled</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>服务监控器</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code></p></td>
+<td><p>Prometheus Operator integration (when <code class="docutils literal notranslate"><span class="pre">serviceMonitor.enabled</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+<p>The status <code class="docutils literal notranslate"><span class="pre">endpoint</span></code> other components use to reach the coordinator is
+<code class="docutils literal notranslate"><span class="pre">http://&lt;name&gt;.&lt;namespace&gt;.svc:&lt;port&gt;</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">http://my-coordinator.default.svc:9300</span></code>).</p>
+</section>
+<section id="coordinator-status-conditions">
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">Coordinator Status &amp; Conditions</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
+<p>状态部分包括：</p>
+<ul class="simple">
+<li><p><strong>phase</strong>: <code class="docutils literal notranslate"><span class="pre">待处理</span></code>, <code class="docutils literal notranslate"><span class="pre">运行中</span></code>, <code class="docutils literal notranslate"><span class="pre">降级</span></code>, 或 <code class="docutils literal notranslate"><span class="pre">失败</span></code>。</p></li>
+<li><p><strong>replicas</strong> / <strong>readyReplicas</strong>: Pod counts from the Deployment.</p></li>
+<li><p><strong>endpoint</strong>: In-cluster URL for reaching the coordinator.</p></li>
+<li><p><strong>observedGeneration</strong>: Most recent reconciled generation.</p></li>
+<li><p><strong>条件</strong>：</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Available</span></code> -- At least one replica is ready.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AllInstancesReady</span></code> -- All desired replicas are ready.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ConfigValid</span></code> -- 配置验证通过。</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="coordinator-validation-rules">
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Coordinator Validation Rules</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>规则</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">port</span></code></p></td>
+<td><p>Must be in [1, 65535].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">replicas</span></code></p></td>
+<td><p>Must be &gt;= 0.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instanceTimeout</span></code></p></td>
+<td><p>Must be &gt; 0.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">healthCheckInterval</span></code> / <code class="docutils literal notranslate"><span class="pre">evictionCheckInterval</span></code></p></td>
+<td><p>Must be &gt;= 0.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">evictionRatio</span></code></p></td>
+<td><p>Must be in [0.0, 1.0].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">triggerWatermark</span></code></p></td>
+<td><p>必须在 (0.0, 1.0] 之间。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blendChunkSize</span></code> / <code class="docutils literal notranslate"><span class="pre">blendProbeStride</span></code></p></td>
+<td><p>Must be &gt; 0.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
 <section id="operator-vs-manual-deployment">
-<h2><a class="toc-backref" href="#id33" role="doc-backlink">操作员与手动部署</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id40" role="doc-backlink">操作员与手动部署</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1145,7 +1493,7 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 </table>
 </section>
 <section id="security-considerations">
-<h2><a class="toc-backref" href="#id34" role="doc-backlink">安全考虑事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id41" role="doc-backlink">安全考虑事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
 <p><strong>hostIPC</strong> 将主机的 IPC 命名空间（System V IPC，POSIX 消息队列）暴露给容器。容器中的任何进程都可以与同一主机上其他进程的 IPC 资源进行交互。</p>
 <ul class="simple">
 <li><p>仅在受信任的环境中部署。</p></li>
@@ -1153,7 +1501,7 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 </ul>
 </section>
 <section id="development">
-<h2><a class="toc-backref" href="#id35" role="doc-backlink">开发</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id42" role="doc-backlink">开发</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">make<span class="w"> </span>generate<span class="w">     </span><span class="c1"># Generate DeepCopy methods</span>
 </span><span id="line-2">make<span class="w"> </span>manifests<span class="w">    </span><span class="c1"># Generate CRD YAML + RBAC</span>
 </span><span id="line-3">make<span class="w"> </span>build<span class="w">        </span><span class="c1"># Compile operator binary</span>
@@ -1237,6 +1585,23 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 <li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">选择 vLLM Pod 参与</a></li>
 <li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">验证注入</a></li>
 <li><a :data-current="activeSection === '#cacheblendengine-fields'" class="reference internal" href="#cacheblendengine-fields">CacheBlendEngine 字段</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#lmcachecoordinator'" class="reference internal" href="#lmcachecoordinator">LMCacheCoordinator</a><ul>
+<li><a :data-current="activeSection === '#deploying-a-coordinator'" class="reference internal" href="#deploying-a-coordinator">Deploying a Coordinator</a></li>
+<li><a :data-current="activeSection === '#connecting-an-engine'" class="reference internal" href="#connecting-an-engine">Connecting an Engine</a></li>
+<li><a :data-current="activeSection === '#coordinator-crd-spec-reference'" class="reference internal" href="#coordinator-crd-spec-reference">Coordinator CRD Spec Reference</a><ul>
+<li><a :data-current="activeSection === '#topology'" class="reference internal" href="#topology">Topology</a></li>
+<li><a :data-current="activeSection === '#http-server'" class="reference internal" href="#http-server">HTTP Server</a></li>
+<li><a :data-current="activeSection === '#membership-health'" class="reference internal" href="#membership-health">Membership &amp; Health</a></li>
+<li><a :data-current="activeSection === '#l2-quota-eviction'" class="reference internal" href="#l2-quota-eviction">L2 Quota Eviction</a></li>
+<li><a :data-current="activeSection === '#global-cacheblend-directory'" class="reference internal" href="#global-cacheblend-directory">Global CacheBlend Directory</a></li>
+<li><a :data-current="activeSection === '#prometheus-scheduling-overrides'" class="reference internal" href="#prometheus-scheduling-overrides">Prometheus, Scheduling &amp; Overrides</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#coordinator-resources-created'" class="reference internal" href="#coordinator-resources-created">Coordinator Resources Created</a></li>
+<li><a :data-current="activeSection === '#coordinator-status-conditions'" class="reference internal" href="#coordinator-status-conditions">Coordinator Status &amp; Conditions</a></li>
+<li><a :data-current="activeSection === '#coordinator-validation-rules'" class="reference internal" href="#coordinator-validation-rules">Coordinator Validation Rules</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#operator-vs-manual-deployment'" class="reference internal" href="#operator-vs-manual-deployment">操作员与手动部署</a></li>
