@@ -947,11 +947,18 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
-<td><p>运行模式。<code class="docutils literal notranslate"><span class="pre">gpu</span></code> 分配真实的 CUDA 张量并使用 CUDA IPC（句柄路径）；<code class="docutils literal notranslate"><span class="pre">cpu</span></code> 分配基于 POSIX-SHM 的张量并使用数据传输路径（通过槽描述符进行 gather/scatter）。</p></td>
+<td><p>Run mode. <code class="docutils literal notranslate"><span class="pre">gpu</span></code> allocates real CUDA tensors and uses CUDA IPC
+(lmcache-driven handle path). <code class="docutils literal notranslate"><span class="pre">cpu</span></code> allocates POSIX-SHM-backed tensors
+and uses the engine-driven (worker-side gather/scatter) path by default.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">{auto,handle,data}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">{auto,engine_driven,lmcache_driven}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
-<td><p>STORE/RETRIEVE 的传输路由。<code class="docutils literal notranslate"><span class="pre">handle</span></code> 强制使用单次路径（<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code> + <code class="docutils literal notranslate"><span class="pre">STORE</span></code>/<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>）；<code class="docutils literal notranslate"><span class="pre">data</span></code> 强制使用两阶段 gather/scatter 路径（<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code> + <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code>/<code class="docutils literal notranslate"><span class="pre">COMMIT</span></code>）；<code class="docutils literal notranslate"><span class="pre">auto</span></code> 将 gpu 映射到 handle，cpu 映射到 data。</p></td>
+<td><p>Transport routing for STORE/RETRIEVE. <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> forces the
+single-shot handle path (<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code> + <code class="docutils literal notranslate"><span class="pre">STORE</span></code>/<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>),
+which supports both CUDA IPC and CPU SHM zero-copy transfers.
+<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> forces the worker-side gather/scatter path
+(<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code> + <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code>/<code class="docutils literal notranslate"><span class="pre">COMMIT</span></code>).
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> maps gpu→lmcache_driven and cpu→engine_driven.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
@@ -999,17 +1006,19 @@
 <section id="cpu-mode-no-gpu">
 <h3>CPU 模式（无 GPU）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-mode-no-gpu" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-mode-no-gpu'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> 在没有 GPU 的情况下运行相同的端到端路径。服务器在仅有 CPU 的主机 (<code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code>) 上运行；基准工具分配基于 POSIX-SHM 的 KV 张量并执行完整的 RPC 路径。</p>
-<p>默认情况下 <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> 使用数据传输路径 (<code class="docutils literal notranslate"><span class="pre">auto</span></code> → <code class="docutils literal notranslate"><span class="pre">cpu→data</span></code>)。要改为使用零拷贝 SHM 句柄路径，请传递 <code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">handle</span></code>：</p>
+<p>By default <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> uses the engine-driven gather/scatter path
+(<code class="docutils literal notranslate"><span class="pre">auto</span></code> → <code class="docutils literal notranslate"><span class="pre">cpu→engine_driven</span></code>). To use the zero-copy SHM
+handle path instead, pass <code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">lmcache_driven</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1 -- start the LMCache server (no GPU required)</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span><span id="line-5">
-</span><span id="line-6"><span class="c1"># Terminal 2 -- run bench in CPU + handle mode</span>
+</span><span id="line-6"><span class="c1"># Terminal 2 -- run bench in CPU + lmcache_driven mode</span>
 </span><span id="line-7">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-8"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
-</span><span id="line-10"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>handle<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
 </span><span id="line-11"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">2</span>
 </span></code></pre></div>
 </div>

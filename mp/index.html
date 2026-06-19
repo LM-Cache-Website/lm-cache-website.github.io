@@ -406,7 +406,7 @@ understand, debug, or extend the system.</p>
 <p>All server entry points share the same <code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code> and
 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> core. <code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code> is now a thin compositor:
 it holds an <code class="docutils literal notranslate"><span class="pre">MPCacheServerContext</span></code> and a list of <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
-instances assembled by <code class="docutils literal notranslate"><span class="pre">build_engine_modules()</span></code> (in <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
+instances assembled by <code class="docutils literal notranslate"><span class="pre">_build_modules()</span></code> (in <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
 based on <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> and <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>.</p>
 <p><strong>``server.py``</strong> – The default ZMQ-only server.  Creates an
 <code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code>, assembles the engine modules
@@ -625,6 +625,27 @@ match, reconciles, issues one sparse-coalesced prefetch, and
 classifies per-TP-rank. Returns <code class="docutils literal notranslate"><span class="pre">CBUnifiedLookupResult</span></code> (or
 <code class="docutils literal notranslate"><span class="pre">None</span></code> while the prefetch is still in flight).</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">P2P_LOOKUP_AND_LOCK</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>(P2P) Look up the given keys and read-lock the locally cached
+prefix. Returns a task id which the caller passes to
+<code class="docutils literal notranslate"><span class="pre">P2P_QUERY_LOOKUP_RESULTS</span></code> to poll for the transfer addresses.
+Part of the peer-to-peer KV cache sharing surface; the handler
+module is not yet wired into the default
+<code class="docutils literal notranslate"><span class="pre">_build_modules()</span></code> path – see <a class="reference internal" href="p2p.html"><span class="doc">P2P KV Cache Sharing</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">P2P_QUERY_LOOKUP_RESULTS</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>(P2P) Poll the transfer addresses for a lookup task. Returns a
+list of <code class="docutils literal notranslate"><span class="pre">TransferChannelAddress</span></code> once the lookup is complete,
+or <code class="docutils literal notranslate"><span class="pre">None</span></code> while the lookup is still in progress or its
+results have already been consumed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">P2P_UNLOCK_OBJECTS</span></code></p></td>
+<td><p>BLOCKING</p></td>
+<td><p>(P2P) Release the read locks previously taken by
+<code class="docutils literal notranslate"><span class="pre">P2P_LOOKUP_AND_LOCK</span></code> on the given keys.</p></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Handler types:</strong></p>
@@ -724,7 +745,7 @@ Periodically checks L1 memory usage against the watermark threshold.  When
 triggered, evicts objects using the configured policy (<code class="docutils literal notranslate"><span class="pre">LRU</span></code>,
 <code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code>, or <code class="docutils literal notranslate"><span class="pre">noop</span></code>) until usage drops below the target.
 <code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code> evicts per <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> against limits registered through
-the <code class="docutils literal notranslate"><span class="pre">/quota</span></code> HTTP endpoints; see <a class="reference internal" href="http_api.html#mp-http-quota-api"><span class="std std-ref">/quota — per-cache_salt quota management</span></a>.</p>
+the <code class="docutils literal notranslate"><span class="pre">/quota</span></code> HTTP endpoints; see <a class="reference internal" href="http_api.html#mp-http-quota-api"><span class="std std-ref">Quota Management</span></a>.</p>
 <p><strong>PrefetchController</strong> (<code class="docutils literal notranslate"><span class="pre">storage_controllers/prefetch_controller.py</span></code>):
 Handles L2 lookup and load requests submitted by <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> during
 <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> RPCs.  When keys are not in L1, it queries L2 adapters and loads
