@@ -278,11 +278,244 @@
 <div id="content" role="main">
 <section id="p2p-kv-cache-sharing">
 <span id="mp-p2p"></span><h1>P2P KV 缓存共享<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#p2p-kv-cache-sharing"><span>#</span></a></h1>
+<section id="overview">
+<h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>In a multi-node deployment, every node runs its own LMCache server process,
+and each one caches the KV of the requests it has served in its local memory.
+Without sharing, a prefix that was computed on one node has to be recomputed
+from scratch when the same prefix arrives on a different node.</p>
+<p><strong>Peer-to-peer (P2P) KV cache sharing turns the per-node caches into one
+logical cache.</strong> When a node looks up a prefix that is not in its own memory,
+it can read that prefix's KV directly from the memory of the peer node that
+holds it, over the datacenter network using RDMA. The result is a much higher
+effective cache hit rate across the fleet, without any central storage tier in
+the hot path.</p>
+<p>The transfer is a one-sided RDMA read from the requesting node into its own L1
+buffer; the node that owns the data is not interrupted to serve it. On an
+RDMA-capable network (InfiniBand / RoCE) this is dramatically faster than
+recomputing the prefix or round-tripping through a shared object store.</p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
+<p>P2P involves three pieces:</p>
+<ul class="simple">
+<li><p><strong>Coordinator</strong> — a small HTTP service (one per deployment) that tracks which
+LMCache servers are alive. Each server registers with it and heartbeats; the
+coordinator answers "who are my live peers?" queries. It only manages
+membership — it never sees KV data or participates in lookups. See
+<a class="reference internal" href="coordinator.html"><span class="doc">多服务器协调</span></a>.</p></li>
+<li><p><strong>LMCache server</strong> — each server runs a P2P controller that periodically asks
+the coordinator for the current peer list and, for every live peer, opens a
+connection used to look up and read that peer's KV.</p></li>
+<li><p><strong>Transfer channel</strong> — the RDMA layer that performs the actual remote memory
+reads. Each server registers its L1 buffer once at startup so peers can read
+from it.</p></li>
+</ul>
+<p>On a cache miss, a node asks the peer that owns the prefix to <em>lock and locate</em>
+it, receives the remote addresses, RDMA-reads the KV into its own L1, and serves
+the request from there. Peers are discovered and connected automatically as
+they join, and disconnected automatically as they leave — no static peer lists.</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#requirements'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>A coordinator.</strong> P2P needs the coordinator for peer discovery. A server
+started with <code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code> but no <code class="docutils literal notranslate"><span class="pre">--coordinator-url</span></code> refuses to
+start.</p></li>
+<li><p><strong>An RDMA-capable network</strong> (InfiniBand / RoCE) is strongly recommended for
+production performance. By default P2P uses the <code class="docutils literal notranslate"><span class="pre">nixl</span></code> transfer engine,
+which is shipped with LMCache, so there is nothing extra to install.</p></li>
+<li><p><strong>A single, contiguous L1 region.</strong> The transfer channel registers the whole
+L1 buffer for RDMA, so P2P is incompatible with the GDS L1 tier
+(<code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code>) and the Device-DAX L1 tier (<code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code>); the
+server refuses to start in those configurations.</p></li>
+</ul>
+</section>
+<section id="configuration">
+<h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>P2P is enabled per server by the <code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code> flag. The relevant
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> flags are:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 65.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span> <span class="pre">HOST:PORT</span></code></p></td>
+<td><p>Transfer-channel endpoint this server advertises to peers. Setting it
+enables P2P. Must be an address other nodes can reach.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-listen-url</span> <span class="pre">HOST:PORT</span></code></p></td>
+<td><p>Address the transfer-channel server binds to. Defaults to
+<code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code>; set it to bind <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> while advertising a
+routable IP.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-lookup-timeout</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p>Deadline for a peer lookup before it counts as a miss (default <code class="docutils literal notranslate"><span class="pre">30</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-load-timeout</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p>Deadline for a peer KV read before it counts as a failure
+(default <code class="docutils literal notranslate"><span class="pre">30</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-transfer-engine</span> <span class="pre">ENGINE</span></code></p></td>
+<td><p>Transfer-channel implementation (default <code class="docutils literal notranslate"><span class="pre">nixl</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+<p>P2P also reuses the coordinator connection flags (<code class="docutils literal notranslate"><span class="pre">--coordinator-url</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--coordinator-advertise-ip</span></code>, <code class="docutils literal notranslate"><span class="pre">--coordinator-heartbeat-interval</span></code>); the
+heartbeat interval doubles as the peer-discovery poll interval. See
+<a class="reference internal" href="../cli/server.html"><span class="doc">lmcache server</span></a> and <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for the full flag lists.</p>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>Increase the L1 buffer alignment to at least 64 KB
+(<code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span> <span class="pre">65536</span></code>) on servers that participate in P2P. A larger
+alignment lets the transfer channel issue bigger, better-aligned RDMA reads
+and noticeably improves transfer performance. The default (4 KB) is fine for
+non-P2P deployments.</p>
+</div>
+</section>
+<section id="transfer-engine-backends">
+<h2>Transfer engine backends<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-engine-backends" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-engine-backends'"><span>#</span></a></h2>
+<p>The transfer engine is the component that performs the remote memory reads,
+selected per server with <code class="docutils literal notranslate"><span class="pre">--p2p-transfer-engine</span></code>.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 80.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Engine</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nixl</span></code> (default)</p></td>
+<td><p>RDMA-based transport, shipped with LMCache. Runs over InfiniBand / RoCE
+fabrics.</p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">nixl</span></code> is the only backend available today. The transfer engine is a
+pluggable abstraction, so additional backends can be added in the future
+without changing the rest of the P2P stack.</p>
+</section>
+<section id="running-a-multi-node-deployment">
+<h2>Running a multi-node deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-a-multi-node-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-a-multi-node-deployment'"><span>#</span></a></h2>
+<p>The example below brings up a two-node fleet. Adding more nodes is just more
+copies of the per-node step, all pointing at the same coordinator.</p>
+<p><strong>Step 1 — start the coordinator</strong> (on a host all nodes can reach, here
+<code class="docutils literal notranslate"><span class="pre">10.0.0.1</span></code>):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>coordinator<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9300</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 2 — on each node, start the LMCache server with P2P enabled.</strong> Replace
+<code class="docutils literal notranslate"><span class="pre">&lt;NODE_IP&gt;</span></code> with that node's routable address (e.g. <code class="docutils literal notranslate"><span class="pre">10.0.0.2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">10.0.0.3</span></code>, ...):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--http-port<span class="w"> </span><span class="m">8080</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://10.0.0.1:9300<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span>&lt;NODE_IP&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span>&lt;NODE_IP&gt;:8500
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--coordinator-advertise-ip</span></code> is the address peers use to reach this node's
+control plane, and <code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code> is the RDMA transfer endpoint. Here
+the server binds <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> (all interfaces) and advertises <code class="docutils literal notranslate"><span class="pre">&lt;NODE_IP&gt;</span></code>.</p>
+<p><strong>Step 3 — on each node, start vLLM</strong> pointed at the <em>local</em> LMCache server via
+the connector. vLLM never talks to peers directly — the LMCache server it
+connects to does P2P on its behalf:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":5555}}'</span>
+</span></code></pre></div>
+</div>
+<p>Once both nodes have registered, a prefix first served on node 2 will be served
+from node 2's cache when the same prefix later arrives on node 3 — read over
+RDMA instead of recomputed.</p>
+</section>
+<section id="running-on-a-single-node-testing-debugging">
+<h2>Running on a single node (testing &amp; debugging)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-on-a-single-node-testing-debugging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-on-a-single-node-testing-debugging'"><span>#</span></a></h2>
+<p>You can exercise the entire P2P path on a single multi-GPU machine by running
+two LMCache servers and two vLLM servers over <code class="docutils literal notranslate"><span class="pre">localhost</span></code>, plus one
+coordinator. This is the recommended way to develop and debug P2P.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1 — coordinator</span>
+</span><span id="line-2">lmcache<span class="w"> </span>coordinator<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9300</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Terminal 2 — node "A": LMCache + vLLM on GPU 0</span>
+</span><span id="line-5"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">7555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--instance-id<span class="w"> </span>node-a<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://127.0.0.1:9300<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-12"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span><span class="m">127</span>.0.0.1:8555
+</span><span id="line-13">
+</span><span id="line-14"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-15"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6555}}'</span>
+</span><span id="line-16">
+</span><span id="line-17"><span class="c1"># Terminal 3 — node "B": LMCache + vLLM on GPU 1</span>
+</span><span id="line-18"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-19"><span class="w">    </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">7556</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-20"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-21"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-22"><span class="w">    </span>--instance-id<span class="w"> </span>node-b<span class="w"> </span><span class="se">\</span>
+</span><span id="line-23"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://127.0.0.1:9300<span class="w"> </span><span class="se">\</span>
+</span><span id="line-24"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-25"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span><span class="m">127</span>.0.0.1:8556
+</span><span id="line-26">
+</span><span id="line-27"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-28"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6556}}'</span>
+</span></code></pre></div>
+</div>
+<p>The two servers must differ in <strong>every</strong> port: ZMQ (<code class="docutils literal notranslate"><span class="pre">--port</span></code>), HTTP
+(<code class="docutils literal notranslate"><span class="pre">--http-port</span></code>), and the P2P transfer endpoint (<code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code>).
+Give each a distinct <code class="docutils literal notranslate"><span class="pre">--instance-id</span></code> so they are easy to tell apart.</p>
+<p>To test the path, send a long prompt to vLLM <strong>A</strong> (port <code class="docutils literal notranslate"><span class="pre">8000</span></code>) and then the
+<em>same</em> prompt to vLLM <strong>B</strong> (port <code class="docutils literal notranslate"><span class="pre">8001</span></code>). B has never seen the prompt and its
+own cache is empty, so any LMCache hit on B must have been read from A over P2P.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>点对点（P2P）KV 缓存共享的多进程（MP）实现 <strong>即将推出</strong>。</p>
-<p>在该功能落地之前，进程内实现的文档位于 <a class="reference internal" href="../legacy/index.html"><span class="doc">旧版部分</span></a>：<a class="reference internal" href="../kv_cache/p2p_sharing.html"><span class="doc">P2P KV Cache 共享</span></a>。</p>
+<p>On a single host, <code class="docutils literal notranslate"><span class="pre">localhost</span></code> traffic typically uses the loopback/TCP path
+rather than RDMA, so latencies are not representative of a real RDMA fabric.
+Single-node mode is for <strong>functional</strong> testing and debugging; benchmark
+performance on a real multi-node RDMA deployment.</p>
 </div>
+</section>
+<section id="verifying-p2p-is-working">
+<h2>Verifying P2P is working<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-p2p-is-working" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-p2p-is-working'"><span>#</span></a></h2>
+<p>Query a server's status endpoint to see its P2P state and discovered peers:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://127.0.0.1:7555/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>json.tool
+</span></code></pre></div>
+</div>
+<p>Look for <code class="docutils literal notranslate"><span class="pre">p2p_state</span></code> (<code class="docutils literal notranslate"><span class="pre">registered</span></code> once it has joined the coordinator) and
+<code class="docutils literal notranslate"><span class="pre">p2p_peer_count</span></code> (the number of connected peers; <code class="docutils literal notranslate"><span class="pre">1</span></code> in the two-node
+example). You can also list the fleet from the coordinator:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://127.0.0.1:9300/instances<span class="w"> </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>json.tool
+</span></code></pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code>, each server logs <code class="docutils literal notranslate"><span class="pre">Added</span> <span class="pre">P2P</span> <span class="pre">adapter</span> <span class="pre">...</span> <span class="pre">for</span>
+<span class="pre">peer</span> <span class="pre">&lt;instance-id&gt;</span></code> when it connects to a peer, and <code class="docutils literal notranslate"><span class="pre">Removed</span> <span class="pre">P2P</span> <span class="pre">adapter</span> <span class="pre">...</span></code>
+when a peer leaves.</p>
+</section>
+<section id="limitations">
+<h2>Limitations<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>Read-only.</strong> A node reads KV from its peers; it never writes into a peer's
+memory. This keeps each node the sole owner of its L1.</p></li>
+<li><p><strong>One hop.</strong> A node reads directly from the peer that holds the prefix; reads
+are not chained across multiple peers.</p></li>
+</ul>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -301,7 +534,21 @@
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
+<li><a :data-current="activeSection === '#requirements'" class="reference internal" href="#requirements">Requirements</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#transfer-engine-backends'" class="reference internal" href="#transfer-engine-backends">Transfer engine backends</a></li>
+<li><a :data-current="activeSection === '#running-a-multi-node-deployment'" class="reference internal" href="#running-a-multi-node-deployment">Running a multi-node deployment</a></li>
+<li><a :data-current="activeSection === '#running-on-a-single-node-testing-debugging'" class="reference internal" href="#running-on-a-single-node-testing-debugging">Running on a single node (testing &amp; debugging)</a></li>
+<li><a :data-current="activeSection === '#verifying-p2p-is-working'" class="reference internal" href="#verifying-p2p-is-working">Verifying P2P is working</a></li>
+<li><a :data-current="activeSection === '#limitations'" class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
