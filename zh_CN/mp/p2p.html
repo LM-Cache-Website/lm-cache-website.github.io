@@ -450,8 +450,8 @@ coordinator. This is the recommended way to develop and debug P2P.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1 — coordinator</span>
 </span><span id="line-2">lmcache<span class="w"> </span>coordinator<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9300</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="c1"># Terminal 2 — node "A": LMCache + vLLM on GPU 0</span>
-</span><span id="line-5"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="c1"># Terminal 2 — node "A": LMCache server</span>
+</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">7555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-7"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-8"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
@@ -460,21 +460,23 @@ coordinator. This is the recommended way to develop and debug P2P.</p>
 </span><span id="line-11"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
 </span><span id="line-12"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span><span class="m">127</span>.0.0.1:8555
 </span><span id="line-13">
-</span><span id="line-14"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-15"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6555}}'</span>
-</span><span id="line-16">
-</span><span id="line-17"><span class="c1"># Terminal 3 — node "B": LMCache + vLLM on GPU 1</span>
-</span><span id="line-18"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-19"><span class="w">    </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">7556</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-20"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
-</span><span id="line-21"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-22"><span class="w">    </span>--instance-id<span class="w"> </span>node-b<span class="w"> </span><span class="se">\</span>
-</span><span id="line-23"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://127.0.0.1:9300<span class="w"> </span><span class="se">\</span>
-</span><span id="line-24"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-</span><span id="line-25"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span><span class="m">127</span>.0.0.1:8556
-</span><span id="line-26">
-</span><span id="line-27"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-28"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6556}}'</span>
+</span><span id="line-14"><span class="c1"># Terminal 3 — node "A": vLLM on GPU 0</span>
+</span><span id="line-15"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-16"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6555}}'</span>
+</span><span id="line-17">
+</span><span id="line-18"><span class="c1"># Terminal 4 — node "B": LMCache server</span>
+</span><span id="line-19">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-20"><span class="w">    </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">7556</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-21"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-22"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-23"><span class="w">    </span>--instance-id<span class="w"> </span>node-b<span class="w"> </span><span class="se">\</span>
+</span><span id="line-24"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://127.0.0.1:9300<span class="w"> </span><span class="se">\</span>
+</span><span id="line-25"><span class="w">    </span>--coordinator-advertise-ip<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-26"><span class="w">    </span>--p2p-advertise-url<span class="w"> </span><span class="m">127</span>.0.0.1:8556
+</span><span id="line-27">
+</span><span id="line-28"><span class="c1"># Terminal 5 — node "B": vLLM on GPU 1</span>
+</span><span id="line-29"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-30"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"lmcache.mp.port":6556}}'</span>
 </span></code></pre></div>
 </div>
 <p>The two servers must differ in <strong>every</strong> port: ZMQ (<code class="docutils literal notranslate"><span class="pre">--port</span></code>), HTTP
