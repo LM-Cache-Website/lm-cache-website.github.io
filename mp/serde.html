@@ -291,10 +291,11 @@ storage footprint), compression, encryption.</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#when-to-use-serde" id="id2">When to use serde</a></p></li>
 <li><p><a class="reference internal" href="#configuring-serde-on-an-l2-adapter" id="id3">Configuring serde on an L2 adapter</a></p></li>
-<li><p><a class="reference internal" href="#writing-a-custom-serde" id="id4">Writing a custom serde</a></p></li>
-<li><p><a class="reference internal" href="#notes" id="id5">Notes</a></p></li>
-<li><p><a class="reference internal" href="#example" id="id6">Example</a></p></li>
-<li><p><a class="reference internal" href="#compression-methods" id="id7">Compression methods</a></p></li>
+<li><p><a class="reference internal" href="#turboquant-serde" id="id4">TurboQuant serde</a></p></li>
+<li><p><a class="reference internal" href="#writing-a-custom-serde" id="id5">Writing a custom serde</a></p></li>
+<li><p><a class="reference internal" href="#notes" id="id6">Notes</a></p></li>
+<li><p><a class="reference internal" href="#example" id="id7">Example</a></p></li>
+<li><p><a class="reference internal" href="#compression-methods" id="id8">Compression methods</a></p></li>
 </ul>
 </nav>
 <section id="when-to-use-serde">
@@ -349,11 +350,70 @@ Lossy but highly compressible.</p></td>
 <code class="docutils literal notranslate"><span class="pre">float8_e5m2</span></code>), <code class="docutils literal notranslate"><span class="pre">max_workers</span></code> (thread pool size,
 default 1)</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant</span></code></p></td>
+<td><p>Compress KV tensors with TurboQuant presets before L2 store and
+reconstruct them on load.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">preset</span></code> (default <code class="docutils literal notranslate"><span class="pre">turboquant_k8v4</span></code>), <code class="docutils literal notranslate"><span class="pre">head_dim</span></code> (optional,
+default 128), <code class="docutils literal notranslate"><span class="pre">block_size</span></code> (default 16), <code class="docutils literal notranslate"><span class="pre">max_workers</span></code> (thread
+pool size, default 1)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="turboquant-serde">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">TurboQuant serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#turboquant-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#turboquant-serde'"><span>#</span></a></h2>
+<p>TurboQuant serde can be enabled by setting <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"turboquant"</span></code> in the
+adapter serde config. If <code class="docutils literal notranslate"><span class="pre">preset</span></code> is omitted, TurboQuant serde defaults to
+<code class="docutils literal notranslate"><span class="pre">turboquant_k8v4</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-5"><span class="s1">        "type": "fs",</span>
+</span><span id="line-6"><span class="s1">        "base_path": "/data/lmcache/l2",</span>
+</span><span id="line-7"><span class="s1">        "serde": {</span>
+</span><span id="line-8"><span class="s1">            "type": "turboquant",</span>
+</span><span id="line-9"><span class="s1">            "preset": "turboquant_k8v4",</span>
+</span><span id="line-10"><span class="s1">            "block_size": 16</span>
+</span><span id="line-11"><span class="s1">        }</span>
+</span><span id="line-12"><span class="s1">    }'</span>
+</span></code></pre></div>
+</div>
+<p>Supported presets:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 35.0%"/>
+<col style="width: 35.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Preset</p></th>
+<th class="head"><p>Key path</p></th>
+<th class="head"><p>Value path</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant_k8v4</span></code></p></td>
+<td><p>FP8 key</p></td>
+<td><p>4-bit value quantization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant_4bit_nc</span></code></p></td>
+<td><p>4-bit MSE key with norm correction</p></td>
+<td><p>4-bit value quantization</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant_k3v4_nc</span></code></p></td>
+<td><p>3-bit MSE key with norm correction</p></td>
+<td><p>4-bit value quantization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant_3bit_nc</span></code></p></td>
+<td><p>3-bit MSE key with norm correction</p></td>
+<td><p>3-bit value quantization</p></td>
+</tr>
 </tbody>
 </table>
 </section>
 <section id="writing-a-custom-serde">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Writing a custom serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-serde'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Writing a custom serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-serde'"><span>#</span></a></h2>
 <p>Implement the two sync ABCs (<code class="docutils literal notranslate"><span class="pre">Serializer</span></code>, <code class="docutils literal notranslate"><span class="pre">Deserializer</span></code>) with your
 transform logic, then register a factory keyed on a name you pick:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># my_project/my_serde.py</span>
@@ -390,7 +450,7 @@ transform logic, then register a factory keyed on a name you pick:</p>
 </div>
 </section>
 <section id="notes">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Notes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Notes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><strong>Buffer size.</strong> <code class="docutils literal notranslate"><span class="pre">estimate_serialized_size(layout)</span></code> must return an
 upper bound on the actual serialized output — include any safety
@@ -406,7 +466,7 @@ benefit from <code class="docutils literal notranslate"><span class="pre">N</spa
 </ul>
 </section>
 <section id="example">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
 <p>An end-to-end script that starts an lmcache server with fp8 on a disk
 adapter, runs vLLM, clears L1, and re-runs the same request to trigger
 the L2 prefetch + fp8 deserialize path lives at
@@ -415,7 +475,7 @@ the L2 prefetch + fp8 deserialize path lives at
 <code class="file docutils literal notranslate"><span class="pre">tests/v1/distributed/serde/test_serde_fs_e2e.py</span></code>.</p>
 </section>
 <section id="compression-methods">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Compression methods</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#compression-methods" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#compression-methods'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Compression methods</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#compression-methods" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#compression-methods'"><span>#</span></a></h2>
 <p>Higher-level KV cache compression methods layered on top of the per-adapter
 serde mechanism:</p>
 <div class="toctree-wrapper compound">
@@ -447,6 +507,7 @@ serde mechanism:</p>
 <ul>
 <li><a :data-current="activeSection === '#when-to-use-serde'" class="reference internal" href="#when-to-use-serde">When to use serde</a></li>
 <li><a :data-current="activeSection === '#configuring-serde-on-an-l2-adapter'" class="reference internal" href="#configuring-serde-on-an-l2-adapter">Configuring serde on an L2 adapter</a></li>
+<li><a :data-current="activeSection === '#turboquant-serde'" class="reference internal" href="#turboquant-serde">TurboQuant serde</a></li>
 <li><a :data-current="activeSection === '#writing-a-custom-serde'" class="reference internal" href="#writing-a-custom-serde">Writing a custom serde</a></li>
 <li><a :data-current="activeSection === '#notes'" class="reference internal" href="#notes">Notes</a></li>
 <li><a :data-current="activeSection === '#example'" class="reference internal" href="#example">Example</a></li>

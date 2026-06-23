@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../../" lang="zh-CN" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Redis | LMCache</title>
+<meta content="Redis | LMCache" property="og:title"/>
+<meta content="Redis | LMCache" name="twitter:title"/>
+<link href="../../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../../_static/custom.css?v=639dd0c0" rel="stylesheet" type="text/css"/>
+<link href="../../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../../_static/lmcache-logo.png" rel="icon"/>
+<link href="../../search.html" rel="search" title="搜索"/>
+<link href="../../genindex.html" rel="index" title="索引"/>
+<link href="bigtable.html" rel="next" title="谷歌云 Bigtable"/>
+<link href="nixl.html" rel="prev" title="Nixl"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../getting_started/index.html">入门指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../mp/index.html">概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started/installation.html">安装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started/quickstart.html">快速入门</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/configuration.html">配置参考</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started/benchmarking.html">基准测试</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started/kv_cache_calculator.html">KV Cache 大小计算器</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../interacting_with_server.html">KV Cache 操作<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../cli/index.html">CLI 参考<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/frontend_dashboard.html">前端仪表板</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../recipes/index.html">配置示例<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../recipes/uniform_attention_models.html">Uniform Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/minimax_m2.html">MiniMax M2 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/hybrid_models.html">Hybrid Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/l2_storage/index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/l2_storage/supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../../mp/l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/l2_storage/file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/fs.html">文件系统</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/fs_native.html">FS（原生）</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/raw_block.html">原始块（Rust）</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/l2_storage/remote_and_distributed.html">远程与分布式<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../mp/l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mp/l2_storage/mock.html">模拟</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mp/l2_storage/fault_inject.html">Fault Inject</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../../mp/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../distributed_kv_cache.html">分布式 KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../mp/disaggregated_prefill.html">分离式预填充</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/p2p.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/coordinator.html">多服务器协调</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/kv_cache_management.html">KV Cache 管理</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../production/index.html">在生产环境中使用 LMCache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../mp/deployment.html">部署指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/kubernetes_deployment.html">Kubernetes 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/extending_lmcache/runtime_plugins.html">运行时插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/dynamo_coordination.html">Dynamo 集成</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/observability/index.html">可观察性<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../mp/observability/metrics.html">指标</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/observability/logs.html">日志记录</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mp/observability/traces.html">追踪</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../community/meetings.html">社区会议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../community/blogs.html">博客</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../kv_cache_optimizations/index.html">KV Cache 优化<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_optimizations/segmented_prefill.html">分段式预填充</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../developer_guide/index.html">开发者指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/contributing.html">贡献指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/extending_lmcache/native_connectors.html">添加原生后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/cli.html">扩展 CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/extending_http_api.html">扩展 HTTP API</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../extension/index.html">Extension Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../extension/cli.html">Extending the CLI</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../non_kv_cache/index.html">非 KV 缓存<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../non_kv_cache/encodings.html">编码</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../non_kv_cache/hidden_states.html">Hidden states</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../legacy/index.html">旧版（进程内模式）<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started/quickstart/index.html">更多示例</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">使用不同的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../async_loading.html">异步加载</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../caching_policies.html">使用不同的缓存策略</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../p2p_sharing.html">P2P KV Cache 共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../non_kv_cache/encoder_cache.html">编码器缓存</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../disaggregated_prefill/nixl/index.html">使用 NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../disaggregated_prefill/shared_storage.html">使用共享存储</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_optimizations/compression/index.html">压缩</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_optimizations/layerwise.html">逐层 KV 传输</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_management/index.html">LMCache 控制器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../kv_cache_optimizations/blending.html">混合</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api_reference/multimodality.html">多模态模型的 KV Cache 与 vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api_reference/storage_backends.html">添加新的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api_reference/dynamic_connector.html">vLLM 动态连接器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api_reference/configurations.html">配置 LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../internal_api_server/internal_api_server.html">内部 API 服务器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../controller/index.html">控制器 WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/observability/index.html">可观察性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/docker_deployment.html">Docker 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/performance_tuning.html">性能调优</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../production/kv_cache_events.html">KV Cache 事件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/architecture.html">架构概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/integration.html">集成</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/usage/index.html">使用数据模块</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/usage/basic_check.html">基本检查工具</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/extending_lmcache/storage_plugins.html">存储插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide/extending_lmcache/remote_storage_plugins.html">远程存储插件</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../../legacy/index.html">旧版（进程内模式）</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">使用不同的存储后端</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Redis</span>
+</nav>
+<div id="content" role="main">
+<section id="redis">
+<h1>Redis<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#redis"><span>#</span></a></h1>
+<section id="overview">
+<span id="redis-overview"></span><h2>概述<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>Redis 是一个内存中的键值存储，是 LMCache 中支持的远程 KV Cache 卸载选项之一。其他一些远程后端包括 <a class="reference internal" href="mooncake.html"><span class="doc">Mooncake</span></a>、<a class="reference internal" href="valkey.html"><span class="doc">Valkey</span></a> 和 <a class="reference internal" href="infinistore.html"><span class="doc">InfiniStore</span></a>。本指南将主要集中于单节点 Redis，但也会向您展示如何设置 Redis Sentinel 和 LMCache 服务器。</p>
+</section>
+<section id="two-ways-to-configure-lmcache-redis-offloading">
+<h2>配置 LMCache Redis 卸载的两种方式：<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#two-ways-to-configure-lmcache-redis-offloading" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#two-ways-to-configure-lmcache-redis-offloading'"><span>#</span></a></h2>
+<p><strong>1. 环境变量：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># 256 Tokens per KV Chunk</span>
+</span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_CHUNK_SIZE</span><span class="o">=</span><span class="m">256</span>
+</span><span id="line-3"><span class="c1"># Redis host</span>
+</span><span id="line-4"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_REMOTE_URL</span><span class="o">=</span><span class="s2">"redis://your-redis-host:6379"</span>
+</span><span id="line-5"><span class="c1"># Redis Sentinel hosts (for high availability)</span>
+</span><span id="line-6"><span class="c1"># export LMCACHE_REMOTE_URL="redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-7"><span class="c1"># LMCache Server host</span>
+</span><span id="line-8"><span class="c1"># export LMCACHE_REMOTE_URL="lm://localhost:65432"</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># How to serialize and deserialize KV cache on remote transmission</span>
+</span><span id="line-11"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_REMOTE_SERDE</span><span class="o">=</span><span class="s2">"naive"</span><span class="w"> </span><span class="c1"># "naive" (default) or "cachegen"</span>
+</span></code></pre></div>
+</div>
+<p><strong>2. 配置文件</strong>:</p>
+<p>通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE=your-lmcache-config.yaml</span></code> 传入</p>
+<p>示例 <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># 256 Tokens per KV Chunk</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="c1"># Redis host</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span><span id="line-5"><span class="c1"># Redis Sentinel hosts (for high availability)</span>
+</span><span id="line-6"><span class="c1"># remote_url: "redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-7"><span class="c1"># LMCache Server host</span>
+</span><span id="line-8"><span class="c1"># remote_url: "lm://localhost:65432"</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># How to serialize and deserialize KV cache on remote transmission</span>
+</span><span id="line-11"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span><span class="w"> </span><span class="c1"># "naive" (default) or "cachegen"</span>
+</span></code></pre></div>
+</div>
+<section id="dynamic-plugin-configuration">
+<h3>动态插件配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dynamic-plugin-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dynamic-plugin-configuration'"><span>#</span></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># 256 Tokens per KV Chunk</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="nt">remote_storage_plugins</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"redis"</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">remote_storage_plugin.redis.redis_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="remote-storage-explanation">
+<h2>远程存储说明：<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#remote-storage-explanation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#remote-storage-explanation'"><span>#</span></a></h2>
+<p>LMCache 的后端遵循自然内存层次结构，优先考虑 CPU RAM 卸载，然后是本地存储卸载，最后是远程卸载。</p>
+<p>为了让 LMCache 知道如何创建连接器以连接远程后端，您必须在 <code class="docutils literal notranslate"><span class="pre">remote_url</span></code> 中指定一个连接器类型，后面跟着一个或多个主机:端口对（具体取决于使用的连接器类型）。如果 <code class="docutils literal notranslate"><span class="pre">remote_url</span></code> 设置为 <code class="docutils literal notranslate"><span class="pre">None</span></code>，LMCache 将不会使用任何远程存储。</p>
+<p><code class="docutils literal notranslate"><span class="pre">remote_url</span></code> 的示例：</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"infinistore://127.0.0.1:12345"</span>
+</span><span id="line-5"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"mooncakestore://127.0.0.1:50051"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="remote-storage-example">
+<h2>远程存储示例<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#remote-storage-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#remote-storage-example'"><span>#</span></a></h2>
+<p id="redis-prerequisites"><strong>前提条件：</strong></p>
+<ul class="simple">
+<li><p>一台至少配备一个 GPU 的机器。您可以根据您的显存调整 vllm 实例的最大模型长度。</p></li>
+<li><p>安装了 vllm 和 LMCache (<a class="reference internal" href="../../getting_started/installation.html"><span class="doc">安装指南</span></a>)</p></li>
+<li><p>Hugging Face 访问 <code class="docutils literal notranslate"><span class="pre">meta-llama/Meta-Llama-3.1-8B-Instruct</span></code></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">HF_TOKEN</span><span class="o">=</span>your_hugging_face_token
+</span></code></pre></div>
+</div>
+<p><strong>第 0 步. 为此示例设置一个目录:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache-redis-offload-example
+</span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>lmcache-redis-offload-example
+</span></code></pre></div>
+</div>
+<p><strong>步骤 1. 启动 Redis 服务器：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Ubuntu / Debian Installation</span>
+</span><span id="line-2">sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>redis
+</span><span id="line-3">redis-server<span class="w"> </span><span class="c1"># starts the server on default port 6379</span>
+</span></code></pre></div>
+</div>
+<p>检查 Redis 是否正在运行：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>ping
+</span></code></pre></div>
+</div>
+<p>预期响应：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">PONG
+</span></code></pre></div>
+</div>
+<p><strong>可选：设置哨兵：</strong></p>
+<p>要通过 Redis 实现高可用性，您可以配置 Redis 哨兵来监控主节点，并在需要时自动切换到副本。</p>
+<p><strong>步骤 1a. 启动 Redis 副本：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-server<span class="w"> </span>--port<span class="w"> </span><span class="m">6380</span><span class="w"> </span>--replicaof<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="m">6379</span>
+</span></code></pre></div>
+</div>
+<p><strong>步骤 1b. 创建 Sentinel 配置文件：</strong></p>
+<p>创建三个文件：<code class="docutils literal notranslate"><span class="pre">sentinel-26379.conf</span></code>、<code class="docutils literal notranslate"><span class="pre">sentinel-26380.conf</span></code> 和 <code class="docutils literal notranslate"><span class="pre">sentinel-26381.conf</span></code>，内容如下：</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="na">port 26379  # Use 26380 and 26381 in other files respectively</span>
+</span><span id="line-2"><span class="na">sentinel monitor mymaster 127.0.0.1 6379 1</span>
+</span><span id="line-3"><span class="na">sentinel down-after-milliseconds mymaster 5000</span>
+</span><span id="line-4"><span class="na">sentinel failover-timeout mymaster 10000</span>
+</span><span id="line-5"><span class="na">sentinel parallel-syncs mymaster 1</span>
+</span></code></pre></div>
+</div>
+<p><strong>步骤 1c. 启动每个 Sentinel:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-server<span class="w"> </span>sentinel-26379.conf<span class="w"> </span>--sentinel
+</span><span id="line-2">redis-server<span class="w"> </span>sentinel-26380.conf<span class="w"> </span>--sentinel
+</span><span id="line-3">redis-server<span class="w"> </span>sentinel-26381.conf<span class="w"> </span>--sentinel
+</span></code></pre></div>
+</div>
+<p><strong>步骤 1d. 确保哨兵正在跟踪主节点：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span><span id="line-2">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26380</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span><span id="line-3">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26381</span><span class="w"> </span>sentinel<span class="w"> </span>master<span class="w"> </span>mymaster
+</span></code></pre></div>
+</div>
+<p><strong>步骤 1e. 验证一切是否正常运行:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">ps<span class="w"> </span>aux<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>redis
+</span></code></pre></div>
+</div>
+<p>您应该看到类似这样的内容（不包括注释）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"># Master (read-write)
+</span><span id="line-2">user      60816  0.1  0.0  69804 11132 ?        Sl   04:11   0:00 redis-server *:6379
+</span><span id="line-3"># Replica (read-only mirror of 6379)
+</span><span id="line-4">user      60903  0.1  0.0  80048 10928 ?        Sl   04:12   0:00 redis-server *:6380
+</span><span id="line-5"># Sentinels (monitor the master and hold quorums to decide when to failover)
+</span><span id="line-6">user      61301  0.1  0.0  67244 10944 ?        Sl   04:14   0:00 redis-server *:26379 [sentinel]
+</span><span id="line-7">user      61382  0.1  0.0  67244 10944 ?        Sl   04:14   0:00 redis-server *:26380 [sentinel]
+</span><span id="line-8">user      61462  0.1  0.0  67244 10944 ?        Sl   04:15   0:00 redis-server *:26381 [sentinel]
+</span></code></pre></div>
+</div>
+<p><strong>替代方案：启动 LMCache 服务器：</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache_server</span></code> CLI 入口点启动一个远程 LMCache 服务器，并附带 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 包。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache_server<span class="w"> </span>&lt;host&gt;<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;device&gt;
+</span><span id="line-2">
+</span><span id="line-3">lmcache_server<span class="w"> </span>localhost<span class="w"> </span><span class="m">65432</span>
+</span></code></pre></div>
+</div>
+<p>目前，唯一支持的设备是“cpu”（这是默认值，因此您无需指定它）。</p>
+<p><strong>步骤 2. 启动一个启用远程卸载的 vLLM 服务器：</strong></p>
+<p>创建一个名为 <code class="docutils literal notranslate"><span class="pre">redis-offload.yaml</span></code> 的 lmcache 配置文件。</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># disabling CPU RAM offload not recommended (on by default) but</span>
+</span><span id="line-2"><span class="c1"># if you want to confirm that the remote backend works by itself</span>
+</span><span id="line-3"><span class="c1"># local_cpu: false</span>
+</span><span id="line-4"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-5"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://localhost:6379"</span>
+</span><span id="line-6"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>如果您不想使用配置文件，请取消注释前面三个环境变量，然后注释掉下面的 <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># disabling CPU RAM offload not recommended (on by default) but</span>
+</span><span id="line-2"><span class="c1"># if you want to confirm that the remote backend works by itself</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_LOCAL_CPU=False \</span>
+</span><span id="line-4"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-5"><span class="c1"># LMCACHE_REMOTE_URL="redis://localhost:6379" \</span>
+</span><span id="line-6"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-7"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"redis-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-12"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>可选：哨兵</strong></p>
+<p>创建一个名为 <code class="docutils literal notranslate"><span class="pre">redis-sentinel-offload.yaml</span></code> 的 lmcache 配置文件</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis-sentinel://localhost:26379,localhost:26380,localhost:26381"</span>
+</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>如果您不想使用配置文件，请取消注释前面三个环境变量，然后注释掉下面的 <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-2"><span class="c1"># LMCACHE_REMOTE_URL="redis-sentinel://localhost:26379,localhost:26380,localhost:26381" \</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-4"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"redis-sentinel-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>替代方案：LMCache 服务器</strong></p>
+<p>创建一个名为 <code class="docutils literal notranslate"><span class="pre">lmcache-server-offload.yaml</span></code> 的 lmcache 配置文件</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span></code></pre></div>
+</div>
+<p>如果您不想使用配置文件，请取消注释前面三个环境变量，然后注释掉下面的 <code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
+</span><span id="line-2"><span class="c1"># LMCACHE_REMOTE_URL="lm://localhost:65432" \</span>
+</span><span id="line-3"><span class="c1"># LMCACHE_REMOTE_SERDE="naive"</span>
+</span><span id="line-4"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"lmcache-server-offload.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>步骤 3. 在 Redis 中查看和管理 LMCache 条目:</strong></p>
+<p>如果您想体验通过卸载和 KV Cache 重用来加速 TTFT 的速度，可以随意使用与 <a class="reference internal" href="cpu_ram.html"><span class="doc">CPU RAM</span></a> 和 <a class="reference internal" href="local_storage.html"><span class="doc">Local Storage</span></a> 中相同的 <code class="docutils literal notranslate"><span class="pre">query-twice.py</span></code> 脚本和 <code class="docutils literal notranslate"><span class="pre">man-bash.txt</span></code> 长上下文。</p>
+<p>在这里，我们将演示如何在 Redis 中查找和修改 LMCache KV 块条目。</p>
+<p>请注意，官方的 LMCache 方法来实现此 Redis 特定功能以查看和修改 LMCache KV 块可在 <a class="reference internal" href="../../kv_cache_management/index.html"><span class="doc">LMCache Controller</span></a> 中找到。</p>
+<p>这次让我们先用 <code class="docutils literal notranslate"><span class="pre">curl</span></code> 预热/填充 LMCache：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-X<span class="w"> </span><span class="s1">'POST'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="s1">'http://127.0.0.1:8000/v1/chat/completions'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">-H<span class="w"> </span><span class="s1">'accept: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4">-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-6"><span class="s1">    "model": "meta-llama/Llama-3.1-8B-Instruct",</span>
+</span><span id="line-7"><span class="s1">    "messages": [</span>
+</span><span id="line-8"><span class="s1">    {"role": "system", "content": "You are a helpful AI coding assistant."},</span>
+</span><span id="line-9"><span class="s1">    {"role": "user", "content": "Write a segment tree implementation in python"}</span>
+</span><span id="line-10"><span class="s1">    ],</span>
+</span><span id="line-11"><span class="s1">    "max_tokens": 150</span>
+</span><span id="line-12"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+<p>LMCache 使用结构化键格式在 Redis 中存储数据。每个键包含以下以分隔格式的信息：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">model_name@world_size@worker_id@chunk_hash
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><cite>model_name</cite>: 语言模型的名称</p></li>
+<li><p><cite>world_size</cite>: 分布式部署中工作节点的总数</p></li>
+<li><p><cite>worker_id</cite>: 创建此缓存条目的工作线程 ID，范围为 [0, world_size - 1]</p></li>
+<li><p><cite>chunk_hash</cite>: 令牌块的哈希值（基于 SHA-256）</p></li>
+</ul>
+<p>例如，一个典型的键可能看起来像：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@a1b2c3d4e5f6...
+</span></code></pre></div>
+</div>
+<p><strong>使用 redis-cli 查看 LMCache 数据</strong></p>
+<p>要检查和管理 Redis 中的 LMCache 条目：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span>
+</span></code></pre></div>
+</div>
+<p><strong>可选：如果您使用的是哨兵，首先找到主端口：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>sentinel<span class="w"> </span>get-master-addr-by-name<span class="w"> </span>mymaster
+</span><span id="line-2">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span>&lt;master-port&gt;
+</span></code></pre></div>
+</div>
+<p><strong>列出 LMCache 键：</strong></p>
+<p>注意（从键的后缀中）每个 LMCache KV 块有两个条目：<code class="docutils literal notranslate"><span class="pre">kv_bytes</span></code> 和 <code class="docutils literal notranslate"><span class="pre">metadata</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Show all keys</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*
+</span><span id="line-3"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-4"><span class="m">2</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span><span id="line-5"><span class="c1"># Show keys for a specific model</span>
+</span><span id="line-6">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*Llama-3.1-8B-Instruct*
+</span><span id="line-7"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-8"><span class="m">2</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span></code></pre></div>
+</div>
+<p><strong>删除 LMCache 条目：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span>*
+</span></code></pre></div>
+</div>
+<p>删除特定的 LMCache 条目：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>KEYS<span class="w"> </span>*
+</span><span id="line-3"><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span></code></pre></div>
+</div>
+<p><strong>检查键是否存在：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>EXISTS<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span></code></pre></div>
+</div>
+<p><strong>查看键的内存使用情况：</strong></p>
+<p>请注意，<code class="docutils literal notranslate"><span class="pre">kv_bytes</span></code> 条目正是持有 KV 块的内容，并且比 <code class="docutils literal notranslate"><span class="pre">metadata</span></code> 条目大得多。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>MEMORY<span class="w"> </span>USAGE<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...metadata"</span>
+</span><span id="line-2"><span class="o">(</span>integer<span class="o">)</span><span class="w"> </span><span class="m">198</span>
+</span><span id="line-3">localhost:6379&gt;<span class="w"> </span>MEMORY<span class="w"> </span>USAGE<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span><span id="line-4"><span class="o">(</span>integer<span class="o">)</span><span class="w"> </span><span class="m">7340200</span>
+</span></code></pre></div>
+</div>
+<p><strong>删除特定键:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Delete a single key</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>DEL<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct@1@0@02783dafec...kv_bytes"</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Delete all keys matching a pattern</span>
+</span><span id="line-2">redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>--scan<span class="w"> </span>--pattern<span class="w"> </span><span class="s2">"vllm@meta-llama/Llama-3.1-8B-Instruct*"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>DEL
+</span></code></pre></div>
+</div>
+<p><strong>实时监控 Redis:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">localhost:6379&gt;<span class="w"> </span>MONITOR
+</span></code></pre></div>
+</div>
+<p><strong>获取 LMCache 的 Redis 统计信息：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Get memory stats</span>
+</span><span id="line-2">localhost:6379&gt;<span class="w"> </span>INFO<span class="w"> </span>memory
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Get statistics about operations</span>
+</span><span id="line-5">localhost:6379&gt;<span class="w"> </span>INFO<span class="w"> </span>stats
+</span></code></pre></div>
+</div>
+<p>本教程使用 <code class="docutils literal notranslate"><span class="pre">redis-cli</span></code> 直接查看远程后端并操作 KV 块。</p>
+<p>请再次参考 <a class="reference internal" href="../../kv_cache_management/index.html"><span class="doc">LMCache Controller</span></a> 以获取在您的 LMCache 实例中控制和路由 KV Cache 的官方 LMCache 方法。</p>
+<p><strong>步骤 4. 清理：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">redis-cli<span class="w"> </span>shutdown
+</span><span id="line-2">
+</span><span id="line-3"><span class="c1"># Optional:</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Shut down the Redis replica (if started)</span>
+</span><span id="line-6">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">6380</span><span class="w"> </span>shutdown
+</span><span id="line-7">
+</span><span id="line-8"><span class="c1"># Shut down all Redis Sentinels (if started)</span>
+</span><span id="line-9">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26379</span><span class="w"> </span>shutdown
+</span><span id="line-10">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26380</span><span class="w"> </span>shutdown
+</span><span id="line-11">redis-cli<span class="w"> </span>-p<span class="w"> </span><span class="m">26381</span><span class="w"> </span>shutdown
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># (Optional) Remove temporary files or configs</span>
+</span><span id="line-14">rm<span class="w"> </span>-f<span class="w"> </span>sentinel-26379.conf<span class="w"> </span>sentinel-26380.conf<span class="w"> </span>sentinel-26381.conf
+</span><span id="line-15">
+</span><span id="line-16"><span class="c1"># Confirm no Redis processes are still running</span>
+</span><span id="line-17">ps<span class="w"> </span>aux<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>redis
+</span></code></pre></div>
+</div>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="nixl.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        Nixl
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="bigtable.html">
+        谷歌云 Bigtable
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">概述</a></li>
+<li><a :data-current="activeSection === '#two-ways-to-configure-lmcache-redis-offloading'" class="reference internal" href="#two-ways-to-configure-lmcache-redis-offloading">配置 LMCache Redis 卸载的两种方式：</a><ul>
+<li><a :data-current="activeSection === '#dynamic-plugin-configuration'" class="reference internal" href="#dynamic-plugin-configuration">动态插件配置</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#remote-storage-explanation'" class="reference internal" href="#remote-storage-explanation">远程存储说明：</a></li>
+<li><a :data-current="activeSection === '#remote-storage-example'" class="reference internal" href="#remote-storage-example">远程存储示例</a></li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../../_static/documentation_options.js?v=7d86a446"></script>
+<script src="../../_static/doctools.js?v=9bcbadda"></script>
+<script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../../_static/theme.js?v=073f68d9"></script>
+<script src="../../_static/translations.js?v=beaddf03"></script>
+<script src="../../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>
