@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Hidden States | LMCache</title>
-<meta content="Hidden States | LMCache" property="og:title"/>
-<meta content="Hidden States | LMCache" name="twitter:title"/>
+<title>Hidden states | LMCache</title>
+<meta content="Hidden states | LMCache" property="og:title"/>
+<meta content="Hidden states | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -223,7 +223,7 @@
 <ul class="current">
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">Non-KV Caching<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2"><a class="reference internal" href="encodings.html">Encodings</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Hidden States</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Hidden states</a></li>
 </ul>
 </li>
 </ul>
@@ -279,15 +279,120 @@
 </svg>
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Non-KV Caching</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Hidden States</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Hidden states</span>
 </nav>
 <div id="content" role="main">
 <section id="hidden-states">
-<h1>Hidden States<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hidden-states"><span>#</span></a></h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Hidden-state caching is <strong>in progress</strong>.</p>
+<h1>Hidden states<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hidden-states"><span>#</span></a></h1>
+<p>The <strong>HiddenStateStore</strong> caches per-token <em>hidden-state</em> tensors
+(intermediate activations from an inference forward pass) alongside
+the KV cache, keyed by the same chunk keys. It exists to support any
+system where a downstream stage needs an upstream stage’s
+intermediate activations for the cached prefix and cannot
+reconstruct them from KV alone — for example a vLLM-Omni
+<code class="docutils literal notranslate"><span class="pre">thinker</span> <span class="pre">-&gt;</span> <span class="pre">talker</span></code> pipeline, where the talker consumes the
+thinker’s hidden states for tokens whose KV the engine restored
+without re-running prefill.</p>
+<p>Without this store, restoring KV alone causes downstream stages to
+see truncated or wrong activations for the cached prefix. With it,
+the talker (or any equivalent consumer) gets a contiguous
+<code class="docutils literal notranslate"><span class="pre">[num_cached_prefix_tokens,</span> <span class="pre">hidden_dim]</span></code> tensor matching the KV
+prefix LMCache restored.</p>
+<section id="enabling-it">
+<h2>Enabling it<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#enabling-it" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#enabling-it'"><span>#</span></a></h2>
+<p>Set three keys in the LMCache YAML (<code class="docutils literal notranslate"><span class="pre">LMCACHE_CONFIG_FILE</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2">
+</span><span id="line-3"><span class="nt">enable_hidden_state_cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-4"><span class="nt">max_hidden_state_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">          </span><span class="c1"># GiB, pinned CPU pool size</span>
+</span><span id="line-5"><span class="c1"># hidden_state_layers: [0, 1]         # optional allowlist (see below)</span>
+</span></code></pre></div>
 </div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_hidden_state_cache</span></code> — master switch. When <code class="docutils literal notranslate"><span class="pre">false</span></code> (the
+default), <code class="docutils literal notranslate"><span class="pre">engine.hidden_state_store</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and integrators
+must skip all HS APIs on that worker.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_hidden_state_cpu_size</span></code> — pinned-CPU pool size in GiB,
+dedicated to hidden states. Must be <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code> when the store is
+enabled. The pool is <strong>independent</strong> of the KV pool; HS allocator
+pressure never evicts KV.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hidden_state_layers</span></code> — optional allowlist of <code class="docutils literal notranslate"><span class="pre">layer_idx</span></code>
+values accepted on <code class="docutils literal notranslate"><span class="pre">store_hidden_states</span></code>. Leave unset to accept
+all layer indices. Use this only when you know exactly which
+hook indices the worker writes (e.g. matching a fork’s hybrid
+multimodal hook list).</p></li>
+</ul>
+</section>
+<section id="using-it-from-a-worker">
+<h2>Using it from a worker<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-it-from-a-worker" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-it-from-a-worker'"><span>#</span></a></h2>
+<p>The store is exposed on the engine (not as engine-level methods):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">hs</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">hidden_state_store</span>
+</span><span id="line-2"><span class="k">if</span> <span class="n">hs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-3">    <span class="k">return</span>  <span class="c1"># HS caching disabled; nothing to do</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Store: hidden_states corresponds to token_ids[token_offset:]</span>
+</span><span id="line-6"><span class="n">hs</span><span class="o">.</span><span class="n">store_hidden_states</span><span class="p">(</span>
+</span><span id="line-7">    <span class="n">token_ids</span><span class="p">,</span>                <span class="c1"># full prefix (same as used for KV)</span>
+</span><span id="line-8">    <span class="n">hidden_states</span><span class="p">,</span>            <span class="c1"># [len(token_ids) - token_offset, hidden_dim]</span>
+</span><span id="line-9">    <span class="n">layer_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-10">    <span class="n">token_offset</span><span class="o">=</span><span class="n">num_computed</span><span class="p">,</span>  <span class="c1"># 0 for non-incremental callers</span>
+</span><span id="line-11"><span class="p">)</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Retrieve: contiguous prefix tensor or None on full miss</span>
+</span><span id="line-14"><span class="n">restored</span> <span class="o">=</span> <span class="n">hs</span><span class="o">.</span><span class="n">retrieve_hidden_states</span><span class="p">(</span><span class="n">token_ids</span><span class="p">,</span> <span class="n">layer_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<p>Notes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code> is always the <strong>full</strong> prefix so chunk keys align
+with KV exactly. <code class="docutils literal notranslate"><span class="pre">token_offset</span></code> lets incremental callers (such
+as vLLM-Omni) pass only the newly computed rows in
+<code class="docutils literal notranslate"><span class="pre">hidden_states</span></code> without zero-padding the already-cached prefix.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layer_idx</span></code> is the <em>storage</em> layer index. Callers that need
+several intermediate tensors per request (e.g. multimodal hook
+outputs <em>plus</em> the main text hidden state) call
+<code class="docutils literal notranslate"><span class="pre">store_hidden_states</span></code> once per distinct <code class="docutils literal notranslate"><span class="pre">layer_idx</span></code> and
+retrieve per layer on restore.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">retrieve_hidden_states</span></code> is <strong>prefix-strict</strong>: it returns the
+longest contiguous CPU <code class="docutils literal notranslate"><span class="pre">float32</span></code> prefix where every chunk has
+both KV and HS for the requested <code class="docutils literal notranslate"><span class="pre">layer_idx</span></code>, and stops at the
+first chunk where either is missing.</p></li>
+</ul>
+</section>
+<section id="eviction-model">
+<h2>Eviction model<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction-model" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction-model'"><span>#</span></a></h2>
+<p>The store implements a <strong>coupled-but-asymmetric</strong> eviction rule:</p>
+<ul class="simple">
+<li><p><strong>KV evicted ⇒ HS evicted.</strong> On every <code class="docutils literal notranslate"><span class="pre">retrieve_hidden_states</span></code>
+the store asks the KV <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> whether KV is still
+present for each chunk key. If KV is gone, the orphan HS entry
+is dropped and the returned prefix ends there.</p></li>
+<li><p><strong>HS evicted ⇏ KV evicted.</strong> Pressure on the HS pinned pool only
+evicts HS entries (its own LRU), never KV.</p></li>
+<li><p><strong>Restore stops at first missing HS or KV chunk</strong> for the
+requested layer.</p></li>
+</ul>
+</section>
+<section id="design-notes-user-visible">
+<h2>Design notes (user-visible)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#design-notes-user-visible" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#design-notes-user-visible'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>Separate pinned pool from KV.</strong> KV tensors and hidden-state
+tensors have heterogeneous shapes and dtypes, so they get
+independent allocators. <code class="docutils literal notranslate"><span class="pre">max_hidden_state_cpu_size</span></code> sizes the
+HS pool only.</p></li>
+<li><p><strong>Same chunk keys as KV.</strong> The store reuses the engine’s
+<code class="docutils literal notranslate"><span class="pre">TokenDatabase</span></code> so HS chunks share the exact <code class="docutils literal notranslate"><span class="pre">CacheEngineKey</span></code>
+as the matching KV chunks. This is what enables the lazy coupled
+eviction check.</p></li>
+<li><p><strong>Lazy coupled-eviction check.</strong> No callbacks or shared indices
+are required between KV and HS — the store asks
+<code class="docutils literal notranslate"><span class="pre">storage_manager.contains(key)</span></code> per chunk on retrieve. Works
+uniformly for any backend that implements <code class="docutils literal notranslate"><span class="pre">contains()</span></code>.</p></li>
+</ul>
+<p>The full internal design (class layering, code paths, follow-up
+work) lives at <code class="file docutils literal notranslate"><span class="pre">docs/design/v1/hidden_state_store.md</span></code> in the
+source tree.</p>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -306,7 +411,16 @@
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#enabling-it'" class="reference internal" href="#enabling-it">Enabling it</a></li>
+<li><a :data-current="activeSection === '#using-it-from-a-worker'" class="reference internal" href="#using-it-from-a-worker">Using it from a worker</a></li>
+<li><a :data-current="activeSection === '#eviction-model'" class="reference internal" href="#eviction-model">Eviction model</a></li>
+<li><a :data-current="activeSection === '#design-notes-user-visible'" class="reference internal" href="#design-notes-user-visible">Design notes (user-visible)</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
