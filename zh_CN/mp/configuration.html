@@ -516,7 +516,23 @@ size.</p></td>
 <section id="gds-l1-tier">
 <h2><a class="toc-backref" href="#id6" role="doc-backlink">GDS L1 层</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-l1-tier" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-l1-tier'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
-<p>可选功能。设置 <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> 可将 L1 存储介质从固定 DRAM 切换为通过 GPUDirect Storage（cuFile DMA）访问的 NVMe slab 文件。此时 CPU 固定 DRAM 层将被禁用，<code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> 用于设置 slab 大小。启用此选项后，请禁用字节数组 L2 适配器（GDS 层不为其提供可注册的 L1 内存缓冲区）。</p>
+<p>Opt-in. Setting <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> switches the L1 medium from pinned DRAM to
+an NVMe slab file accessed via GPUDirect Storage DMA. The CPU pinned-DRAM tier
+is then disabled, and <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> sizes the slab. Disable byte-array L2
+adapters when this is on (the GDS tier exposes no L1 memory buffer for them to
+register).</p>
+<p>The DMA path is selected automatically by platform: <strong>cuFile</strong>
+(<code class="docutils literal notranslate"><span class="pre">libcufile.so</span></code>) on NVIDIA and <strong>hipFile</strong> (<code class="docutils literal notranslate"><span class="pre">libhipfile.so</span></code>,
+<a class="reference external" href="https://github.com/ROCm/hipFile">ROCm/hipFile</a>) on AMD ROCm. The same
+flags apply to both; no configuration change is needed to switch vendors.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>AMD hipFile requires ROCm &gt;= 7.2.0. The zero-copy GPUDirect fast path
+additionally needs a kernel built with <code class="docutils literal notranslate"><span class="pre">CONFIG_PCI_P2PDMA</span></code>,
+<code class="docutils literal notranslate"><span class="pre">amdgpu-dkms</span> <span class="pre">&gt;=</span> <span class="pre">30.20.1</span></code>, and the slab on a local NVMe ext4/xfs
+filesystem; where those are unavailable hipFile transparently falls back to
+a host-bounce compatibility path (correct, but not zero-copy).</p>
+</div>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
