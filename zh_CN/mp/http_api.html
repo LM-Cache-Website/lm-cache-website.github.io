@@ -439,6 +439,15 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">/l2/keys</span></code></p></td>
 <td><p>分页当前驻留在一个 L2 适配器中的键（可选按 <code class="docutils literal notranslate"><span class="pre">model_name</span></code> 过滤）。</p></td>
 </tr>
+<tr class="row-odd"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch</span></code></p></td>
+<td><p>Warm a node's L1 by loading a token sequence's chunks from L2 ahead
+of traffic; returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>获取</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch/{request_id}</span></code></p></td>
+<td><p>Poll a submitted warm prefetch (<code class="docutils literal notranslate"><span class="pre">pending</span></code> / <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 <p><strong>配额管理</strong></p>
@@ -825,6 +834,12 @@
 <section id="l2-storage-management">
 <span id="mp-http-l2-keys-api"></span><h2>L2 存储管理<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-storage-management" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-storage-management'"><span>#</span></a></h2>
 <p>三个端点 — <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code>、<code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> 和 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> — 允许操作员枚举配置的 L2 后端，从一个后端清除键，并枚举当前驻留的内容。</p>
+<p>A further pair — <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code> — lets an operator (or the
+coordinator) <strong>pre-warm</strong> a node's L1 from L2 ahead of traffic and poll
+the load to completion; they are documented at the end of this section.
+The coordinator exposes an <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>-routed variant of both — see
+<a class="reference internal" href="coordinator.html"><span class="doc">多服务器协调</span></a>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> 和 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> 接受一个可选的 <code class="docutils literal notranslate"><span class="pre">?adapter=&lt;type_name&gt;</span></code> 查询参数，以针对特定的适配器。省略选择器以针对 <a href="#id1"><span class="problematic" id="id2">**</span></a>主**（第一个配置的）适配器——这是 v1 行为，为不关心多适配器部署的客户端保留。当多个适配器共享一个 <code class="docutils literal notranslate"><span class="pre">type_name</span></code> 时，第一个匹配的适配器将被选中。使用 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code> 来了解有效的选择器。</p>
 <p>这三者旨在用于操作员/管理员工作流程（“清除该用户的密钥”、“显示我所拥有的内容”、“在重命名后收集孤儿”）。它们**不**在推理数据路径上。</p>
 <p>L1 被故意不触及。从 L2 删除的键可能仍会从 L1 返回，直到 L1 逐出控制器自然过期；需要 L1+L2 清除的调用者应该自行分层 L1 失效或等待自然 L1 逐出。</p>
@@ -990,6 +1005,117 @@
 </span><span id="line-5"><span class="w">  </span><span class="nv">next</span><span class="o">=</span><span class="k">$(</span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$page</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.next_page_token // empty'</span><span class="k">)</span>
 </span><span id="line-6"><span class="w">  </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">"</span><span class="nv">$next</span><span class="s2">"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">break</span>
 </span><span id="line-7"><span class="k">done</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="post-l2-prefetch">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-l2-prefetch" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-l2-prefetch'"><span>#</span></a></h3>
+<p>Warm one node's L1 by loading a token sequence's chunks from L2 <strong>ahead</strong> of
+the requests that will use them, so the first request hits L1 instead of
+paying the L2 fetch inline. Useful when a workload is about to be routed to a
+node (a traffic shift, a hot shared system prompt).</p>
+<p>The caller describes content by <strong>token ids</strong>, never by internal cache keys (a
+key is a content hash plus a per-rank layout bitmap, which callers cannot
+construct). The server hashes the tokens, expands each chunk across the node's
+ranks, and submits a <em>warm</em> prefetch: loaded chunks are <strong>retained</strong>
+(permanent) and left <strong>unlocked</strong> — there is no downstream reader to pin them
+for, so a later real lookup takes its own lock. The call returns immediately;
+the load runs in the storage manager's own thread. It coalesces across all
+configured L2 adapters, so there is no <code class="docutils literal notranslate"><span class="pre">?adapter=</span></code> selector.</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 12.0%"/>
+<col style="width: 68.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The served model id, exactly as registered (e.g. <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-8B</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
+<td><p>int</p></td>
+<td><p>The value vLLM registered for the node's KV layout and rank fan-out
+(<code class="docutils literal notranslate"><span class="pre">1</span></code> for a single-GPU, TP=1 deployment).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<td><p>list[int]</p></td>
+<td><p>The prompt token ids. Must use the same tokenizer / special-token
+settings as the store, and contain at least one full <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> of
+tokens — only complete chunks are warmed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Per-tenant key isolation; must match the store (default <code class="docutils literal notranslate"><span class="pre">""</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">202</span> <span class="pre">Accepted</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"request_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123"</span><span class="p">,</span><span class="w"> </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"submitted"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>When the sequence is shorter than one chunk, nothing is submitted and there is
+no <code class="docutils literal notranslate"><span class="pre">request_id</span></code> to poll:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"noop"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">202</span></code>: submitted (or a <code class="docutils literal notranslate"><span class="pre">noop</span></code> as above).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> exceeds the per-request cap, or <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>
+violates its invariants.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">409</span></code>: no layout registered for <code class="docutils literal notranslate"><span class="pre">(model_name,</span> <span class="pre">world_size)</span></code> — the model
+has not allocated KV cache on this node yet (start vLLM first).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化。</p></li>
+</ul>
+<p><strong>示例:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/l2/prefetch<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"model_name": "Qwen/Qwen3-8B", "world_size": 1,</span>
+</span><span id="line-4"><span class="s1">         "token_ids": [101, 102, 103], "cache_salt": "user-a"}'</span>
+</span><span id="line-5"><span class="c1"># -&gt; {"request_id": "abc123", "chunks": 1, "status": "submitted"}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-l2-prefetch-request-id">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-l2-prefetch-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-l2-prefetch-request-id'"><span>#</span></a></h3>
+<p>Poll a submitted warm prefetch. The warm holds no lock, so the poll only
+reports progress; the first poll that observes completion drops the job
+(exactly-once), so a later poll for the same id returns <code class="docutils literal notranslate"><span class="pre">404</span></code>.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>) while the load runs:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>…and once complete:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"completed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"found_keys"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"total_keys"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">found_keys</span></code> / <code class="docutils literal notranslate"><span class="pre">total_keys</span></code> count only chunks <strong>loaded from L2</strong> by this
+request; chunks already resident in L1 are skipped at <code class="docutils literal notranslate"><span class="pre">reserve_write</span></code> and not
+counted, so a partially-resident warm undercounts by the resident chunk count
+(a cold request loads and counts everything). The warm uses the gap-tolerant
+<code class="docutils literal notranslate"><span class="pre">SPARSE</span></code> trim policy, so an already-resident chunk does not stop the rest from
+loading — it loads every not-yet-resident chunk and reports that count. Not
+counting the resident chunks is deliberate: an already-present entry may be a
+transient temporary from another lookup, so claiming it as warmed could mislead.</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: status reported (<code class="docutils literal notranslate"><span class="pre">pending</span></code> or <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: unknown <code class="docutils literal notranslate"><span class="pre">request_id</span></code> — already completed-and-consumed, or never
+submitted.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化。</p></li>
+</ul>
+<p><strong>示例:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/l2/prefetch/abc123
+</span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 1, "total_keys": 1}</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -1409,6 +1535,8 @@
 <li><a :data-current="activeSection === '#get-l2-adapters'" class="reference internal" href="#get-l2-adapters"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code></a></li>
 <li><a :data-current="activeSection === '#delete-l2'" class="reference internal" href="#delete-l2"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code></a></li>
 <li><a :data-current="activeSection === '#get-l2-keys'" class="reference internal" href="#get-l2-keys"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code></a></li>
+<li><a :data-current="activeSection === '#post-l2-prefetch'" class="reference internal" href="#post-l2-prefetch"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code></a></li>
+<li><a :data-current="activeSection === '#get-l2-prefetch-request-id'" class="reference internal" href="#get-l2-prefetch-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code></a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#quota-management'" class="reference internal" href="#quota-management">配额管理</a><ul>

@@ -566,9 +566,60 @@ the coordinator already knows the size from the original <code class="docutils l
 <td><p><code class="docutils literal notranslate"><span class="pre">/l2/status</span></code></p></td>
 <td><p>Total usage and per-salt breakdown.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch</span></code></p></td>
+<td><p>Submit a warm prefetch of a token sequence on one server; returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch/{instance_id}/{request_id}</span></code></p></td>
+<td><p>Poll a submitted warm prefetch (<code class="docutils literal notranslate"><span class="pre">pending</span></code> / <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 </section>
+</section>
+<section id="warm-prefetch-pre-loading-l1-from-l2">
+<h2>Warm prefetch (pre-loading L1 from L2)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#warm-prefetch-pre-loading-l1-from-l2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#warm-prefetch-pre-loading-l1-from-l2'"><span>#</span></a></h2>
+<p>Pre-warm one MP server’s L1 with the KV for a known prompt <strong>before</strong> the
+requests arrive, so the first request hits L1 instead of paying the L2 fetch
+inline – useful when you know a workload is about to be routed to a node (a
+traffic shift, a hot shared system prompt).</p>
+<p>You describe the content by <strong>token ids</strong> – the unit the cache speaks – never
+by internal cache keys, which you cannot construct (a key is a content hash
+plus a per-rank layout bitmap). The coordinator forwards the request to the
+named server, which hashes the tokens, expands them across the node’s ranks,
+loads the chunks from L2 into L1, and <strong>retains</strong> them so a later lookup hits.</p>
+<p>The submit returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>; poll the status endpoint until
+<code class="docutils literal notranslate"><span class="pre">completed</span></code>. The warm acquires no lock – the poll simply reports progress
+and clears the server-side job once the load finishes.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Submit: warm tenant "user-a"'s prompt on server "server-1"</span>
+</span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/l2/prefetch<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-5"><span class="s1">        "instance_id": "server-1",</span>
+</span><span id="line-6"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-7"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-8"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-9"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-10"><span class="s1">    }'</span>
+</span><span id="line-11"><span class="c1"># -&gt; {"instance_id": "server-1", "request_id": "abc123", "chunks": 12, "status": "submitted"}</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Poll until completed</span>
+</span><span id="line-14">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/l2/prefetch/server-1/abc123
+</span><span id="line-15"><span class="c1"># -&gt; {"status": "pending"}      # load still running</span>
+</span><span id="line-16"><span class="c1"># -&gt; {"status": "completed", "found_keys": 12, "total_keys": 12}</span>
+</span></code></pre></div>
+</div>
+<p>A few rules of thumb:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code> must match what was stored (same tokenizer / special tokens)
+and contain at least one full <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> of tokens – only complete
+chunks are warmed (a shorter sequence returns <code class="docutils literal notranslate"><span class="pre">status:</span> <span class="pre">"noop"</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code> selects the server’s KV layout and the per-rank fan-out
+(<code class="docutils literal notranslate"><span class="pre">1</span></code> for a single-GPU, TP=1 deployment).</p></li>
+<li><p><strong>Single-node scope</strong>: one <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> warms only that node’s shards.
+For a model sharded across multiple nodes, warm each node’s instance.</p></li>
+</ul>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -599,6 +650,7 @@ the coordinator already knows the size from the original <code class="docutils l
 <li><a :data-current="activeSection === '#l2-endpoint-summary'" class="reference internal" href="#l2-endpoint-summary">L2 endpoint summary</a></li>
 </ul>
 </li>
+<li><a :data-current="activeSection === '#warm-prefetch-pre-loading-l1-from-l2'" class="reference internal" href="#warm-prefetch-pre-loading-l1-from-l2">Warm prefetch (pre-loading L1 from L2)</a></li>
 </ul>
 </div>
 </aside>
