@@ -279,55 +279,301 @@
 <div id="content" role="main">
 <section id="extending-the-cli">
 <h1>扩展 CLI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#extending-the-cli"><span>#</span></a></h1>
-<p>本指南解释了如何向 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> CLI 添加新的子命令。</p>
+<p>LMCache's CLI is built on a plugin-style architecture that supports
+<strong>N-level nested subcommands</strong> with zero-registration auto-discovery.
+This guide explains how to add commands at each level.</p>
 <section id="architecture-overview">
 <h2>架构概述<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h2>
-<p>CLI 使用显式命令注册：</p>
+<p>The CLI framework is composed of two core classes in
+<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/base.py</span></code>:</p>
+<ul class="simple">
+<li><p><strong>BaseCommand</strong> — Abstract base class for leaf commands (commands that
+perform actual work).</p></li>
+<li><p><strong>CompositeCommand</strong> — A <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass for commands that
+only group sub-subcommands. It auto-discovers child commands by
+scanning the package where it is defined.</p></li>
+</ul>
+<p>The discovery mechanism uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to scan direct
+submodules of a package, then collects all concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclasses found in those modules. This means:</p>
 <ol class="arabic simple">
-<li><p>每个命令都是一个继承自 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 的类。</p></li>
-<li><p>命令在中央 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 注册表中被实例化和列出。</p></li>
-<li><p>在启动时，入口点迭代 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 并调用 <code class="docutils literal notranslate"><span class="pre">cmd.register(subparsers)</span></code> 来连接 argparse。</p></li>
+<li><p>Each command is a separate <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or a sub-package with an
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>).</p></li>
+<li><p>No manual registration is needed — just create the file and it is
+picked up automatically.</p></li>
+<li><p>Utility/helper modules should be prefixed with <code class="docutils literal notranslate"><span class="pre">_</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">_helpers.py</span></code>) so they are excluded from the scan.</p></li>
 </ol>
-<p><code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 是一个抽象类，具有一小组必需的方法（名称、帮助、参数注册和执行）。忘记其中任何一个在实例化时会引发 <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>。</p>
 </section>
-<section id="step-by-step-adding-a-new-command">
-<h2>逐步指南：添加新命令<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-by-step-adding-a-new-command" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-by-step-adding-a-new-command'"><span>#</span></a></h2>
-<p><strong>步骤 1.</strong> 创建一个新的命令类，继承 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>：</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-</span><span id="line-2"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<section id="directory-layout">
+<h2>Directory Layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#directory-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#directory-layout'"><span>#</span></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache/cli/commands/
+</span><span id="line-2">├── __init__.py            # Top-level discovery (scans this package)
+</span><span id="line-3">├── base.py                # BaseCommand &amp; CompositeCommand
+</span><span id="line-4">├── ping.py                # Level-1 leaf command
+</span><span id="line-5">├── server.py              # Level-1 leaf command
+</span><span id="line-6">├── quota/                 # Level-2 composite command
+</span><span id="line-7">│   ├── __init__.py        # QuotaCommand(CompositeCommand)
+</span><span id="line-8">│   ├── _helpers.py        # Utility (excluded from scan by _ prefix)
+</span><span id="line-9">│   ├── get_command.py     # Level-2 leaf: ``lmcache quota get``
+</span><span id="line-10">│   ├── set_command.py     # Level-2 leaf: ``lmcache quota set``
+</span><span id="line-11">│   └── ...
+</span><span id="line-12">└── tool/                  # Level-2 composite command
+</span><span id="line-13">    ├── __init__.py         # ToolCommand(CompositeCommand)
+</span><span id="line-14">    └── cache_simulator/    # Level-3 composite command
+</span><span id="line-15">        ├── __init__.py     # CacheSimulatorCommand(CompositeCommand)
+</span><span id="line-16">        ├── simulate_command.py   # Level-3 leaf: ``lmcache tool cache-simulator simulate``
+</span><span id="line-17">        └── sweep_command.py      # Level-3 leaf: ``lmcache tool cache-simulator sweep``
+</span></code></pre></div>
+</div>
+<section id="key-rules">
+<h3>Key Rules<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#key-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#key-rules'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass <strong>must</strong> be defined in the
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> of its package.</p></li>
+<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are <strong>excluded</strong> from auto-discovery
+(use this for helpers, utilities, internal logic).</p></li>
+<li><p>Each leaf command file should contain exactly one concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
+<li><p>The scan is <strong>non-recursive</strong> — each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only scans
+its own package's direct submodules.</p></li>
+</ul>
+</section>
+</section>
+<section id="level-1-adding-a-top-level-command">
+<h2>Level 1: Adding a Top-Level Command<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-1-adding-a-top-level-command" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-1-adding-a-top-level-command'"><span>#</span></a></h2>
+<p>A top-level command appears directly under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;command&gt;</span></code>.</p>
+<p><strong>Step 1</strong>: Create a new file under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/hello.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache hello`` — a simple greeting command."""</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
 </span><span id="line-5">
-</span><span id="line-6"><span class="k">class</span><span class="w"> </span><span class="nc">DescribeCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
 </span><span id="line-7">
-</span><span id="line-8">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="line-9">        <span class="k">return</span> <span class="s2">"describe"</span>
-</span><span id="line-10">
-</span><span id="line-11">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="line-12">        <span class="k">return</span> <span class="s2">"Describe a running KV cache server."</span>
-</span><span id="line-13">
-</span><span id="line-14">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-15">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--url"</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="line-16">                            <span class="n">help</span><span class="o">=</span><span class="s2">"LMCache HTTP server URL (e.g. http://localhost:8000)"</span><span class="p">)</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">HelloCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Print a greeting message."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"hello"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Print a greeting message."</span>
 </span><span id="line-17">
-</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-19">        <span class="c1"># Connect to server, gather info...</span>
-</span><span id="line-20">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Describe KV Cache"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
-</span><span id="line-21">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"status"</span><span class="p">,</span> <span class="s2">"Status"</span><span class="p">,</span> <span class="s2">"OK"</span><span class="p">)</span>
-</span><span id="line-22">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"chunks"</span><span class="p">,</span> <span class="s2">"Cached chunks"</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
-</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--name"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"World"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Who to greet."</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"greeting"</span><span class="p">,</span> <span class="s2">"Greeting"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Hello, </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">!"</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
-<p><strong>步骤 2.</strong> 将其实例添加到 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 注册表中：</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.describe</span><span class="w"> </span><span class="kn">import</span> <span class="n">DescribeCommand</span>
-</span><span id="line-2">
-</span><span id="line-3"><span class="n">ALL_COMMANDS</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">BaseCommand</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="line-4">    <span class="c1"># ... existing commands ...</span>
-</span><span id="line-5">    <span class="n">DescribeCommand</span><span class="p">(),</span>   <span class="c1"># add here</span>
-</span><span id="line-6"><span class="p">]</span>
+<p><strong>Step 2</strong>: Done! The command is automatically discovered. Test it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>hello<span class="w"> </span>--name<span class="w"> </span>LMCache
 </span></code></pre></div>
 </div>
-<p>就是这样 --- <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">describe</span> <span class="pre">--url</span> <span class="pre">http://localhost:8000</span></code> 现在可以使用了。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>This works because the top-level <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code>
+calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on its own package at import time. It
+uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to find all direct submodules (files and
+sub-packages), imports each one, and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The resulting list is stored in
+<code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> and registered with the argument parser in
+<code class="docutils literal notranslate"><span class="pre">main.py</span></code>. So adding a new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclass is all that is needed — no edits to any other file.</p>
+</div>
+</section>
+<section id="level-2-adding-a-subcommand-group">
+<h2>Level 2: Adding a Subcommand Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-group'"><span>#</span></a></h2>
+<p>A subcommand group appears as <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;group&gt;</span> <span class="pre">&lt;subcommand&gt;</span></code>.</p>
+<p><strong>Step 1</strong>: Create a package directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/
+</span></code></pre></div>
+</div>
+<p><strong>Step 2</strong>: Define the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup`` command group.</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="sd">Sub-subcommands are auto-discovered from modules in this package.</span>
+</span><span id="line-5"><span class="sd">"""</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeCommand</span>
+</span><span id="line-8">
+</span><span id="line-9">
+</span><span id="line-10"><span class="k">class</span><span class="w"> </span><span class="nc">MyGroupCommand</span><span class="p">(</span><span class="n">CompositeCommand</span><span class="p">):</span>
+</span><span id="line-11"><span class="w">    </span><span class="sd">"""Command group for my custom operations."""</span>
+</span><span id="line-12">
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-14">        <span class="k">return</span> <span class="s2">"mygroup"</span>
+</span><span id="line-15">
+</span><span id="line-16">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-17">        <span class="k">return</span> <span class="s2">"My custom command group."</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 3</strong>: Add leaf subcommands as separate files:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/foo_command.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup foo`` — do something."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">FooCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Execute the foo action."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"foo"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Execute the foo action."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--value"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Foo Result"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"result"</span><span class="p">,</span> <span class="s2">"Result"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 4</strong>: (Optional) Add helper modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> prefix:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/_utils.py</span>
+</span><span id="line-2"><span class="sd">"""Internal utilities for mygroup commands (not auto-discovered)."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="k">def</span><span class="w"> </span><span class="nf">compute_something</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-5">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">42</span>
+</span></code></pre></div>
+</div>
+<p><strong>Result</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>foo<span class="w"> </span>--value<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="level-2-adding-a-subcommand-to-an-existing-group">
+<h2>Level 2: Adding a Subcommand to an Existing Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-to-an-existing-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-to-an-existing-group'"><span>#</span></a></h2>
+<p>If a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> group already exists (e.g. <code class="docutils literal notranslate"><span class="pre">bench</span></code>, <code class="docutils literal notranslate"><span class="pre">quota</span></code>,
+<code class="docutils literal notranslate"><span class="pre">trace</span></code>), you can extend it by simply adding <strong>one new file</strong> — no other
+changes are required.</p>
+<p>For example, to add a new <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> subcommand under the
+existing <code class="docutils literal notranslate"><span class="pre">bench</span></code> group:</p>
+<p><strong>Step 1</strong>: Create a single file (or sub-package) in the existing group's
+package directory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/bench/l2_adapter_bench/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache bench l2`` subpackage."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">L2AdapterBenchCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Benchmark an L2 adapter (store / lookup / load)."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"l2"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Benchmark an L2 adapter (store / lookup / load)."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.bench.l2_adapter_bench.command</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-20">            <span class="n">add_l2_arguments</span><span class="p">,</span>
+</span><span id="line-21">        <span class="p">)</span>
+</span><span id="line-22">        <span class="n">add_l2_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>
+</span><span id="line-23">
+</span><span id="line-24">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-25">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.bench.l2_adapter_bench.command</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-26">            <span class="n">run_l2_adapter_bench</span><span class="p">,</span>
+</span><span id="line-27">        <span class="p">)</span>
+</span><span id="line-28">        <span class="n">run_l2_adapter_bench</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 2</strong>: Done! The parent <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>)
+auto-discovers the new subcommand at startup. No registration code, no
+imports to add, no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> edits in the parent.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>This works because <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> scans all direct
+submodules of its package each time the CLI starts. A new file (or
+sub-package) is automatically picked up as long as:</p>
+<ul class="simple">
+<li><p>It does <strong>not</strong> start with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></li>
+<li><p>It contains a concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
+</ul>
+</div>
+</section>
+<section id="level-n-arbitrary-nesting">
+<h2>Level N: Arbitrary Nesting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-n-arbitrary-nesting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-n-arbitrary-nesting'"><span>#</span></a></h2>
+<p>The framework supports <strong>unlimited nesting depth</strong>. Each level follows
+the same pattern: a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in a package's <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>
+auto-discovers its children.</p>
+<p><strong>Example</strong>: Adding a 3rd level under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">mygroup</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/nested/
+</span></code></pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/nested/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup nested`` — a nested command group."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeCommand</span>
+</span><span id="line-5">
+</span><span id="line-6">
+</span><span id="line-7"><span class="k">class</span><span class="w"> </span><span class="nc">NestedCommand</span><span class="p">(</span><span class="n">CompositeCommand</span><span class="p">):</span>
+</span><span id="line-8"><span class="w">    </span><span class="sd">"""Nested subcommand group."""</span>
+</span><span id="line-9">
+</span><span id="line-10">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-11">        <span class="k">return</span> <span class="s2">"nested"</span>
+</span><span id="line-12">
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-14">        <span class="k">return</span> <span class="s2">"A nested command group under mygroup."</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/nested/bar_command.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup nested bar`` — a deeply nested command."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">BarCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Execute the bar action at level 3."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"bar"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Execute the bar action."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--msg"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"deep"</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Bar Result"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"message"</span><span class="p">,</span> <span class="s2">"Message"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p><strong>Result</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>nested<span class="w"> </span>bar<span class="w"> </span>--msg<span class="w"> </span><span class="s2">"hello from level 3"</span>
+</span></code></pre></div>
+</div>
+<p>You can continue nesting indefinitely by repeating this pattern.</p>
+</section>
+<section id="real-world-example">
+<h2>Real-World Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#real-world-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#real-world-example'"><span>#</span></a></h2>
+<p>The existing <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">tool</span> <span class="pre">cache-simulator</span> <span class="pre">simulate</span></code> command
+demonstrates 3-level nesting:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache tool cache-simulator simulate
+</span><span id="line-2">│       │    │               └── Level-3 leaf (SimulateCommand in simulate_command.py)
+</span><span id="line-3">│       │    └── Level-2 composite (CacheSimulatorCommand in cache_simulator/__init__.py)
+</span><span id="line-4">│       └── Level-1 composite (ToolCommand in tool/__init__.py)
+</span><span id="line-5">└── CLI entry point
+</span></code></pre></div>
+</div>
 </section>
 <section id="using-the-metrics-system">
 <h2>使用指标系统<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-metrics-system" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-metrics-system'"><span>#</span></a></h2>
@@ -358,6 +604,52 @@
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">--format</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--output</span></code> 标志由 <code class="docutils literal notranslate"><span class="pre">BaseCommand.register()</span></code> 自动添加 — 子命令不需要手动添加它们。</p>
 </section>
+<section id="summary">
+<h2>Summary<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#summary'"><span>#</span></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Pattern</p></th>
+<th class="head"><p>How to add</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1 (top)</p></td>
+<td><p>Single <code class="docutils literal notranslate"><span class="pre">.py</span></code> file</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;name&gt;.py</span></code> with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclass.</p></td>
+</tr>
+<tr class="row-odd"><td><p>2+</p></td>
+<td><p>Package directory</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;group&gt;/__init__.py</span></code> with a
+<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass, then add leaf commands as sibling
+<code class="docutils literal notranslate"><span class="pre">.py</span></code> files.</p></td>
+</tr>
+<tr class="row-even"><td><p>N (any)</p></td>
+<td><p>Nested package</p></td>
+<td><p>Same as level 2, but inside an existing composite command's
+package. Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> scans only its own direct
+submodules.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<ul class="simple">
+<li><p>Prefix helper/utility modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> to exclude them from
+auto-discovery.</p></li>
+<li><p>Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> must be defined in its package's
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">name()</span></code> method determines the CLI token (e.g. <code class="docutils literal notranslate"><span class="pre">"foo"</span></code>
+becomes <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">...</span> <span class="pre">foo</span></code>).</p></li>
+</ul>
+</div>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -380,8 +672,17 @@
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">架构概述</a></li>
-<li><a :data-current="activeSection === '#step-by-step-adding-a-new-command'" class="reference internal" href="#step-by-step-adding-a-new-command">逐步指南：添加新命令</a></li>
+<li><a :data-current="activeSection === '#directory-layout'" class="reference internal" href="#directory-layout">Directory Layout</a><ul>
+<li><a :data-current="activeSection === '#key-rules'" class="reference internal" href="#key-rules">Key Rules</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#level-1-adding-a-top-level-command'" class="reference internal" href="#level-1-adding-a-top-level-command">Level 1: Adding a Top-Level Command</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-group'" class="reference internal" href="#level-2-adding-a-subcommand-group">Level 2: Adding a Subcommand Group</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-to-an-existing-group'" class="reference internal" href="#level-2-adding-a-subcommand-to-an-existing-group">Level 2: Adding a Subcommand to an Existing Group</a></li>
+<li><a :data-current="activeSection === '#level-n-arbitrary-nesting'" class="reference internal" href="#level-n-arbitrary-nesting">Level N: Arbitrary Nesting</a></li>
+<li><a :data-current="activeSection === '#real-world-example'" class="reference internal" href="#real-world-example">Real-World Example</a></li>
 <li><a :data-current="activeSection === '#using-the-metrics-system'" class="reference internal" href="#using-the-metrics-system">使用指标系统</a></li>
+<li><a :data-current="activeSection === '#summary'" class="reference internal" href="#summary">Summary</a></li>
 </ul>
 </div>
 </aside>
