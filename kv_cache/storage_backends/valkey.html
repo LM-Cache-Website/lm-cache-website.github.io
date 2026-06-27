@@ -333,6 +333,14 @@ Some other remote backends are <a class="reference internal" href="mooncake.html
 <td><p>None</p></td>
 <td><p>Database ID (standalone mode only, ignored in cluster mode).</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">valkey_enable_ttl</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Feature flag. When <code class="docutils literal notranslate"><span class="pre">true</span></code>, every key is written with an expiry (see <code class="docutils literal notranslate"><span class="pre">valkey_ttl_sec</span></code>) so Valkey/Redis <code class="docutils literal notranslate"><span class="pre">volatile-*</span></code> eviction policies can reclaim L2 cache keys once the node reaches <code class="docutils literal notranslate"><span class="pre">maxmemory</span></code>. When <code class="docutils literal notranslate"><span class="pre">false</span></code> (default), keys are persisted without a TTL.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">valkey_ttl_sec</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">86400</span></code></p></td>
+<td><p>Key TTL in seconds, applied only when <code class="docutils literal notranslate"><span class="pre">valkey_enable_ttl</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>. Must be a positive integer. If the flag is enabled but this key is omitted, it defaults to <code class="docutils literal notranslate"><span class="pre">86400</span></code> (24 hours).</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">request_timeout</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5.0</span></code></p></td>
 <td><p>GLIDE request timeout in seconds. Also used as the Python-side Future timeout.</p></td>
@@ -369,6 +377,23 @@ Some other remote backends are <a class="reference internal" href="mooncake.html
 </span><span id="line-5"><span class="w">  </span><span class="nt">valkey_username</span><span class="p">:</span><span class="w"> </span><span class="s">"Your</span><span class="nv"> </span><span class="s">username"</span>
 </span><span id="line-6"><span class="w">  </span><span class="nt">valkey_password</span><span class="p">:</span><span class="w"> </span><span class="s">"Your</span><span class="nv"> </span><span class="s">password"</span>
 </span><span id="line-7"><span class="w">  </span><span class="nt">valkey_database</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="standalone-mode-valkey-configuration-with-key-ttl-volatile-eviction">
+<h3>Standalone-mode Valkey Configuration with key TTL (volatile eviction)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#standalone-mode-valkey-configuration-with-key-ttl-volatile-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#standalone-mode-valkey-configuration-with-key-ttl-volatile-eviction'"><span>#</span></a></h3>
+<p>Enable a per-key TTL so a node configured with a <code class="docutils literal notranslate"><span class="pre">volatile-lru</span></code> /
+<code class="docutils literal notranslate"><span class="pre">volatile-lfu</span></code> eviction policy can reclaim L2 cache keys once it reaches
+<code class="docutils literal notranslate"><span class="pre">maxmemory</span></code>. Without a TTL such policies never evict the KV cache keys,
+which can choke the remote cache.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"valkey://&lt;your</span><span class="nv"> </span><span class="s">host&gt;:6379"</span>
+</span><span id="line-3"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span><span id="line-4"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">valkey_username</span><span class="p">:</span><span class="w"> </span><span class="s">"Your</span><span class="nv"> </span><span class="s">username"</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">valkey_password</span><span class="p">:</span><span class="w"> </span><span class="s">"Your</span><span class="nv"> </span><span class="s">password"</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">valkey_enable_ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">valkey_ttl_sec</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3600</span><span class="w">   </span><span class="c1"># keys expire after 1 hour</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -474,6 +499,7 @@ Some other remote backends are <a class="reference internal" href="mooncake.html
 <li><a :data-current="activeSection === '#standalone-mode'" class="reference internal" href="#standalone-mode">Standalone-mode</a></li>
 <li><a :data-current="activeSection === '#basic-valkey-configuration-standalone-mode'" class="reference internal" href="#basic-valkey-configuration-standalone-mode">Basic Valkey Configuration (Standalone-mode)</a></li>
 <li><a :data-current="activeSection === '#standalone-mode-valkey-configuration-with-database'" class="reference internal" href="#standalone-mode-valkey-configuration-with-database">Standalone-mode Valkey Configuration with database</a></li>
+<li><a :data-current="activeSection === '#standalone-mode-valkey-configuration-with-key-ttl-volatile-eviction'" class="reference internal" href="#standalone-mode-valkey-configuration-with-key-ttl-volatile-eviction">Standalone-mode Valkey Configuration with key TTL (volatile eviction)</a></li>
 <li><a :data-current="activeSection === '#cluster-mode'" class="reference internal" href="#cluster-mode">Cluster-mode</a></li>
 <li><a :data-current="activeSection === '#cluster-mode-valkey-configuration-endpoint'" class="reference internal" href="#cluster-mode-valkey-configuration-endpoint">Cluster-mode Valkey Configuration (Endpoint)</a></li>
 <li><a :data-current="activeSection === '#cluster-mode-valkey-configuration-nodes'" class="reference internal" href="#cluster-mode-valkey-configuration-nodes">Cluster-mode Valkey Configuration (Nodes)</a></li>
