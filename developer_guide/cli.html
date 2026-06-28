@@ -305,6 +305,104 @@ picked up automatically.</p></li>
 <code class="docutils literal notranslate"><span class="pre">_helpers.py</span></code>) so they are excluded from the scan.</p></li>
 </ol>
 </section>
+<section id="auto-discovery-mechanism">
+<h2>Auto-Discovery Mechanism<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-discovery-mechanism" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-discovery-mechanism'"><span>#</span></a></h2>
+<p>The CLI uses a unified <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> utility (defined in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/utils/subclass_discovery.py</span></code>) to locate command classes at
+every level.  Understanding the two discovery entry points is key to
+extending the CLI.</p>
+<section id="top-level-command-discovery">
+<h3>Top-Level Command Discovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
+<p>When the CLI starts, <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> calls
+<code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on its own package (<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>).
+This scans all <strong>direct submodules</strong> — both <code class="docutils literal notranslate"><span class="pre">.py</span></code> files and
+sub-packages (via their <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>) — and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py</span>
+</span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.utils.subclass_discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_subclasses</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="n">ALL_COMMANDS</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-5">    <span class="bp">cls</span><span class="p">()</span>
+</span><span id="line-6">    <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
+</span><span id="line-7">        <span class="vm">__name__</span><span class="p">,</span>                          <span class="c1"># "lmcache.cli.commands"</span>
+</span><span id="line-8">        <span class="n">BaseCommand</span><span class="p">,</span>
+</span><span id="line-9">        <span class="n">module_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"base"</span><span class="p">,</span>  <span class="c1"># skip base.py itself</span>
+</span><span id="line-10">    <span class="p">)</span>
+</span><span id="line-11"><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<p>The resulting <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> list is then registered with the root
+<code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser in <code class="docutils literal notranslate"><span class="pre">main.py</span></code>.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
+sub-package) placed under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> is automatically
+available as a top-level command — no manual imports or registration
+needed.</p>
+<p><strong>Filtering rules for top-level discovery:</strong></p>
+<ul class="simple">
+<li><p>The module named <code class="docutils literal notranslate"><span class="pre">base</span></code> is explicitly excluded (it defines the
+abstract base classes, not a command).</p></li>
+<li><p>Modules whose name starts with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded by the underlying
+<code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> convention (they are treated as private).</p></li>
+<li><p>Only <strong>concrete</strong> subclasses are collected — abstract classes are
+skipped.</p></li>
+<li><p>Only classes <strong>defined in</strong> the scanned module are collected (re-exports
+are ignored via <code class="docutils literal notranslate"><span class="pre">require_defined_in_module=True</span></code>).</p></li>
+</ul>
+</section>
+<section id="sub-command-discovery-compositecommand">
+<h3>Sub-Command Discovery (CompositeCommand)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sub-command-discovery-compositecommand" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sub-command-discovery-compositecommand'"><span>#</span></a></h3>
+<p>When a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> registers itself with the parser, its
+<code class="docutils literal notranslate"><span class="pre">register()</span></code> method calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on the package
+where the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass is defined (i.e. its own
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>’s package).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from CompositeCommand.register() in base.py</span>
+</span><span id="line-2"><span class="n">package</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span>   <span class="c1"># e.g. "lmcache.cli.commands.bench"</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
+</span><span id="line-5">    <span class="n">package</span><span class="p">,</span>
+</span><span id="line-6">    <span class="n">BaseCommand</span><span class="p">,</span>
+</span><span id="line-7">    <span class="n">module_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"_"</span><span class="p">),</span>
+</span><span id="line-8">    <span class="n">require_defined_in_module</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="line-9"><span class="p">):</span>
+</span><span id="line-10">    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">:</span>
+</span><span id="line-11">        <span class="k">continue</span>          <span class="c1"># skip the CompositeCommand itself</span>
+</span><span id="line-12">    <span class="n">inst</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+</span><span id="line-13">    <span class="n">inst</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>  <span class="c1"># register as a nested subcommand</span>
+</span></code></pre></div>
+</div>
+<p><strong>Filtering rules for sub-command discovery:</strong></p>
+<ul class="simple">
+<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded (use this prefix for helper
+files like <code class="docutils literal notranslate"><span class="pre">_utils.py</span></code>).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> class itself is skipped to avoid infinite
+recursion.</p></li>
+<li><p>Only concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclasses <strong>defined in</strong> the scanned
+module are collected.</p></li>
+<li><p>The scan is <strong>non-recursive</strong> (depth 1 only) — each
+<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only sees its own package’s direct children.</p></li>
+</ul>
+<p><strong>How nesting works:</strong> If a child is itself a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code>
+(defined in a sub-package’s <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>), its own <code class="docutils literal notranslate"><span class="pre">register()</span></code>
+method will in turn scan <em>its</em> package for further children.  This
+creates the recursive nesting without any special configuration.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">CLI startup
+</span><span id="line-2">└── __init__.py discovers ALL top-level commands
+</span><span id="line-3">    ├── ping.py          → PingCommand (leaf)
+</span><span id="line-4">    ├── bench/__init__.py → BenchCommand (composite)
+</span><span id="line-5">    │   └── BenchCommand.register() discovers:
+</span><span id="line-6">    │       ├── server_bench/__init__.py → ServerBenchCommand (leaf)
+</span><span id="line-7">    │       ├── l2_adapter_bench/__init__.py → L2AdapterBenchCommand (leaf)
+</span><span id="line-8">    │       └── engine_bench/__init__.py → EngineBenchCommand (leaf)
+</span><span id="line-9">    └── tool/__init__.py → ToolCommand (composite)
+</span><span id="line-10">        └── ToolCommand.register() discovers:
+</span><span id="line-11">            └── cache_simulator/__init__.py → CacheSimulatorCommand (composite)
+</span><span id="line-12">                └── CacheSimulatorCommand.register() discovers:
+</span><span id="line-13">                    ├── simulate_command.py     → SimulateCommand (leaf)
+</span><span id="line-14">                    ├── sweep_command.py        → SweepCommand (leaf)
+</span><span id="line-15">                    └── gen_dataset_command.py  → GenDatasetCommand (leaf)
+</span></code></pre></div>
+</div>
+</section>
+</section>
 <section id="directory-layout">
 <h2>Directory Layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#directory-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#directory-layout'"><span>#</span></a></h2>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache/cli/commands/
@@ -674,6 +772,11 @@ becomes <code class="docutils literal notranslate"><span class="pre">lmcache</sp
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a></li>
+<li><a :data-current="activeSection === '#auto-discovery-mechanism'" class="reference internal" href="#auto-discovery-mechanism">Auto-Discovery Mechanism</a><ul>
+<li><a :data-current="activeSection === '#top-level-command-discovery'" class="reference internal" href="#top-level-command-discovery">Top-Level Command Discovery</a></li>
+<li><a :data-current="activeSection === '#sub-command-discovery-compositecommand'" class="reference internal" href="#sub-command-discovery-compositecommand">Sub-Command Discovery (CompositeCommand)</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#directory-layout'" class="reference internal" href="#directory-layout">Directory Layout</a><ul>
 <li><a :data-current="activeSection === '#key-rules'" class="reference internal" href="#key-rules">Key Rules</a></li>
 </ul>
