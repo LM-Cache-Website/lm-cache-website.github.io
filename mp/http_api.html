@@ -303,10 +303,11 @@ diagnostics shared with the vLLM-embedded API server (<code class="docutils lite
 <code class="docutils literal notranslate"><span class="pre">/loglevel</span></code>, <code class="docutils literal notranslate"><span class="pre">/metrics</span></code>, <code class="docutils literal notranslate"><span class="pre">/threads</span></code>, <code class="docutils literal notranslate"><span class="pre">/periodic-threads*</span></code>,
 <code class="docutils literal notranslate"><span class="pre">/run_script</span></code>). Adding a new compatible module under
 <code class="docutils literal notranslate"><span class="pre">internal_api_server/common</span></code> requires no wiring changes on the MP side.</p></li>
-<li><p><strong>Re-exported version routes</strong> —
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_apis/version_api.py</span></code> re-exports the router
+<li><p><strong>Re-exported version routes</strong> — the basic-info group
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_apis/info_api.py</span></code> includes the router
 from <code class="docutils literal notranslate"><span class="pre">lmcache/v1/internal_api_server/vllm/version_api.py</span></code>, exposing
-<code class="docutils literal notranslate"><span class="pre">/version</span></code>, <code class="docutils literal notranslate"><span class="pre">/lmc_version</span></code>, and <code class="docutils literal notranslate"><span class="pre">/commit_id</span></code>.</p></li>
+<code class="docutils literal notranslate"><span class="pre">/version</span></code>, <code class="docutils literal notranslate"><span class="pre">/lmc_version</span></code>, and <code class="docutils literal notranslate"><span class="pre">/commit_id</span></code> alongside <code class="docutils literal notranslate"><span class="pre">/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/healthcheck</span></code> and <code class="docutils literal notranslate"><span class="pre">/status</span></code>.</p></li>
 </ul>
 </section>
 <section id="server-configuration">
@@ -352,11 +353,11 @@ compatibility with the vLLM-embedded API server.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Several handlers report failure in the response <strong>body</strong> rather than via a
-non-200 status code (e.g. <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> returns <code class="docutils literal notranslate"><span class="pre">200</span></code> with <code class="docutils literal notranslate"><span class="pre">ok=false</span></code>,
+non-200 status code (e.g. <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> returns <code class="docutils literal notranslate"><span class="pre">200</span></code> with <code class="docutils literal notranslate"><span class="pre">ok=false</span></code>,
 and <code class="docutils literal notranslate"><span class="pre">/periodic-threads-health</span></code> returns <code class="docutils literal notranslate"><span class="pre">200</span></code> with <code class="docutils literal notranslate"><span class="pre">healthy=false</span></code>).
 The error-field name is also not uniform: <code class="docutils literal notranslate"><span class="pre">/healthcheck</span></code> and
-<code class="docutils literal notranslate"><span class="pre">/clear-cache</span></code> use <code class="docutils literal notranslate"><span class="pre">reason</span></code> on failure, while <code class="docutils literal notranslate"><span class="pre">/status</span></code>, <code class="docutils literal notranslate"><span class="pre">/conf</span></code>,
-and <code class="docutils literal notranslate"><span class="pre">/kvcache/check</span></code> use <code class="docutils literal notranslate"><span class="pre">error</span></code>. Per-endpoint details below are
+<code class="docutils literal notranslate"><span class="pre">/cache/clear</span></code> use <code class="docutils literal notranslate"><span class="pre">reason</span></code> on failure, while <code class="docutils literal notranslate"><span class="pre">/status</span></code>, <code class="docutils literal notranslate"><span class="pre">/config</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">/cache/checksums</span></code> use <code class="docutils literal notranslate"><span class="pre">error</span></code>. Per-endpoint details below are
 authoritative.</p>
 </div>
 <p><strong>Liveness and health</strong></p>
@@ -403,55 +404,35 @@ authoritative.</p>
 prefetch jobs) for inspection and debugging.</p></td>
 </tr>
 <tr class="row-odd"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/conf</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/config</span></code></p></td>
 <td><p>Dump the merged server configuration objects (<code class="docutils literal notranslate"><span class="pre">mp</span></code>,
 <code class="docutils literal notranslate"><span class="pre">storage_manager</span></code>, <code class="docutils literal notranslate"><span class="pre">observability</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/config/adapters</span></code></p></td>
+<td><p>Enumerate the live cache adapters (<code class="docutils literal notranslate"><span class="pre">type_name</span></code>, <code class="docutils literal notranslate"><span class="pre">tier</span></code>, <code class="docutils literal notranslate"><span class="pre">primary</span></code>,
+<code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code>). Supersedes <code class="docutils literal notranslate"><span class="pre">/reconfigure/backends</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/version</span></code></p></td>
 <td><p>Combined version string (<code class="docutils literal notranslate"><span class="pre">"&lt;version&gt;-&lt;commit_id&gt;"</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p>GET</p></td>
+<tr class="row-even"><td><p>GET</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/lmc_version</span></code></p></td>
 <td><p>LMCache package version string.</p></td>
 </tr>
-<tr class="row-even"><td><p>GET</p></td>
+<tr class="row-odd"><td><p>GET</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/commit_id</span></code></p></td>
 <td><p>Build commit id.</p></td>
 </tr>
 </tbody>
 </table>
-<p><strong>Cache control</strong></p>
+<p><strong>Cache management</strong></p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 10.0%"/>
-<col style="width: 35.0%"/>
-<col style="width: 55.0%"/>
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Method</p></th>
-<th class="head"><p>Path</p></th>
-<th class="head"><p>Purpose</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>POST</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/clear-cache</span></code></p></td>
-<td><p>Force-clear all KV data in L1 (CPU) memory.</p></td>
-</tr>
-<tr class="row-odd"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/kvcache/check</span></code></p></td>
-<td><p>Compute MD5 checksums over the engine KV cache for a set of block IDs
-(diagnostics / round-trip integrity checks).</p></td>
-</tr>
-</tbody>
-</table>
-<p><strong>L2 storage management</strong></p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 10.0%"/>
-<col style="width: 35.0%"/>
-<col style="width: 55.0%"/>
+<col style="width: 38.0%"/>
+<col style="width: 52.0%"/>
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Method</p></th>
@@ -461,28 +442,32 @@ prefetch jobs) for inspection and debugging.</p></td>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/l2/adapters</span></code></p></td>
-<td><p>Enumerate every configured L2 adapter with its <code class="docutils literal notranslate"><span class="pre">type_name</span></code> and
-primary flag.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/objects</span></code></p></td>
+<td><p>Paginate objects resident in a tier/adapter (query: <code class="docutils literal notranslate"><span class="pre">tier</span></code>,
+<code class="docutils literal notranslate"><span class="pre">adapter</span></code>, <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">page_size</span></code>, <code class="docutils literal notranslate"><span class="pre">page_token</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p>DELETE</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/l2</span></code></p></td>
-<td><p>Delete a caller-supplied list of keys from one L2 adapter (default:
-primary; override with <code class="docutils literal notranslate"><span class="pre">?adapter=&lt;type_name&gt;</span></code>).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/objects</span></code></p></td>
+<td><p>Delete a caller-supplied list of object keys (body: <code class="docutils literal notranslate"><span class="pre">tier</span></code>,
+<code class="docutils literal notranslate"><span class="pre">adapter</span></code>, <code class="docutils literal notranslate"><span class="pre">keys</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/l2/keys</span></code></p></td>
-<td><p>Paginate keys currently resident in one L2 adapter (optionally
-filtered by <code class="docutils literal notranslate"><span class="pre">model_name</span></code>).</p></td>
+<tr class="row-even"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/prefetches</span></code></p></td>
+<td><p>Warm a node’s L1 by loading a token sequence from L2 ahead of traffic;
+returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/prefetches/{request_id}</span></code></p></td>
+<td><p>Poll a submitted warm prefetch (<code class="docutils literal notranslate"><span class="pre">pending</span></code> / <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/clear</span></code></p></td>
+<td><p>Force-clear a tier’s resident cache (body: <code class="docutils literal notranslate"><span class="pre">tier</span></code> = <code class="docutils literal notranslate"><span class="pre">l1</span></code>, <code class="docutils literal notranslate"><span class="pre">force</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p>POST</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch</span></code></p></td>
-<td><p>Warm a node’s L1 by loading a token sequence’s chunks from L2 ahead
-of traffic; returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>.</p></td>
-</tr>
-<tr class="row-even"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/l2/prefetch/{request_id}</span></code></p></td>
-<td><p>Poll a submitted warm prefetch (<code class="docutils literal notranslate"><span class="pre">pending</span></code> / <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/cache/checksums</span></code></p></td>
+<td><p>Compute MD5 checksums over KV cache blocks (diagnostics / round-trip
+integrity checks).</p></td>
 </tr>
 </tbody>
 </table>
@@ -533,14 +518,12 @@ of traffic; returns a <code class="docutils literal notranslate"><span class="pr
 </thead>
 <tbody>
 <tr class="row-even"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/backends</span></code></p></td>
-<td><p>List backend strings accepted by the reconfiguration routes.</p></td>
-</tr>
-<tr class="row-odd"><td><p>GET</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/status</span></code></p></td>
-<td><p>Report runtime-manageable L2 adapters for one backend type.</p></td>
+<td><p>Report runtime-manageable L2 adapters for one backend type. (To discover
+reconfigurable backends, use <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> and read the
+<code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> flag.)</p></td>
 </tr>
-<tr class="row-even"><td><p>POST</p></td>
+<tr class="row-odd"><td><p>POST</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/{operation}</span></code></p></td>
 <td><p>Apply one runtime reconfiguration operation to a backend adapter.</p></td>
 </tr>
@@ -629,6 +612,10 @@ instead for probes that also verify the engine is initialized.</p>
 </span><span id="line-4"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: server is alive (unconditional; does not touch the engine).</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/
 </span></code></pre></div>
@@ -655,6 +642,11 @@ not call into the engine to assert deeper liveness.</p>
 </span><span id="line-4"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: engine is wired onto <code class="docutils literal notranslate"><span class="pre">app.state</span></code> (healthy).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized (still starting up, or failed to initialize).</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/healthcheck
 </span></code></pre></div>
@@ -739,13 +731,18 @@ been initialized:</p>
 </span><span id="line-3"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: status snapshot returned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not yet initialized on <code class="docutils literal notranslate"><span class="pre">app.state</span></code>.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </span></code></pre></div>
 </div>
 </section>
-<section id="get-conf">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/conf</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-conf" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-conf'"><span>#</span></a></h3>
+<section id="get-config">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-config" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-config'"><span>#</span></a></h3>
 <p>Returns every server-side configuration object registered on
 <code class="docutils literal notranslate"><span class="pre">app.state.configs</span></code> (typically <code class="docutils literal notranslate"><span class="pre">mp</span></code>, <code class="docutils literal notranslate"><span class="pre">storage_manager</span></code> and
 <code class="docutils literal notranslate"><span class="pre">observability</span></code>) as a single indented JSON document. Dataclasses are
@@ -775,8 +772,46 @@ onto <code class="docutils literal notranslate"><span class="pre">app.state</spa
 </span><span id="line-3"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: configuration document returned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: configs not yet wired onto <code class="docutils literal notranslate"><span class="pre">app.state</span></code>.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/conf<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/config<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-config-adapters">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-config-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-config-adapters'"><span>#</span></a></h3>
+<p>Enumerate every L2 adapter the engine has loaded, in configuration
+order. Which storage backends are loaded is a configuration-inspection
+concern, so this lives in the config group rather than under <code class="docutils literal notranslate"><span class="pre">/cache</span></code>.
+This is the single live adapter listing; it supersedes the old
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/backends</span></code> (the reconfigurable backends are the
+<code class="docutils literal notranslate"><span class="pre">type_name</span></code> values whose <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> flag is <code class="docutils literal notranslate"><span class="pre">true</span></code>).</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span><span class="nt">"index"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"type_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"S3L2Adapter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"reconfigurable"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">},</span>
+</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"index"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"type_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dax"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"reconfigurable"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+</span><span id="line-5"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-6"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">primary</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code> only on the first entry. <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> is
+<code class="docutils literal notranslate"><span class="pre">true</span></code> for adapters that accept <code class="docutils literal notranslate"><span class="pre">/reconfigure</span></code> operations — pass that
+adapter’s <code class="docutils literal notranslate"><span class="pre">type_name</span></code> as the <code class="docutils literal notranslate"><span class="pre">{backend}</span></code> path parameter to
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code> and the reconfigure operations. An
+engine that has no L2 backends returns <code class="docutils literal notranslate"><span class="pre">{"adapters":</span> <span class="pre">[]}</span></code> (still <code class="docutils literal notranslate"><span class="pre">200</span></code> —
+the engine is initialized, it just has no L2 storage).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: success (including the no-adapters case).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/config/adapters<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </span></code></pre></div>
 </div>
 </section>
@@ -796,6 +831,14 @@ version metadata, each missing component falls back to the literal
 (<code class="docutils literal notranslate"><span class="pre">lmcache.utils.COMMIT_ID</span></code>); empty string <code class="docutils literal notranslate"><span class="pre">""</span></code> when unavailable.</p></li>
 </ul>
 <p>All three are unconditional <code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="s2">"0.3.1-ca79ea33"</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: version string returned (unconditional for all three routes).</p></li>
+</ul>
 <p><strong>Examples:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/version
 </span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/lmc_version
@@ -804,47 +847,68 @@ version metadata, each missing component falls back to the literal
 </div>
 </section>
 </section>
-<section id="cache-control">
-<h2>Cache Control<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
-<section id="post-clear-cache">
-<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/clear-cache</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-clear-cache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-clear-cache'"><span>#</span></a></h3>
-<p>Force-clears <strong>all</strong> KV cache data currently held in L1 (CPU) memory
-(delegates to the <code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code>).</p>
+<section id="cache-management">
+<h2>Cache Management<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-management" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-management'"><span>#</span></a></h2>
+<section id="post-cache-clear">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/clear</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-clear" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-clear'"><span>#</span></a></h3>
+<p>Force-clears <strong>all</strong> KV cache data currently held in a tier (today <code class="docutils literal notranslate"><span class="pre">l1</span></code>).</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This endpoint is destructive and bypasses read/write locks. In-flight
 store or prefetch operations may be corrupted. Use only when the
 server is idle, or when recovering from a known-bad cache state.</p>
 </div>
-<p>The request body is ignored.</p>
+<p><strong>Request body:</strong> optional – an absent (or empty) body uses the defaults below.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 68.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l1</span></code>). Tier to clear; today only <code class="docutils literal notranslate"><span class="pre">l1</span></code> is
+supported. Any other value returns <code class="docutils literal notranslate"><span class="pre">400</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">force</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">true</span></code>). Currently accepted but <strong>not honored</strong> –
+the clear always force-clears (active locks are ignored) regardless of
+this value.</p></td>
+</tr>
+</tbody>
+</table>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span>
-</span><span id="line-3"><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cleared"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l1"</span><span class="p">}}</span>
 </span></code></pre></div>
 </div>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">503</span> <span class="pre">Service</span> <span class="pre">Unavailable</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"engine not initialized"</span>
-</span><span id="line-4"><span class="p">}</span>
-</span></code></pre></div>
-</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: tier cleared.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: unsupported <code class="docutils literal notranslate"><span class="pre">tier</span></code> (anything other than <code class="docutils literal notranslate"><span class="pre">l1</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: server not initialized (<code class="docutils literal notranslate"><span class="pre">{"detail":</span> <span class="pre">"server</span> <span class="pre">not</span> <span class="pre">initialized"}</span></code>).</p></li>
+</ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/clear-cache
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># the body is optional; this clears the default tier (l1)</span>
+</span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/cache/clear
 </span></code></pre></div>
 </div>
 </section>
-<section id="get-kvcache-check">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/kvcache/check</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-kvcache-check" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-kvcache-check'"><span>#</span></a></h3>
+<section id="post-cache-checksums">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/checksums</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-checksums" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-checksums'"><span>#</span></a></h3>
 <p>Compute MD5 checksums over the engine KV cache, grouped <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> blocks
 per hashed chunk. MP mode addresses KV storage by block IDs natively (the
 same units used by <code class="docutils literal notranslate"><span class="pre">STORE</span></code> / <code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>), so the endpoint is fully
-block-centric: <code class="docutils literal notranslate"><span class="pre">block_ids</span></code> enumerates the target blocks and
-<code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> counts blocks per chunk. Intended for diagnostics and
-round-trip integrity checks from <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> — not for the
-inference data path.</p>
-<p><strong>Query parameters:</strong></p>
+block-centric. Intended for diagnostics and round-trip integrity checks from
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> – not for the inference data path.</p>
+<p><strong>Request body:</strong></p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 25.0%"/>
@@ -852,7 +916,7 @@ inference data path.</p>
 <col style="width: 60.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Name</p></th>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
 <th class="head"><p>Required</p></th>
 <th class="head"><p>Description</p></th>
 </tr>
@@ -860,7 +924,7 @@ inference data path.</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">block_ids</span></code></p></td>
 <td><p>yes</p></td>
-<td><p>Engine block IDs in mixed format, e.g. <code class="docutils literal notranslate"><span class="pre">"0,[2,5],8"</span></code>.</p></td>
+<td><p>Engine block IDs as a JSON list of ints, e.g. <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3]</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code></p></td>
 <td><p>yes</p></td>
@@ -893,8 +957,7 @@ otherwise a single aggregated digest per chunk over all layers.</p></td>
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: success.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">block_ids</span></code> missing/malformed, or <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> missing or
-non-positive.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">block_ids</span></code> empty, or <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> missing or non-positive.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> not registered, or the registered KV tensors
 are empty.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">501</span></code>: engine has no <code class="docutils literal notranslate"><span class="pre">cache_contexts</span></code>, or the KV format is not
@@ -903,110 +966,87 @@ are declined until a real need appears).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not yet initialized on <code class="docutils literal notranslate"><span class="pre">app.state</span></code>.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"http://localhost:8080/kvcache/check?block_ids=0,1,2,3&amp;chunk_size=2"</span>
-</span><span id="line-2">
-</span><span id="line-3">curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"http://localhost:8080/kvcache/check?block_ids=0,1,2,3&amp;chunk_size=2&amp;layerwise=true"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/cache/checksums<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"block_ids": [0, 1, 2, 3], "chunk_size": 2}'</span>
 </span></code></pre></div>
 </div>
 </section>
 </section>
-<section id="l2-storage-management">
-<span id="mp-http-l2-keys-api"></span><h2>L2 Storage Management<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-storage-management" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-storage-management'"><span>#</span></a></h2>
-<p>Three endpoints — <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code>, <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> — let operators enumerate the configured L2
-backends, purge keys from one, and enumerate what is currently
-resident.</p>
-<p>A further pair — <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code> and
-<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code> — lets an operator (or the
+<section id="cache-objects-and-prefetch">
+<span id="mp-http-l2-keys-api"></span><h2>Cache Objects And Prefetch<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-objects-and-prefetch" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-objects-and-prefetch'"><span>#</span></a></h2>
+<p>Two endpoints — <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> and <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> — let
+operators purge keys from a configured cache backend and enumerate what is
+currently resident. (To enumerate the configured backends themselves, use
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> in the config group.)</p>
+<p>A further pair — <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{request_id}</span></code> — lets an operator (or the
 coordinator) <strong>pre-warm</strong> a node’s L1 from L2 ahead of traffic and poll
 the load to completion; they are documented at the end of this section.
 The coordinator exposes an <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>-routed variant of both — see
 <a class="reference internal" href="coordinator.html"><span class="doc">Multi-Server Coordination</span></a>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> and <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> accept an optional
-<code class="docutils literal notranslate"><span class="pre">?adapter=&lt;type_name&gt;</span></code> query parameter to target a specific adapter.
-Omit the selector to target the <strong>primary</strong> (first-configured)
-adapter — the v1 behavior, preserved for clients that don’t care
-about multi-adapter deployments. When multiple adapters share a
-<code class="docutils literal notranslate"><span class="pre">type_name</span></code>, the first match wins. Use <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code> to learn
-the valid selectors.</p>
-<p>All three are intended for operator / admin workflows (“purge this
+<p>Both object endpoints take an optional <code class="docutils literal notranslate"><span class="pre">adapter</span></code> selector — a query
+parameter on <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> (<code class="docutils literal notranslate"><span class="pre">?adapter=&lt;type_name&gt;</span></code>) and a body
+field on <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code>. Omit it to target the <strong>primary</strong>
+(first-configured) adapter. When multiple adapters share a <code class="docutils literal notranslate"><span class="pre">type_name</span></code>,
+the first match wins. Use <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> to learn the valid
+selectors.</p>
+<p>Both are intended for operator / admin workflows (“purge this
 user’s keys”, “show me what’s resident”, “garbage-collect orphans
 after a rename”). They are <strong>not</strong> on the inference data path.</p>
 <p>L1 is intentionally not touched. Keys deleted from L2 may still return
 from L1 until the L1 eviction controller expires them naturally;
 callers that need an L1+L2 purge should layer their own L1
 invalidation or wait for natural L1 eviction.</p>
-<p>The coordinator’s eviction loop uses <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code> automatically (see
+<p>The coordinator’s eviction loop uses <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> automatically (see
 <a class="reference internal" href="coordinator.html"><span class="doc">Multi-Server Coordination</span></a> — “L2 usage tracking and eviction”); the
-<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code> endpoint also powers the coordinator’s startup
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> endpoint also powers the coordinator’s startup
 resync. Manual <code class="docutils literal notranslate"><span class="pre">curl</span></code> usage is reserved for ad-hoc operator
 actions and debugging.</p>
-<p>For full request/response semantics, pagination, error codes, and the
-event flow back to the coordinator, see the design doc at
-<code class="docutils literal notranslate"><span class="pre">docs/design/v1/multiprocess/l2_apis.md</span></code>.</p>
-<section id="get-l2-adapters">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-l2-adapters'"><span>#</span></a></h3>
-<p>Enumerate every L2 adapter the engine has loaded, in configuration
-order.</p>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-3"><span class="w">    </span><span class="p">{</span><span class="nt">"index"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"type_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"S3L2Adapter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
-</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"index"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"type_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"FSL2Adapter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
-</span><span id="line-5"><span class="w">  </span><span class="p">]</span>
-</span><span id="line-6"><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">primary</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code> only on the first entry. An engine that has
-no L2 backends returns <code class="docutils literal notranslate"><span class="pre">{"adapters":</span> <span class="pre">[]}</span></code> (still <code class="docutils literal notranslate"><span class="pre">200</span></code> — the
-engine is initialized, it just has no L2 storage).</p>
-<p><strong>HTTP status codes:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: success (including the no-adapters case).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
-</ul>
-<p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/l2/adapters<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
-</span></code></pre></div>
-</div>
-</section>
-<section id="delete-l2">
-<h3><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-l2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-l2'"><span>#</span></a></h3>
-<p>Delete a caller-supplied list of keys from one L2 adapter.
+<section id="delete-cache-objects">
+<h3><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-objects" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-objects'"><span>#</span></a></h3>
+<p>Delete a caller-supplied list of keys from one tier/adapter.
 Idempotent: keys absent from the adapter are skipped silently; keys
 currently locked by in-flight store/load tasks are skipped so the
 delete never corrupts an active transfer. The blocking adapter call is
 run off the event loop.</p>
-<p><strong>Query parameters:</strong></p>
+<p>Per-key successful deletions fire <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> on the
+adapter’s listeners — when the coordinator is wired (see
+<code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>), the deletions show up at the
+coordinator’s <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code> as <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"delete"</span></code> events. The
+coordinator’s eviction + usage trackers learn about the deletion from
+that event flow, not from the response of this call.</p>
+<p><strong>Request body:</strong></p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 18.0%"/>
-<col style="width: 13.0%"/>
-<col style="width: 69.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 68.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Name</p></th>
-<th class="head"><p>Default</p></th>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
 <th class="head"><p>Description</p></th>
 </tr>
 </thead>
 <tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">keys</span></code></p></td>
+<td><p>list[EncodedObjectKey]</p></td>
+<td><p>Required. The object keys to delete (schema below). The batch is
+capped at <code class="docutils literal notranslate"><span class="pre">10000</span></code> keys per request.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). The only supported value.</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
-<td><p>primary</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">type_name</span></code> of the target adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code>).
-Omit to target the primary (first-configured) adapter. First
-match wins when multiple adapters share a <code class="docutils literal notranslate"><span class="pre">type_name</span></code>.</p></td>
+<td><p>string</p></td>
+<td><p>Optional (default: primary, first-configured adapter). The
+<code class="docutils literal notranslate"><span class="pre">type_name</span></code> of the target adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>).</p></td>
 </tr>
 </tbody>
 </table>
-<p>Per-key successful deletions fire <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> on the
-adapter’s listeners — when the coordinator is wired (see
-<code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>), the deletions show up at the
-coordinator’s <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/events</span></code> as <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"delete"</span></code> events. The
-coordinator’s eviction + usage trackers learn about the deletion from
-that event flow, not from the response of this call.</p>
-<p><strong>Body:</strong> <code class="docutils literal notranslate"><span class="pre">{"keys":</span> <span class="pre">[EncodedObjectKey,</span> <span class="pre">...]}</span></code> where each
-<code class="docutils literal notranslate"><span class="pre">EncodedObjectKey</span></code> is</p>
+<p>Each <code class="docutils literal notranslate"><span class="pre">EncodedObjectKey</span></code> is</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"chunk_hash_hex"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123..."</span><span class="p">,</span>
 </span><span id="line-3"><span class="w">  </span><span class="nt">"model_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3-8B"</span><span class="p">,</span>
@@ -1017,8 +1057,7 @@ that event flow, not from the response of this call.</p>
 </span></code></pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">object_group_id</span></code> (default <code class="docutils literal notranslate"><span class="pre">0</span></code>) and <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> (default <code class="docutils literal notranslate"><span class="pre">""</span></code>)
-are optional for backward compatibility with older wire payloads. The
-batch is capped at <code class="docutils literal notranslate"><span class="pre">10000</span></code> keys per request.</p>
+are optional for backward compatibility with older wire payloads.</p>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
@@ -1035,13 +1074,13 @@ batch is capped at <code class="docutils literal notranslate"><span class="pre">
 <li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: batch exceeds the limit, or a key payload violates an
 <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> invariant (bad hex, <code class="docutils literal notranslate"><span class="pre">@</span></code> in <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, forbidden
 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> character).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: <code class="docutils literal notranslate"><span class="pre">?adapter=&lt;name&gt;</span></code> does not match any configured adapter.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: <code class="docutils literal notranslate"><span class="pre">adapter</span></code> (body) does not match any configured adapter.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: Pydantic-level body-shape failure (missing <code class="docutils literal notranslate"><span class="pre">keys</span></code>,
 wrong field types).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized, or no L2 adapters configured.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:8080/l2<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:8080/cache/objects<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
 </span><span id="line-4"><span class="s1">        "keys": [</span>
@@ -1052,8 +1091,8 @@ wrong field types).</p></li>
 </span></code></pre></div>
 </div>
 </section>
-<section id="get-l2-keys">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-l2-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-l2-keys'"><span>#</span></a></h3>
+<section id="get-cache-objects">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-cache-objects" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-cache-objects'"><span>#</span></a></h3>
 <p>Paginate keys currently resident in one L2 adapter.</p>
 <p><strong>Query parameters:</strong></p>
 <table class="docutils align-default">
@@ -1071,7 +1110,7 @@ wrong field types).</p></li>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
 <td><p>primary</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">type_name</span></code> of the target adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code>).
+<td><p><code class="docutils literal notranslate"><span class="pre">type_name</span></code> of the target adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>).
 Omit to target the primary (first-configured) adapter. First
 match wins when multiple adapters share a <code class="docutils literal notranslate"><span class="pre">type_name</span></code>.</p></td>
 </tr>
@@ -1130,7 +1169,7 @@ inherit the wrapped adapter’s behavior.</p></li>
 <p><strong>Example:</strong> paginate every key for a model.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">next</span><span class="o">=</span><span class="s2">""</span>
 </span><span id="line-2"><span class="k">while</span><span class="w"> </span>:<span class="p">;</span><span class="w"> </span><span class="k">do</span>
-</span><span id="line-3"><span class="w">  </span><span class="nv">page</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"http://localhost:8080/l2/keys?model_name=meta-llama/Llama-3-8B&amp;page_size=500&amp;page_token=</span><span class="nv">$next</span><span class="s2">"</span><span class="k">)</span>
+</span><span id="line-3"><span class="w">  </span><span class="nv">page</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"http://localhost:8080/cache/objects?model_name=meta-llama/Llama-3-8B&amp;page_size=500&amp;page_token=</span><span class="nv">$next</span><span class="s2">"</span><span class="k">)</span>
 </span><span id="line-4"><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$page</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.entries[]'</span>
 </span><span id="line-5"><span class="w">  </span><span class="nv">next</span><span class="o">=</span><span class="k">$(</span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$page</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.next_page_token // empty'</span><span class="k">)</span>
 </span><span id="line-6"><span class="w">  </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">"</span><span class="nv">$next</span><span class="s2">"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">break</span>
@@ -1138,8 +1177,8 @@ inherit the wrapped adapter’s behavior.</p></li>
 </span></code></pre></div>
 </div>
 </section>
-<section id="post-l2-prefetch">
-<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-l2-prefetch" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-l2-prefetch'"><span>#</span></a></h3>
+<section id="post-cache-prefetches">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-prefetches" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-prefetches'"><span>#</span></a></h3>
 <p>Warm one node’s L1 by loading a token sequence’s chunks from L2 <strong>ahead</strong> of
 the requests that will use them, so the first request hits L1 instead of
 paying the L2 fetch inline. Useful when a workload is about to be routed to a
@@ -1207,7 +1246,7 @@ has not allocated KV cache on this node yet (start vLLM first).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/l2/prefetch<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/cache/prefetches<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"model_name": "Qwen/Qwen3-8B", "world_size": 1,</span>
 </span><span id="line-4"><span class="s1">         "token_ids": [101, 102, 103], "cache_salt": "user-a"}'</span>
@@ -1215,8 +1254,8 @@ has not allocated KV cache on this node yet (start vLLM first).</p></li>
 </span></code></pre></div>
 </div>
 </section>
-<section id="get-l2-prefetch-request-id">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-l2-prefetch-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-l2-prefetch-request-id'"><span>#</span></a></h3>
+<section id="get-cache-prefetches-request-id">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{request_id}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-cache-prefetches-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-cache-prefetches-request-id'"><span>#</span></a></h3>
 <p>Poll a submitted warm prefetch. The warm holds no lock, so the poll only
 reports progress; the first poll that observes completion drops the job
 (exactly-once), so a later poll for the same id returns <code class="docutils literal notranslate"><span class="pre">404</span></code>.</p>
@@ -1244,7 +1283,7 @@ submitted.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/l2/prefetch/abc123
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/cache/prefetches/abc123
 </span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 1, "total_keys": 1}</span>
 </span></code></pre></div>
 </div>
@@ -1273,14 +1312,39 @@ other value (e.g. <code class="docutils literal notranslate"><span class="pre">"
 <section id="put-quota-cache-salt">
 <h3><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/quota/{cache_salt}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#put-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#put-quota-cache-salt'"><span>#</span></a></h3>
 <p>Create or update a quota.</p>
-<p><strong>Body:</strong> <code class="docutils literal notranslate"><span class="pre">{"limit_gb":</span> <span class="pre">&lt;float&gt;}</span></code> (required, finite, non-negative).</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (use <code class="docutils literal notranslate"><span class="pre">_default</span></code>
+for the empty salt; see the section intro).</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 68.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">limit_gb</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Required. The quota in GB. Must be finite and non-negative.</p></td>
+</tr>
+</tbody>
+</table>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"limit_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p><strong>Errors:</strong> <code class="docutils literal notranslate"><span class="pre">400</span></code> for malformed JSON, missing <code class="docutils literal notranslate"><span class="pre">limit_gb</span></code>, non-numeric
-<code class="docutils literal notranslate"><span class="pre">limit_gb</span></code>, <code class="docutils literal notranslate"><span class="pre">nan</span></code> / <code class="docutils literal notranslate"><span class="pre">inf</span></code>, or negative values; <code class="docutils literal notranslate"><span class="pre">503</span></code> if the
-engine is not initialized.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota set or updated.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: malformed JSON, missing <code class="docutils literal notranslate"><span class="pre">limit_gb</span></code>, non-numeric <code class="docutils literal notranslate"><span class="pre">limit_gb</span></code>,
+<code class="docutils literal notranslate"><span class="pre">nan</span></code> / <code class="docutils literal notranslate"><span class="pre">inf</span></code>, or a negative value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:8080/quota/alice<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
@@ -1291,6 +1355,8 @@ engine is not initialized.</p>
 <section id="get-quota-cache-salt">
 <h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-quota-cache-salt'"><span>#</span></a></h3>
 <p>Read the current quota and live usage for one <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (use <code class="docutils literal notranslate"><span class="pre">_default</span></code>
+for the empty salt).</p>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
@@ -1305,18 +1371,40 @@ engine is not initialized.</p>
 reflects whatever bytes are currently cached for that salt — those bytes
 will evict next cycle under <code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code>). This endpoint never returns
 <code class="docutils literal notranslate"><span class="pre">404</span></code> for an unknown salt.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota and usage returned (also when the salt has no registered
+quota — <code class="docutils literal notranslate"><span class="pre">exists</span></code> is then <code class="docutils literal notranslate"><span class="pre">false</span></code>; never <code class="docutils literal notranslate"><span class="pre">404</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/quota/alice<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</span></code></pre></div>
+</div>
 </section>
 <section id="delete-quota-cache-salt">
 <h3><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-quota-cache-salt'"><span>#</span></a></h3>
 <p>Remove a <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>’s quota entry. Any bytes still cached under this
 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> become over-budget on the next eviction cycle (effective
 limit drops to <code class="docutils literal notranslate"><span class="pre">0</span></code>) and will be evicted.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (use <code class="docutils literal notranslate"><span class="pre">_default</span></code>
+for the empty salt).</p>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"removed"</span><span class="p">}</span>
 </span></code></pre></div>
 </div>
 <p>When no quota was registered for the given <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>, the response
 is <code class="docutils literal notranslate"><span class="pre">{"cache_salt":</span> <span class="pre">"...",</span> <span class="pre">"status":</span> <span class="pre">"not_found"}</span></code> (still <code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota entry removed (<code class="docutils literal notranslate"><span class="pre">"removed"</span></code>) or none existed
+(<code class="docutils literal notranslate"><span class="pre">"not_found"</span></code>); never <code class="docutils literal notranslate"><span class="pre">404</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:8080/quota/alice
+</span></code></pre></div>
+</div>
 </section>
 <section id="get-quota">
 <h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-quota" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-quota'"><span>#</span></a></h3>
@@ -1332,6 +1420,15 @@ is <code class="docutils literal notranslate"><span class="pre">{"cache_salt":</
 </div>
 <p>Only <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> values with a <strong>registered</strong> quota appear; the empty
 salt is reported under the <code class="docutils literal notranslate"><span class="pre">_default</span></code> key.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota listing returned (<code class="docutils literal notranslate"><span class="pre">{"users":</span> <span class="pre">{}}</span></code> when none registered).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/quota<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</span></code></pre></div>
+</div>
 </section>
 </section>
 <section id="runtime-l2-reconfiguration">
@@ -1347,29 +1444,19 @@ lower-cased). Within a request body, <code class="docutils literal notranslate">
 <strong>backend-local</strong> — it indexes only the adapters of that backend, not the
 engine-wide adapter list. If an L2 adapter is wrapped by serde, the backend
 string is still the configured L2 adapter type, not the serde wrapper type.</p>
-<section id="get-reconfigure-backends">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/backends</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-reconfigure-backends" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-reconfigure-backends'"><span>#</span></a></h3>
-<p>List the backend strings that can be used in
-<code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/status</span></code> and
-<code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/{operation}</span></code>.</p>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"num_backends"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="line-4"><span class="w">  </span><span class="nt">"backends"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"dax"</span><span class="p">]</span>
-</span><span id="line-5"><span class="p">}</span>
-</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The backend strings accepted here are discovered via
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>: each adapter whose <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> flag is
+<code class="docutils literal notranslate"><span class="pre">true</span></code> can be addressed by its <code class="docutils literal notranslate"><span class="pre">type_name</span></code>.</p>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code> (and <code class="docutils literal notranslate"><span class="pre">backends</span></code> empty) when no reconfigurable
-adapter is present.</p>
-<p><strong>HTTP status codes:</strong> <code class="docutils literal notranslate"><span class="pre">200</span></code> on success; <code class="docutils literal notranslate"><span class="pre">503</span></code> if the engine is not
-initialized.</p>
-</section>
 <section id="get-reconfigure-backend-status">
 <h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-reconfigure-backend-status" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-reconfigure-backend-status'"><span>#</span></a></h3>
 <p>Report the runtime-manageable adapters for one backend type. Each adapter
 entry’s <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code> is rewritten to its <strong>backend-local</strong> 0-based index
 (the value to pass back in operation request bodies).</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">backend</span></code> — adapter <code class="docutils literal notranslate"><span class="pre">type_name</span></code> (normalized:
+stripped and lower-cased; discover valid values via <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>).</p>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
@@ -1383,8 +1470,16 @@ entry’s <code class="docutils literal notranslate"><span class="pre">adapter_i
 </div>
 <p>An unknown or empty backend returns <code class="docutils literal notranslate"><span class="pre">enabled=false</span></code>, <code class="docutils literal notranslate"><span class="pre">num_adapters=0</span></code>,
 <code class="docutils literal notranslate"><span class="pre">adapters=[]</span></code> (it is <strong>not</strong> a <code class="docutils literal notranslate"><span class="pre">404</span></code>).</p>
-<p><strong>HTTP status codes:</strong> <code class="docutils literal notranslate"><span class="pre">200</span></code> on success; <code class="docutils literal notranslate"><span class="pre">400</span></code> if <code class="docutils literal notranslate"><span class="pre">backend</span></code> is empty;
-<code class="docutils literal notranslate"><span class="pre">503</span></code> if the engine is not initialized.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: status returned (including the unknown-backend case above).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">backend</span></code> is empty.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/reconfigure/dax/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</span></code></pre></div>
+</div>
 </section>
 <section id="post-reconfigure-backend-operation">
 <h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/{operation}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-reconfigure-backend-operation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-reconfigure-backend-operation'"><span>#</span></a></h3>
@@ -1392,6 +1487,9 @@ entry’s <code class="docutils literal notranslate"><span class="pre">adapter_i
 a JSON object whose accepted fields depend on the backend and operation. The
 <code class="docutils literal notranslate"><span class="pre">200</span></code> response is whatever the storage manager’s
 <code class="docutils literal notranslate"><span class="pre">reconfigure_l2_adapter</span></code> returns (a backend-defined dict).</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">backend</span></code> (adapter <code class="docutils literal notranslate"><span class="pre">type_name</span></code>) and <code class="docutils literal notranslate"><span class="pre">operation</span></code>
+(e.g. <code class="docutils literal notranslate"><span class="pre">add</span></code> / <code class="docutils literal notranslate"><span class="pre">remove</span></code> / <code class="docutils literal notranslate"><span class="pre">resize</span></code> for <code class="docutils literal notranslate"><span class="pre">dax</span></code>). Both are normalized
+(stripped and lower-cased).</p>
 <p>For the <strong>generic</strong> path (any backend other than <code class="docutils literal notranslate"><span class="pre">dax</span></code>), the body carries
 <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code> plus any backend-specific fields, which are forwarded
 verbatim to the adapter.</p>
@@ -1427,6 +1525,17 @@ such as <code class="docutils literal notranslate"><span class="pre">"100GiB"</s
 <p><code class="docutils literal notranslate"><span class="pre">size</span></code> accepts an integer byte count or a string with a base-1024 unit
 suffix (<code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">kib</span></code>, <code class="docutils literal notranslate"><span class="pre">mib</span></code>, <code class="docutils literal notranslate"><span class="pre">gib</span></code>, <code class="docutils literal notranslate"><span class="pre">tib</span></code> and the <code class="docutils literal notranslate"><span class="pre">k</span></code>/<code class="docutils literal notranslate"><span class="pre">m</span></code>/<code class="docutils literal notranslate"><span class="pre">g</span></code>/<code class="docutils literal notranslate"><span class="pre">t</span></code>
 aliases), e.g. <code class="docutils literal notranslate"><span class="pre">"100GiB"</span></code>; it must resolve to a positive value.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<p>The body is the backend’s <code class="docutils literal notranslate"><span class="pre">reconfigure_l2_adapter</span></code> result (a backend-defined
+dict). A successful DAX <code class="docutils literal notranslate"><span class="pre">add</span></code> looks like:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"operation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"add"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"adapter_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"device"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"device_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/dax0.0"</span><span class="p">,</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"active"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">107374182400</span><span class="p">}</span>
+</span><span id="line-6"><span class="p">}</span>
+</span></code></pre></div>
+</div>
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: success (body is the storage manager’s reconfigure result).</p></li>
@@ -1437,6 +1546,12 @@ an invalid <code class="docutils literal notranslate"><span class="pre">size</sp
 an unknown field in a DAX body — DAX bodies reject extras).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
 </ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/dax0.0", "size": "100GiB"}'</span>
+</span></code></pre></div>
+</div>
 <p>See <a class="reference internal" href="../kv_cache/storage_backends/dax.html"><span class="doc">Device-DAX (/dev/dax)</span></a> for detailed request examples,
 mode semantics, and validation guidance.</p>
 </section>
@@ -1449,6 +1564,12 @@ mode semantics, and validation guidance.</p>
 <code class="docutils literal notranslate"><span class="pre">prometheus_client</span></code> registry (<code class="docutils literal notranslate"><span class="pre">Content-Type:</span> <span class="pre">text/plain</span></code>). Scrape this
 directly from Prometheus. See <a class="reference internal" href="observability/index.html"><span class="doc">Observability</span></a> for the list of
 exported metrics.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>, <code class="docutils literal notranslate"><span class="pre">text/plain</span></code>): the Prometheus exposition-format
+metrics body.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: metrics returned.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/metrics
 </span></code></pre></div>
@@ -1463,6 +1584,10 @@ benchmarks — not for production.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">ok
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: metrics reset.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/metrics/reset
 </span></code></pre></div>
@@ -1501,6 +1626,14 @@ case-insensitive). Returns <code class="docutils literal notranslate"><span clas
 </table>
 <p>Passing <code class="docutils literal notranslate"><span class="pre">level</span></code> without <code class="docutils literal notranslate"><span class="pre">logger_name</span></code> matches none of the modes and
 returns <code class="docutils literal notranslate"><span class="pre">200</span></code> with a <code class="docutils literal notranslate"><span class="pre">null</span></code> body.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>, <code class="docutils literal notranslate"><span class="pre">text/plain</span></code>): one <code class="docutils literal notranslate"><span class="pre">&lt;logger&gt;:</span> <span class="pre">&lt;LEVEL&gt;</span></code> line per
+registered logger (list mode), a single <code class="docutils literal notranslate"><span class="pre">&lt;logger&gt;:</span> <span class="pre">&lt;LEVEL&gt;</span></code> (read mode), or a
+confirmation of the updated level (set mode).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: levels listed, read, or set (also the <code class="docutils literal notranslate"><span class="pre">null</span></code>-body case above).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">level</span></code> is not a known logging level.</p></li>
+</ul>
 <p><strong>Examples:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># list everything</span>
 </span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/loglevel
@@ -1543,6 +1676,12 @@ Useful for live debugging of hangs or runaway workers.</p>
 <p>The response contains live stack traces and can disclose internal code
 paths and state. Restrict network access to this endpoint in production.</p>
 </div>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>, <code class="docutils literal notranslate"><span class="pre">text/plain</span></code>): a total-thread-count summary followed
+by each thread’s name, <code class="docutils literal notranslate"><span class="pre">ident</span></code>, and current stack trace.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: thread listing returned.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span><span class="s1">'http://localhost:8080/threads?name=periodic'</span>
 </span></code></pre></div>
@@ -1605,6 +1744,11 @@ level plus per-thread status (last run timestamp, latest summary, etc.).</p>
 </span><span id="line-27"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: snapshot returned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: unknown <code class="docutils literal notranslate"><span class="pre">level</span></code> filter.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span><span class="s1">'http://localhost:8080/periodic-threads?level=critical'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </span></code></pre></div>
@@ -1613,8 +1757,32 @@ level plus per-thread status (last run timestamp, latest summary, etc.).</p>
 <section id="get-periodic-threads-thread-name">
 <h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/periodic-threads/{thread_name}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-periodic-threads-thread-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-periodic-threads-thread-name'"><span>#</span></a></h3>
 <p>Detailed status for a single periodic thread (the same per-thread object
-shown in the <code class="docutils literal notranslate"><span class="pre">threads</span></code> list above). Returns <code class="docutils literal notranslate"><span class="pre">404</span></code> with
-<code class="docutils literal notranslate"><span class="pre">{"error":</span> <span class="pre">"Thread</span> <span class="pre">not</span> <span class="pre">found:</span> <span class="pre">&lt;name&gt;"}</span></code> if the name is unknown.</p>
+shown in the <code class="docutils literal notranslate"><span class="pre">threads</span></code> list above).</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">thread_name</span></code> — the registered periodic thread name.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"storage-flush"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"level"</span><span class="p">:</span><span class="w"> </span><span class="s2">"critical"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"interval"</span><span class="p">:</span><span class="w"> </span><span class="mf">5.0</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"is_running"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">"last_run_ago"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.2</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"total_runs"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">"failed_runs"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">"success_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">100.0</span><span class="p">,</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">"last_summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">}</span>
+</span><span id="line-12"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">404</span> <span class="pre">Not</span> <span class="pre">Found</span></code>) when the name is unknown:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Thread not found: &lt;name&gt;"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: thread status returned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: no periodic thread with that name.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/periodic-threads/storage-flush<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </span></code></pre></div>
@@ -1649,6 +1817,11 @@ is conveyed by the <code class="docutils literal notranslate"><span class="pre">
 </span><span id="line-12"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: health reported — always <code class="docutils literal notranslate"><span class="pre">200</span></code>, even when unhealthy
+(the <code class="docutils literal notranslate"><span class="pre">healthy</span></code> boolean is <code class="docutils literal notranslate"><span class="pre">false</span></code>).</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/periodic-threads-health
 </span></code></pre></div>
@@ -1665,6 +1838,18 @@ piped directly to a terminal.</p>
 secrets injected via the environment. There is no redaction or auth —
 restrict network access to this endpoint in production.</p>
 </div>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>, <code class="docutils literal notranslate"><span class="pre">text/plain</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"HOME"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/root"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"LMCACHE_LOG_LEVEL"</span><span class="p">:</span><span class="w"> </span><span class="s2">"INFO"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"PATH"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/usr/local/bin:/usr/bin"</span>
+</span><span id="line-5"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: environment dump returned.</p></li>
+</ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/env
 </span></code></pre></div>
@@ -1681,6 +1866,8 @@ imported; the running FastAPI <code class="docutils literal notranslate"><span c
 If the script assigns a variable named <code class="docutils literal notranslate"><span class="pre">result</span></code>, its stringified value is
 returned; otherwise the body is <code class="docutils literal notranslate"><span class="pre">"Script</span> <span class="pre">executed</span> <span class="pre">successfully"</span></code>
 (<code class="docutils literal notranslate"><span class="pre">Content-Type:</span> <span class="pre">text/plain</span></code>).</p>
+<p><strong>Request body:</strong> multipart form data with a single <code class="docutils literal notranslate"><span class="pre">script</span></code> file field
+(the Python source to execute). Not a JSON body.</p>
 <div class="admonition danger">
 <p class="admonition-title">Danger</p>
 <p>This endpoint runs caller-supplied code in-process. The restricted
@@ -1688,6 +1875,8 @@ builtins are <strong>not</strong> a security sandbox — combined with the injec
 <code class="docutils literal notranslate"><span class="pre">app</span></code> object and any allowed imports, treat it as full remote code
 execution. Never expose it on an untrusted network.</p>
 </div>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>, <code class="docutils literal notranslate"><span class="pre">text/plain</span></code>): the stringified <code class="docutils literal notranslate"><span class="pre">result</span></code> variable if
+the script assigns one, otherwise <code class="docutils literal notranslate"><span class="pre">Script</span> <span class="pre">executed</span> <span class="pre">successfully</span></code>.</p>
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: script executed.</p></li>
@@ -1723,8 +1912,8 @@ module name is listed in <code class="docutils literal notranslate"><span class=
 for modules that require vLLM-specific <code class="docutils literal notranslate"><span class="pre">app.state</span></code> attributes; the
 list is currently empty). A handler that lives under
 <code class="docutils literal notranslate"><span class="pre">internal_api_server/vllm/</span></code> can still be surfaced on the MP server by
-adding a thin re-export shim under <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> (as
-<code class="docutils literal notranslate"><span class="pre">version_api.py</span></code> does for the version endpoints).</p>
+including its router from a group module under <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> (as
+<code class="docutils literal notranslate"><span class="pre">info_api.py</span></code> does for the version endpoints).</p>
 <p>When adding a new endpoint, please also add a matching section to this
 page documenting the endpoint’s purpose, request/response schema, and
 an example <code class="docutils literal notranslate"><span class="pre">curl</span></code> invocation.</p>
@@ -1760,21 +1949,21 @@ an example <code class="docutils literal notranslate"><span class="pre">curl</sp
 </li>
 <li><a :data-current="activeSection === '#inspection-and-status'" class="reference internal" href="#inspection-and-status">Inspection and Status</a><ul>
 <li><a :data-current="activeSection === '#get-status'" class="reference internal" href="#get-status"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code></a></li>
-<li><a :data-current="activeSection === '#get-conf'" class="reference internal" href="#get-conf"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/conf</span></code></a></li>
+<li><a :data-current="activeSection === '#get-config'" class="reference internal" href="#get-config"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config</span></code></a></li>
+<li><a :data-current="activeSection === '#get-config-adapters'" class="reference internal" href="#get-config-adapters"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code></a></li>
 <li><a :data-current="activeSection === '#get-version-get-lmc-version-get-commit-id'" class="reference internal" href="#get-version-get-lmc-version-get-commit-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/version</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/lmc_version</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/commit_id</span></code></a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#cache-control'" class="reference internal" href="#cache-control">Cache Control</a><ul>
-<li><a :data-current="activeSection === '#post-clear-cache'" class="reference internal" href="#post-clear-cache"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/clear-cache</span></code></a></li>
-<li><a :data-current="activeSection === '#get-kvcache-check'" class="reference internal" href="#get-kvcache-check"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/kvcache/check</span></code></a></li>
+<li><a :data-current="activeSection === '#cache-management'" class="reference internal" href="#cache-management">Cache Management</a><ul>
+<li><a :data-current="activeSection === '#post-cache-clear'" class="reference internal" href="#post-cache-clear"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/clear</span></code></a></li>
+<li><a :data-current="activeSection === '#post-cache-checksums'" class="reference internal" href="#post-cache-checksums"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/checksums</span></code></a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#l2-storage-management'" class="reference internal" href="#l2-storage-management">L2 Storage Management</a><ul>
-<li><a :data-current="activeSection === '#get-l2-adapters'" class="reference internal" href="#get-l2-adapters"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/adapters</span></code></a></li>
-<li><a :data-current="activeSection === '#delete-l2'" class="reference internal" href="#delete-l2"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/l2</span></code></a></li>
-<li><a :data-current="activeSection === '#get-l2-keys'" class="reference internal" href="#get-l2-keys"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/keys</span></code></a></li>
-<li><a :data-current="activeSection === '#post-l2-prefetch'" class="reference internal" href="#post-l2-prefetch"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/l2/prefetch</span></code></a></li>
-<li><a :data-current="activeSection === '#get-l2-prefetch-request-id'" class="reference internal" href="#get-l2-prefetch-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/l2/prefetch/{request_id}</span></code></a></li>
+<li><a :data-current="activeSection === '#cache-objects-and-prefetch'" class="reference internal" href="#cache-objects-and-prefetch">Cache Objects And Prefetch</a><ul>
+<li><a :data-current="activeSection === '#delete-cache-objects'" class="reference internal" href="#delete-cache-objects"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code></a></li>
+<li><a :data-current="activeSection === '#get-cache-objects'" class="reference internal" href="#get-cache-objects"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code></a></li>
+<li><a :data-current="activeSection === '#post-cache-prefetches'" class="reference internal" href="#post-cache-prefetches"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></li>
+<li><a :data-current="activeSection === '#get-cache-prefetches-request-id'" class="reference internal" href="#get-cache-prefetches-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{request_id}</span></code></a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#quota-management'" class="reference internal" href="#quota-management">Quota Management</a><ul>
@@ -1785,7 +1974,6 @@ an example <code class="docutils literal notranslate"><span class="pre">curl</sp
 </ul>
 </li>
 <li><a :data-current="activeSection === '#runtime-l2-reconfiguration'" class="reference internal" href="#runtime-l2-reconfiguration">Runtime L2 Reconfiguration</a><ul>
-<li><a :data-current="activeSection === '#get-reconfigure-backends'" class="reference internal" href="#get-reconfigure-backends"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/backends</span></code></a></li>
 <li><a :data-current="activeSection === '#get-reconfigure-backend-status'" class="reference internal" href="#get-reconfigure-backend-status"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code></a></li>
 <li><a :data-current="activeSection === '#post-reconfigure-backend-operation'" class="reference internal" href="#post-reconfigure-backend-operation"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/{operation}</span></code></a></li>
 </ul>
