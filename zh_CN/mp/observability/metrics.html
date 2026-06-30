@@ -279,8 +279,37 @@
 <div id="content" role="main">
 <section id="metrics">
 <h1>指标<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#metrics"><span>#</span></a></h1>
-<p>指标通过 OpenTelemetry 计数器收集，并通过进程内的 <strong>Prometheus</strong> <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> HTTP 端点导出（默认端口 9090）。当设置 <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> 时，指标也会推送到 OTel 收集器。</p>
-<p>所有指标使用 <code class="docutils literal notranslate"><span class="pre">lmcache_mp.</span></code> 前缀（多进程）。在 Prometheus 中，点被转换为下划线，计数器会添加 <code class="docutils literal notranslate"><span class="pre">_total</span></code> 后缀（例如 <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_read_chunks_total</span></code>）。</p>
+<p>Metrics are collected via OpenTelemetry and made available to Prometheus in
+one of two ways, depending on whether <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> is set:</p>
+<ul>
+<li><p><strong>Pull mode (default, no collector).</strong> When <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> is <em>not</em>
+set, the server publishes a Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint that Prometheus
+scrapes directly.</p>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>, <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> is served by the <strong>HTTP frontend</strong>
+on <code class="docutils literal notranslate"><span class="pre">--http-port</span></code> (default <strong>8080</strong>), e.g.
+<code class="docutils literal notranslate"><span class="pre">http://&lt;host&gt;:8080/metrics</span></code> — <strong>not</strong> on <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code>.
+<code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code> is <em>ignored</em> by <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>: the standalone
+Prometheus HTTP server is disabled because the HTTP frontend already
+serves <code class="docutils literal notranslate"><span class="pre">/metrics</span></code>. The frontend-less entrypoints
+(<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.multiprocess.server</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span>
+<span class="pre">replay</span></code>) have no HTTP frontend, so <em>they</em> serve <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> on
+<code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code> (default 9090). See
+<a class="reference internal" href="index.html#mp-obs-metrics-endpoint"><span class="std std-ref">Where /metrics lives</span></a> for the full breakdown. Either way,
+<code class="docutils literal notranslate"><span class="pre">/metrics</span></code> is empty until the first store/retrieve — drive some
+traffic before you go looking.</p>
+</div>
+</li>
+<li><p><strong>Push mode (OTLP).</strong> When <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> is set, metrics are pushed to
+an OpenTelemetry Collector, which re-exposes them for Prometheus to scrape.
+See <a class="reference internal" href="index.html"><span class="doc">可观察性</span></a> for the bundled Collector + Prometheus + Grafana stack.</p></li>
+</ul>
+<p>All metrics use the <code class="docutils literal notranslate"><span class="pre">lmcache_mp.</span></code> prefix (multiprocess). On Prometheus,
+dots are converted to underscores and counters get a <code class="docutils literal notranslate"><span class="pre">_total</span></code> suffix
+(e.g. <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_read_chunks_total</span></code>); histograms gain a unit suffix
+plus <code class="docutils literal notranslate"><span class="pre">_sum</span></code> / <code class="docutils literal notranslate"><span class="pre">_count</span></code> / <code class="docutils literal notranslate"><span class="pre">_bucket</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l2_store_throughput_GB_per_second_sum</span></code>).</p>
 <section id="global-resource-attributes">
 <span id="mp-observability-resource"></span><h2>全局资源属性<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#global-resource-attributes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#global-resource-attributes'"><span>#</span></a></h2>
 <p>每个由 MP 服务器导出的指标和跨度都携带在启动时构建的资源级属性。这些属性标识生成遥测的进程，并与每个指标的属性（如 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）正交。</p>
@@ -633,6 +662,27 @@
 </tr>
 </tbody>
 </table>
+<p><strong>PromQL for average throughput (GB/s), per backend:</strong></p>
+<div class="highlight-promql notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># L1 -&gt; L2 store throughput, averaged over the last minute, per l2_name:</span>
+</span><span id="line-2"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">l2_name</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_l2_store_throughput_GB_per_second_sum</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-3"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">l2_name</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_l2_store_throughput_GB_per_second_count</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># L2 -&gt; L1 load throughput (same shape):</span>
+</span><span id="line-6"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">l2_name</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_l2_load_throughput_GB_per_second_sum</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-7"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">l2_name</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_l2_load_throughput_GB_per_second_count</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">))</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">l2_store_throughput</span></code> populates whenever chunks are written to L2.
+<code class="docutils literal notranslate"><span class="pre">l2_load_throughput</span></code> only populates when chunks are read <strong>from L2 into
+L1</strong> — i.e. on a prefetch load after the entry has aged out of L1. If your
+working set fits entirely in L1 (common with small models or a large
+<code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>), lookups are served from L1 and the load histogram stays
+empty even though store throughput is non-zero. Drive enough distinct data
+to force L1 eviction, or restart the server between store and load passes,
+to exercise the L2 load path.</p>
+</div>
 </section>
 <section id="engine-counters">
 <h2>引擎计数器<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine-counters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine-counters'"><span>#</span></a></h2>
@@ -749,13 +799,19 @@
 </section>
 <section id="prometheus-scrape-configuration">
 <h2>Prometheus 抓取配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h2>
-<p>将 LMCache 服务器添加为 Prometheus 抓取目标：</p>
+<p>In <strong>pull mode</strong> (no <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code>), point Prometheus at the server's
+HTTP-frontend port — <code class="docutils literal notranslate"><span class="pre">--http-port</span></code>, default <strong>8080</strong> — not at
+<code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">scrape_configs</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-mp"</span>
 </span><span id="line-3"><span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
-</span><span id="line-4"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"&lt;lmcache-host&gt;:9090"</span><span class="p p-Indicator">]</span>
+</span><span id="line-4"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"&lt;lmcache-host&gt;:8080"</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># --http-port, NOT --prometheus-port</span>
 </span></code></pre></div>
 </div>
+<p>In <strong>push mode</strong> (<code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code> set), the server does not expose
+<code class="docutils literal notranslate"><span class="pre">/metrics</span></code> itself; scrape the OpenTelemetry Collector's Prometheus exporter
+instead. The bundled stack in <code class="docutils literal notranslate"><span class="pre">examples/observability/</span></code> wires this up for
+you — see <a class="reference internal" href="index.html"><span class="doc">可观察性</span></a>.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
