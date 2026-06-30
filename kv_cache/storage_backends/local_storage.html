@@ -300,7 +300,8 @@ memory of the same machine that is running inference.</p>
 </span><span id="line-10">
 </span><span id="line-11"><span class="c1"># Disable page cache</span>
 </span><span id="line-12"><span class="c1"># This should be turned on for better performance if most local CPU memory is used</span>
-</span><span id="line-13"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{'</span>use_odirect<span class="s1">': True}'</span>
+</span><span id="line-13"><span class="c1"># Optionally tune the number of I/O worker threads (default: 4)</span>
+</span><span id="line-14"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{"use_odirect": true, "disk_io_threads": 8}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>2. Configuration File</strong>:</p>
@@ -314,7 +315,10 @@ memory of the same machine that is running inference.</p>
 </span><span id="line-7">
 </span><span id="line-8"><span class="c1"># Disable page cache</span>
 </span><span id="line-9"><span class="c1"># This should be turned on for better performance if most local CPU memory is used</span>
-</span><span id="line-10"><span class="nt">extra_config</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="s">'use_odirect'</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">True</span><span class="p p-Indicator">}</span>
+</span><span id="line-10"><span class="c1"># Optionally tune the number of I/O worker threads (default: 4)</span>
+</span><span id="line-11"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">use_odirect</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">disk_io_threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -397,7 +401,7 @@ flowchart TB
         end
 
         subgraph Worker["&lt;b&gt;LocalDiskWorker&lt;/b&gt;"]
-            PQ["&lt;b&gt;Priority Queue Executor (4 workers)&lt;/b&gt;"]
+            PQ["&lt;b&gt;Priority Queue Executor (configurable workers, default 4)&lt;/b&gt;"]
             P0["&lt;b&gt;Priority 0: PREFETCH&lt;/b&gt;"]
             P1["&lt;b&gt;Priority 1: DELETE&lt;/b&gt;"]
             P2["&lt;b&gt;Priority 2: PUT&lt;/b&gt;"]
@@ -425,7 +429,7 @@ flowchart TB
 <ul class="simple">
 <li><p><strong>Metadata Dictionary</strong>: Maps each <code class="docutils literal notranslate"><span class="pre">CacheEngineKey</span></code> to its disk metadata (file path, size, shape, dtype, pin status)</p></li>
 <li><p><strong>Cache Policy</strong>: Configurable eviction policy (LRU, LFU, FIFO, or MRU) that tracks access patterns and decides which entries to evict when space is needed</p></li>
-<li><p><strong>LocalDiskWorker</strong>: Async task executor with priority queue - prefetch tasks run first (priority 0), then deletes (priority 1), then saves (priority 2)</p></li>
+<li><p><strong>LocalDiskWorker</strong>: Async task executor with priority queue - prefetch tasks run first (priority 0), then deletes (priority 1), then saves (priority 2). The number of I/O worker threads is configurable via <code class="docutils literal notranslate"><span class="pre">extra_config.disk_io_threads</span></code> (default: 4).</p></li>
 <li><p><strong>Local Disk</strong>: Filesystem where KV cache chunks are stored as individual <code class="docutils literal notranslate"><span class="pre">.pt</span></code> files</p></li>
 </ul>
 <section id="save-flow-put">
