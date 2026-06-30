@@ -390,7 +390,7 @@ understand, debug, or extend the system.</p>
 </span><span id="line-15">     |
 </span><span id="line-16">     |--- L1Manager (l1_manager.py)
 </span><span id="line-17">     |       |--- L1MemoryManager (CPU DRAM) or
-</span><span id="line-18">     |       |    GDSL1MemoryManager (NVMe slab via cuFile)
+</span><span id="line-18">     |       |    GDSL1MemoryManager (NVMe slab via cuFile / hipFile)
 </span><span id="line-19">     |       |--- TTLLock per object (read/write)
 </span><span id="line-20">     |
 </span><span id="line-21">     |--- StoreController  -----&gt; L2 Adapter(s) (async L1-&gt;L2 push)
@@ -637,9 +637,10 @@ classifies per-TP-rank. Returns <code class="docutils literal notranslate"><span
 <td><p>(P2P) Look up the given keys and read-lock the locally cached
 prefix. Returns a task id which the caller passes to
 <code class="docutils literal notranslate"><span class="pre">P2P_QUERY_LOOKUP_RESULTS</span></code> to poll for the transfer addresses.
-Part of the peer-to-peer KV cache sharing surface; the handler
-module is not yet wired into the default
-<code class="docutils literal notranslate"><span class="pre">_build_modules()</span></code> path – see <a class="reference internal" href="p2p.html"><span class="doc">P2P KV Cache Sharing</span></a>.</p></td>
+Served by <code class="docutils literal notranslate"><span class="pre">P2PController</span></code> (loaded unconditionally by
+<code class="docutils literal notranslate"><span class="pre">_build_modules()</span></code>); whether this server also acts as a P2P
+client is controlled by <code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code> – see
+<a class="reference internal" href="p2p.html"><span class="doc">P2P KV Cache Sharing</span></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">P2P_QUERY_LOOKUP_RESULTS</span></code></p></td>
 <td><p>BLOCKING</p></td>
@@ -696,7 +697,13 @@ methods:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">reserve_write()</span></code> / <code class="docutils literal notranslate"><span class="pre">finish_write()</span></code> – Two-phase write into L1.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">submit_prefetch_task()</span></code> / <code class="docutils literal notranslate"><span class="pre">query_prefetch_status()</span></code> – Async lookup +
-L2 prefetch.</p></li>
+L2 prefetch. <code class="docutils literal notranslate"><span class="pre">query_prefetch_status()</span></code> is non-blocking and returns
+<code class="docutils literal notranslate"><span class="pre">None</span></code> while the L2 prefetch is still in flight.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wait_prefetch_status()</span></code> – Blocking alternative to polling
+<code class="docutils literal notranslate"><span class="pre">query_prefetch_status()</span></code>: waits on a controller condition variable
+until the prefetch result is published (or a timeout expires).
+L1-only prefetches return immediately. Used by the
+<code class="docutils literal notranslate"><span class="pre">WAIT_PREFETCH_STATUS</span></code> RPC to avoid busy-polling on the load path.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">read_prefetched_results()</span></code> / <code class="docutils literal notranslate"><span class="pre">finish_read_prefetched()</span></code> – Read
 prefetched data from L1 with automatic lock management.</p></li>
 </ul>
@@ -721,9 +728,12 @@ tiers selected at startup (both satisfy <code class="docutils literal notranslat
 <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">GDSL1MemoryManager</span></code> – an NVMe slab file when <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> is set.
 The bytes live on disk; reads/writes DMA directly between the GPU staging
-buffer and the slab via cuFile, driven by the process-global <code class="docutils literal notranslate"><span class="pre">GDSContext</span></code>
-(<code class="docutils literal notranslate"><span class="pre">gpu_connector/gds_context.py</span></code>) and dispatched from <code class="docutils literal notranslate"><span class="pre">gpu_ops</span></code>. The CPU
-tier is disabled in this mode.</p></li>
+buffer and the slab, driven by the process-global <code class="docutils literal notranslate"><span class="pre">GDSContext</span></code>
+(<code class="docutils literal notranslate"><span class="pre">gpu_connector/gds_context.py</span></code>) and dispatched from <code class="docutils literal notranslate"><span class="pre">gpu_ops</span></code>. The DMA
+backend is selected by platform via <code class="docutils literal notranslate"><span class="pre">gpu_connector/_gds_async.py</span></code> –
+cuFile (<code class="docutils literal notranslate"><span class="pre">libcufile.so</span></code>) on NVIDIA and hipFile (<code class="docutils literal notranslate"><span class="pre">libhipfile.so</span></code>) on AMD
+ROCm; see the <em>GDS L1 Tier</em> section of <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> for the
+vendor-specific requirements. The CPU tier is disabled in this mode.</p></li>
 </ul>
 </section>
 <section id="l2-adapters">
@@ -881,7 +891,7 @@ CLI flag if needed.</p></li>
 <li><p>Add a new member to <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> in <code class="docutils literal notranslate"><span class="pre">protocols/base.py</span></code>.</p></li>
 <li><p>Create a <code class="docutils literal notranslate"><span class="pre">ProtocolDefinition</span></code> in the appropriate <code class="docutils literal notranslate"><span class="pre">protocols/*.py</span></code> file
 (<code class="docutils literal notranslate"><span class="pre">engine</span></code>, <code class="docutils literal notranslate"><span class="pre">controller</span></code>, <code class="docutils literal notranslate"><span class="pre">observability</span></code>, <code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>,
-<code class="docutils literal notranslate"><span class="pre">blend_v2</span></code>, or <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code>) and add the request name to that
+<code class="docutils literal notranslate"><span class="pre">blend_v2</span></code>, <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code>, or <code class="docutils literal notranslate"><span class="pre">p2p</span></code>) and add the request name to that
 module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
 <li><p>Implement the handler method on the appropriate <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
 (e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>) and

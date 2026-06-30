@@ -282,64 +282,71 @@
 <p>LMCache Kubernetes 操作符自动化了 LMCache 多进程服务器的部署和生命周期管理。您只需声明一个 <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> 自定义资源，操作符将协调所有底层的 Kubernetes 对象，而无需手动编写 DaemonSets、Services 和 ConfigMaps（如手册 <a class="reference internal" href="deployment.html"><span class="doc">部署指南</span></a> 指南中所述）。</p>
 <nav class="contents local" id="id1">
 <ul class="simple">
-<li><p><a class="reference internal" href="#why-use-the-operator" id="id2">为什么使用 Operator</a></p></li>
-<li><p><a class="reference internal" href="#prerequisites" id="id3">前提条件</a></p></li>
-<li><p><a class="reference internal" href="#installing-the-operator" id="id4">安装 Operator</a></p></li>
-<li><p><a class="reference internal" href="#deploying-an-lmcacheengine" id="id5">部署 LMCacheEngine</a></p></li>
-<li><p><a class="reference internal" href="#connecting-vllm" id="id6">连接 vLLM</a></p></li>
-<li><p><a class="reference internal" href="#verifying-the-deployment" id="id7">验证部署</a></p></li>
-<li><p><a class="reference internal" href="#crd-spec-reference" id="id8">CRD 规格参考</a></p>
+<li><p><a class="reference internal" href="#why-use-the-operator" id="id5">为什么使用 Operator</a></p></li>
+<li><p><a class="reference internal" href="#prerequisites" id="id6">前提条件</a></p></li>
+<li><p><a class="reference internal" href="#installing-the-operator" id="id7">安装 Operator</a></p></li>
+<li><p><a class="reference internal" href="#deploying-an-lmcacheengine" id="id8">部署 LMCacheEngine</a></p></li>
+<li><p><a class="reference internal" href="#connecting-vllm" id="id9">连接 vLLM</a></p></li>
+<li><p><a class="reference internal" href="#connection-injection-webhook" id="id10">Connection Injection (Webhook)</a></p>
 <ul>
-<li><p><a class="reference internal" href="#image" id="id9">镜像</a></p></li>
-<li><p><a class="reference internal" href="#server" id="id10">服务器</a></p></li>
-<li><p><a class="reference internal" href="#l1-cache" id="id11">L1 缓存</a></p></li>
-<li><p><a class="reference internal" href="#eviction" id="id12">逐出</a></p></li>
-<li><p><a class="reference internal" href="#prometheus" id="id13">Prometheus</a></p></li>
-<li><p><a class="reference internal" href="#l2-storage" id="id14">L2 存储</a></p></li>
-<li><p><a class="reference internal" href="#gpu-vendor" id="id15">GPU Vendor</a></p></li>
-<li><p><a class="reference internal" href="#scheduling" id="id16">调度</a></p></li>
-<li><p><a class="reference internal" href="#overrides-extras" id="id17">覆盖与额外选项</a></p></li>
-<li><p><a class="reference internal" href="#auto-computed-resources" id="id18">自动计算资源</a></p></li>
-<li><p><a class="reference internal" href="#auto-injected-pod-settings" id="id19">自动注入的 Pod 设置</a></p></li>
-<li><p><a class="reference internal" href="#resources-created" id="id20">创建的资源</a></p></li>
-<li><p><a class="reference internal" href="#status-conditions" id="id21">状态与条件</a></p></li>
-<li><p><a class="reference internal" href="#validation-rules" id="id22">验证规则</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id11">前提条件</a></p></li>
+<li><p><a class="reference internal" href="#opting-a-vllm-pod-in" id="id12">为 vLLM Pod 启用注入</a></p></li>
+<li><p><a class="reference internal" href="#verifying-injection" id="id13">验证注入</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#examples" id="id23">示例</a></p>
+<li><p><a class="reference internal" href="#verifying-the-deployment" id="id14">验证部署</a></p></li>
+<li><p><a class="reference internal" href="#crd-spec-reference" id="id15">CRD 规格参考</a></p>
 <ul>
-<li><p><a class="reference internal" href="#target-only-gpu-nodes" id="id24">仅针对 GPU 节点</a></p></li>
-<li><p><a class="reference internal" href="#custom-server-port" id="id25">自定义服务器端口</a></p></li>
-<li><p><a class="reference internal" href="#production-with-prometheus-monitoring" id="id26">集成 Prometheus 监控的生产环境配置</a></p></li>
-<li><p><a class="reference internal" href="#override-auto-computed-resources" id="id27">覆盖自动计算的资源</a></p></li>
+<li><p><a class="reference internal" href="#image" id="id16">镜像</a></p></li>
+<li><p><a class="reference internal" href="#server" id="id17">服务器</a></p></li>
+<li><p><a class="reference internal" href="#l1-cache" id="id18">L1 缓存</a></p></li>
+<li><p><a class="reference internal" href="#eviction" id="id19">逐出</a></p></li>
+<li><p><a class="reference internal" href="#prometheus" id="id20">Prometheus</a></p></li>
+<li><p><a class="reference internal" href="#l2-storage" id="id21">L2 存储</a></p></li>
+<li><p><a class="reference internal" href="#gpu-vendor" id="id22">GPU Vendor</a></p></li>
+<li><p><a class="reference internal" href="#scheduling" id="id23">调度</a></p></li>
+<li><p><a class="reference internal" href="#overrides-extras" id="id24">覆盖与额外选项</a></p></li>
+<li><p><a class="reference internal" href="#auto-computed-resources" id="id25">自动计算资源</a></p></li>
+<li><p><a class="reference internal" href="#auto-injected-pod-settings" id="id26">自动注入的 Pod 设置</a></p></li>
+<li><p><a class="reference internal" href="#resources-created" id="id27">创建的资源</a></p></li>
+<li><p><a class="reference internal" href="#status-conditions" id="id28">状态与条件</a></p></li>
+<li><p><a class="reference internal" href="#validation-rules" id="id29">验证规则</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cacheblend" id="id28">CacheBlend</a></p>
+<li><p><a class="reference internal" href="#examples" id="id30">示例</a></p>
 <ul>
-<li><p><a class="reference internal" href="#additional-prerequisites" id="id29">附加先决条件</a></p></li>
-<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id30">部署 CacheBlendEngine</a></p></li>
-<li><p><a class="reference internal" href="#opting-a-vllm-pod-in" id="id31">为 vLLM Pod 启用注入</a></p></li>
-<li><p><a class="reference internal" href="#verifying-injection" id="id32">验证注入</a></p></li>
-<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id33">CacheBlendEngine 字段</a></p></li>
+<li><p><a class="reference internal" href="#target-only-gpu-nodes" id="id31">仅针对 GPU 节点</a></p></li>
+<li><p><a class="reference internal" href="#custom-server-port" id="id32">自定义服务器端口</a></p></li>
+<li><p><a class="reference internal" href="#production-with-prometheus-monitoring" id="id33">集成 Prometheus 监控的生产环境配置</a></p></li>
+<li><p><a class="reference internal" href="#override-auto-computed-resources" id="id34">覆盖自动计算的资源</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#lmcachecoordinator" id="id34">LMCacheCoordinator</a></p>
+<li><p><a class="reference internal" href="#cacheblend" id="id35">CacheBlend</a></p>
 <ul>
-<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id35">部署协调器</a></p></li>
-<li><p><a class="reference internal" href="#connecting-an-engine" id="id36">连接引擎</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id37">协调器 CRD 规格参考</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-resources-created" id="id38">创建协调器资源</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id39">协调器状态与条件</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id40">协调器验证规则</a></p></li>
+<li><p><a class="reference internal" href="#additional-prerequisites" id="id36">附加先决条件</a></p></li>
+<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id37">部署 CacheBlendEngine</a></p></li>
+<li><p><a class="reference internal" href="#id3" id="id38">为 vLLM Pod 启用注入</a></p></li>
+<li><p><a class="reference internal" href="#id4" id="id39">验证注入</a></p></li>
+<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id40">CacheBlendEngine 字段</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id41">Operator 与手动部署对比</a></p></li>
-<li><p><a class="reference internal" href="#security-considerations" id="id42">安全注意事项</a></p></li>
-<li><p><a class="reference internal" href="#development" id="id43">开发</a></p></li>
+<li><p><a class="reference internal" href="#lmcachecoordinator" id="id41">LMCacheCoordinator</a></p>
+<ul>
+<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id42">部署协调器</a></p></li>
+<li><p><a class="reference internal" href="#connecting-an-engine" id="id43">连接引擎</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id44">协调器 CRD 规格参考</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-resources-created" id="id45">创建协调器资源</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id46">协调器状态与条件</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id47">协调器验证规则</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id48">Operator 与手动部署对比</a></p></li>
+<li><p><a class="reference internal" href="#security-considerations" id="id49">安全注意事项</a></p></li>
+<li><p><a class="reference internal" href="#development" id="id50">开发</a></p></li>
 </ul>
 </nav>
 <section id="why-use-the-operator">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">为什么使用 Operator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-use-the-operator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-use-the-operator'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">为什么使用 Operator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-use-the-operator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-use-the-operator'"><span>#</span></a></h2>
 <p>手动 DaemonSet 方式可以正常工作，但存在一些操作符已消除的陷阱：</p>
 <ul class="simple">
 <li><p><strong>自动注入的 Pod 设置</strong> -- 操作符始终设置 <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code>。在手动编写的清单中忘记 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> 会导致难以调试的静默 CUDA IPC 失败 （<code class="docutils literal notranslate"><span class="pre">cudaErrorMapBufferObjectFailed</span></code>）。</p></li>
@@ -350,7 +357,7 @@
 </ul>
 </section>
 <section id="prerequisites">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">前提条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">前提条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p>Kubernetes 1.20+</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">kubectl</span></code> 配置为访问您的集群</p></li>
@@ -358,7 +365,7 @@
 </ul>
 </section>
 <section id="installing-the-operator">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">安装 Operator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installing-the-operator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installing-the-operator'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">安装 Operator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installing-the-operator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installing-the-operator'"><span>#</span></a></h2>
 <p><strong>选项 A：从发布版一行安装（推荐）</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Latest stable release</span>
 </span><span id="line-2">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://github.com/LMCache/LMCache/releases/download/operator-latest/install.yaml
@@ -376,7 +383,7 @@
 </div>
 </section>
 <section id="deploying-an-lmcacheengine">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">部署 LMCacheEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-an-lmcacheengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-an-lmcacheengine'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">部署 LMCacheEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-an-lmcacheengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-an-lmcacheengine'"><span>#</span></a></h2>
 <p>一个最小的 CR 在每个 GPU 节点上部署一个具有 60 GB L1 缓存的 DaemonSet：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
@@ -405,8 +412,14 @@
 </div>
 </section>
 <section id="connecting-vllm">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">连接 vLLM</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-vllm" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-vllm'"><span>#</span></a></h2>
-<p>操作符创建一个名为 <code class="docutils literal notranslate"><span class="pre">&lt;engine-name&gt;-connection</span></code> 的 ConfigMap，其中包含 <code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> JSON。将其挂载到您的 vLLM 部署中：</p>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">连接 vLLM</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-vllm" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-vllm'"><span>#</span></a></h2>
+<p>The operator creates a ConfigMap named <code class="docutils literal notranslate"><span class="pre">&lt;engine-name&gt;-connection</span></code> containing
+the <code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> JSON.  You can either let the operator's mutating
+webhook inject it for you (recommended -- keeps your vLLM manifest clean) or
+mount it by hand.  See <a class="reference internal" href="#mp-operator-connection-injection"><span class="std std-ref">Connection Injection (Webhook)</span></a> below for the
+webhook flow; the rest of this section describes the manual mount that is its
+equivalent.</p>
+<p>Mount it in your vLLM Deployment:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -462,8 +475,120 @@
 <li><p><strong>无需 hostNetwork</strong> -- 操作符的节点本地服务通过 <code class="docutils literal notranslate"><span class="pre">internalTrafficPolicy=Local</span></code> 处理路由。</p></li>
 </ul>
 </section>
+<section id="connection-injection-webhook">
+<span id="mp-operator-connection-injection"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">Connection Injection (Webhook)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connection-injection-webhook" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connection-injection-webhook'"><span>#</span></a></h2>
+<p>Hand-wiring the ConfigMap mount and the <code class="docutils literal notranslate"><span class="pre">$(cat</span> <span class="pre">...)</span></code> argument substitution
+above is repetitive across vLLM Deployments.  A <strong>mutating admission webhook</strong>
+shipped with the operator can do it for you so the vLLM manifest stays clean.
+It mirrors the CacheBlend webhook (see <a class="reference internal" href="#mp-operator-cacheblend"><span class="std std-ref">CacheBlend</span></a>) with an
+<code class="docutils literal notranslate"><span class="pre">lmcache-</span></code> annotation/label discriminator so the two injectors never
+cross-fire on the same pod.</p>
+<p>When invoked on an opted-in pod whose <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap exists,
+the webhook mutates the pod at admission time to add:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span> <span class="pre">&lt;JSON&gt;</span></code> -- the <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> config, read
+verbatim from the engine's <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap and inlined onto
+the vLLM container's <code class="docutils literal notranslate"><span class="pre">args</span></code> (no volume mount needed);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> on the pod spec (CUDA IPC with the node-local server);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PYTHONHASHSEED=0</span></code> on the vLLM container env, <strong>set-if-absent</strong> -- it
+preserves a value you already set.</p></li>
+</ul>
+<p>Unlike the CacheBlend injector it does <strong>not</strong> consult the engine CR: the
+entire connector config lives in the connection ConfigMap, and
+<code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> has no injection sub-spec.  It fails open
+(<code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code>) and is idempotent (re-admitted pods carrying the
+<code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-injected</span></code> stamp are allowed unchanged).</p>
+<section id="id2">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">前提条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p><strong>cert-manager</strong> + <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code> (not <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>, which is
+controller-only and disables the webhook via <code class="docutils literal notranslate"><span class="pre">ENABLE_WEBHOOKS=false</span></code>) --
+same as the CacheBlend webhook; install once per cluster (see
+<a class="reference internal" href="#mp-operator-cacheblend"><span class="std std-ref">CacheBlend</span></a> "Additional Prerequisites").</p></li>
+<li><p><strong>Pod Security Standards</strong> -- the injected <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> is rejected by the
+<code class="docutils literal notranslate"><span class="pre">baseline</span></code> / <code class="docutils literal notranslate"><span class="pre">restricted</span></code> PSS profiles, so the vLLM pod's namespace must
+be labeled <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>.</p></li>
+<li><p><strong>Engine reconciled in the same namespace</strong> -- the webhook reads the
+<code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap directly, so the <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> must
+already exist in the vLLM pod's namespace.</p></li>
+</ul>
+</section>
+<section id="opting-a-vllm-pod-in">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">为 vLLM Pod 启用注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#opting-a-vllm-pod-in" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#opting-a-vllm-pod-in'"><span>#</span></a></h3>
+<p>Add the opt-in label and the engine-binding annotation to the pod template, and
+launch vLLM via the image <strong>ENTRYPOINT</strong> (args only) -- a
+<code class="docutils literal notranslate"><span class="pre">command:</span> <span class="pre">["/bin/sh",</span> <span class="pre">"-c",</span> <span class="pre">...]</span></code> wrapper is skipped (the webhook stamps
+<code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-skip-reason=command-override</span></code> because appended args would
+not reach <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+</span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+</span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm-lmcache</span>
+</span><span id="line-5"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+</span><span id="line-8"><span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm-lmcache</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+</span><span id="line-11"><span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-12"><span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+</span><span id="line-13"><span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm-lmcache</span>
+</span><span id="line-14"><span class="w">        </span><span class="nt">lmcache.ai/lmcache-inject</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span><span class="w">        </span><span class="c1"># opt-in (webhook objectSelector)</span>
+</span><span id="line-15"><span class="w">      </span><span class="nt">annotations</span><span class="p">:</span>
+</span><span id="line-16"><span class="w">        </span><span class="nt">lmcache.ai/lmcache-engine</span><span class="p">:</span><span class="w"> </span><span class="s">"my-cache"</span><span class="w">    </span><span class="c1"># bind to the engine (same namespace)</span>
+</span><span id="line-17"><span class="w">        </span><span class="c1"># Optional -- name the vLLM container if it is not the first one:</span>
+</span><span id="line-18"><span class="w">        </span><span class="c1"># lmcache.ai/lmcache-container: "vllm"</span>
+</span><span id="line-19"><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-20"><span class="w">      </span><span class="nt">runtimeClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
+</span><span id="line-21"><span class="w">      </span><span class="c1"># Do NOT set hostIPC here or mount an emptyDir at /dev/shm -- the</span>
+</span><span id="line-22"><span class="w">      </span><span class="c1"># webhook injects hostIPC=true; an emptyDir would shadow the host's</span>
+</span><span id="line-23"><span class="w">      </span><span class="c1"># /dev/shm and break cudaIpcOpenMemHandle.</span>
+</span><span id="line-24"><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+</span><span id="line-25"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm</span>
+</span><span id="line-26"><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache/vllm-openai:latest</span>
+</span><span id="line-27"><span class="w">          </span><span class="c1"># Args-only launch (image ENTRYPOINT is ["vllm", "serve"]). The</span>
+</span><span id="line-28"><span class="w">          </span><span class="c1"># webhook appends --kv-transfer-config; do NOT add it yourself</span>
+</span><span id="line-29"><span class="w">          </span><span class="c1"># (a user-supplied one stamps skip-reason=kv-transfer-config-present).</span>
+</span><span id="line-30"><span class="w">          </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"&lt;your-model&gt;"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--port"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"8000"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--gpu-memory-utilization"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"0.8"</span><span class="p p-Indicator">]</span>
+</span><span id="line-31"><span class="w">          </span><span class="nt">ports</span><span class="p">:</span>
+</span><span id="line-32"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+</span><span id="line-33"><span class="w">              </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+</span><span id="line-34"><span class="w">          </span><span class="nt">resources</span><span class="p">:</span>
+</span><span id="line-35"><span class="w">            </span><span class="nt">limits</span><span class="p">:</span>
+</span><span id="line-36"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
+</span></code></pre></div>
+</div>
+<p>A ready-to-edit manifest lives at
+<code class="docutils literal notranslate"><span class="pre">operator/config/samples/vllm_lmcache_deployment.yaml</span></code>.</p>
+</section>
+<section id="verifying-injection">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-injection" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-injection'"><span>#</span></a></h3>
+<p>The webhook mutates <strong>Pods</strong>, not the Deployment, so inspect a pod (not the
+Deployment spec):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-lmcache<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"hostIPC|kv-transfer-config|lmcache-injected|lmcache-skip-reason"</span>
+</span></code></pre></div>
+</div>
+<p>If nothing was injected, check the pod's <code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-skip-reason</span></code>
+annotation:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">command-override</span></code> -- the pod uses a <code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-c</span></code> wrapper, so injected args
+would not reach <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kv-transfer-config-present</span></code> -- the user already supplied
+<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code>; the webhook does not clobber it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">engine-not-found</span></code> -- the <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap is missing
+(engine not yet reconciled, or wrong namespace, or wrong name).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target-container-not-found</span></code> -- the
+<code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-container</span></code> annotation names a container the pod does
+not have.</p></li>
+</ul>
+<p>With <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> a webhook / cert problem also leaves the pod
+un-mutated silently -- confirm the operator pod is <code class="docutils literal notranslate"><span class="pre">Running</span></code> and the
+<code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> exists.</p>
+</section>
+</section>
 <section id="verifying-the-deployment">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">验证部署</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-the-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-the-deployment'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">验证部署</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-the-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-the-deployment'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Check LMCacheEngine status</span>
 </span><span id="line-2">kubectl<span class="w"> </span>get<span class="w"> </span>lmc
 </span></code></pre></div>
@@ -485,9 +610,9 @@
 </div>
 </section>
 <section id="crd-spec-reference">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">CRD 规格参考</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#crd-spec-reference'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">CRD 规格参考</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#crd-spec-reference'"><span>#</span></a></h2>
 <section id="image">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink">镜像</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#image" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#image'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">镜像</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#image" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#image'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -521,7 +646,7 @@
 </table>
 </section>
 <section id="server">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">服务器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">服务器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -559,7 +684,7 @@
 </table>
 </section>
 <section id="l1-cache">
-<h3><a class="toc-backref" href="#id11" role="doc-backlink">L1 缓存</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-cache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-cache'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">L1 缓存</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-cache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-cache'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -581,7 +706,7 @@
 </table>
 </section>
 <section id="eviction">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">逐出</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -612,7 +737,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="prometheus">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Prometheus</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Prometheus</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -650,7 +775,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="l2-storage">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">L2 存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-storage'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">L2 存储</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-storage'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -672,7 +797,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="gpu-vendor">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">GPU Vendor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-vendor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-vendor'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">GPU Vendor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-vendor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-vendor'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -695,7 +820,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="scheduling">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">调度</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#scheduling" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#scheduling'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">调度</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#scheduling" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#scheduling'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -729,7 +854,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="overrides-extras">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">覆盖与额外选项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overrides-extras" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overrides-extras'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">覆盖与额外选项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overrides-extras" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overrides-extras'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -783,7 +908,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="auto-computed-resources">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">自动计算资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-computed-resources'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">自动计算资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-computed-resources'"><span>#</span></a></h3>
 <p>当 <code class="docutils literal notranslate"><span class="pre">spec.resourceOverrides</span></code> 未设置时，操作符从 <code class="docutils literal notranslate"><span class="pre">l1.sizeGB</span></code> 派生资源：</p>
 <ul class="simple">
 <li><p><strong>CPU 请求</strong>: <code class="docutils literal notranslate"><span class="pre">4</span></code> 核心</p></li>
@@ -793,7 +918,7 @@ for buffer-only mode.</p></td>
 <p>例如，<code class="docutils literal notranslate"><span class="pre">l1.sizeGB:</span> <span class="pre">60</span></code> 会产生 65 Gi 的请求和 98 Gi 的限制。</p>
 </section>
 <section id="auto-injected-pod-settings">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">自动注入的 Pod 设置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-injected-pod-settings" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-injected-pod-settings'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">自动注入的 Pod 设置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-injected-pod-settings" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-injected-pod-settings'"><span>#</span></a></h3>
 <p>操作符始终将这些注入到 Pod 规格中（它们无法通过 CRD 配置）：</p>
 <ul class="simple">
 <li><p><strong>hostIPC: true</strong> -- 这是在 LMCache 和 vLLM 之间进行 CUDA IPC 所必需的。</p></li>
@@ -809,7 +934,7 @@ for buffer-only mode.</p></td>
 </div>
 </section>
 <section id="resources-created">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">创建的资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#resources-created'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">创建的资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#resources-created'"><span>#</span></a></h3>
 <p>对于名为 <code class="docutils literal notranslate"><span class="pre">my-cache</span></code> 的 <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code>：</p>
 <table class="docutils align-default">
 <colgroup>
@@ -859,7 +984,7 @@ for buffer-only mode.</p></td>
 </div>
 </section>
 <section id="status-conditions">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">状态与条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#status-conditions'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">状态与条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#status-conditions'"><span>#</span></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>describe<span class="w"> </span>lmc<span class="w"> </span>my-cache
 </span></code></pre></div>
 </div>
@@ -878,7 +1003,7 @@ for buffer-only mode.</p></td>
 </ul>
 </section>
 <section id="validation-rules">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">验证规则</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#validation-rules'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">验证规则</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#validation-rules'"><span>#</span></a></h3>
 <p>操作符在 apply 时验证 CR 的 Spec：</p>
 <table class="docutils align-default">
 <colgroup>
@@ -911,9 +1036,9 @@ for buffer-only mode.</p></td>
 </section>
 </section>
 <section id="examples">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#examples" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#examples'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id30" role="doc-backlink">示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#examples" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#examples'"><span>#</span></a></h2>
 <section id="target-only-gpu-nodes">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">仅针对 GPU 节点</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#target-only-gpu-nodes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#target-only-gpu-nodes'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">仅针对 GPU 节点</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#target-only-gpu-nodes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#target-only-gpu-nodes'"><span>#</span></a></h3>
 <p>使用 <code class="docutils literal notranslate"><span class="pre">nodeSelector</span></code> 将 LMCache 限定在 GPU 节点上运行。新加入的 GPU 节点会自动获得一个 LMCache Pod：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
@@ -932,7 +1057,7 @@ for buffer-only mode.</p></td>
 </div>
 </section>
 <section id="custom-server-port">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">自定义服务器端口</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#custom-server-port" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#custom-server-port'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">自定义服务器端口</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#custom-server-port" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#custom-server-port'"><span>#</span></a></h3>
 <p>如果默认端口（5555）与其他服务冲突：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
@@ -948,7 +1073,7 @@ for buffer-only mode.</p></td>
 <p>连接 ConfigMap 会自动更新 —— vLLM Pod 重启后即可使用新端口。</p>
 </section>
 <section id="production-with-prometheus-monitoring">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">集成 Prometheus 监控的生产环境配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-with-prometheus-monitoring" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-with-prometheus-monitoring'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">集成 Prometheus 监控的生产环境配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-with-prometheus-monitoring" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-with-prometheus-monitoring'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -985,7 +1110,7 @@ for buffer-only mode.</p></td>
 <p>请参阅 <a class="reference internal" href="observability/index.html"><span class="doc">可观察性</span></a> 以获取指标名称和 Grafana 配置。</p>
 </section>
 <section id="override-auto-computed-resources">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">覆盖自动计算的资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#override-auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#override-auto-computed-resources'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">覆盖自动计算的资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#override-auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#override-auto-computed-resources'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1004,7 +1129,7 @@ for buffer-only mode.</p></td>
 </section>
 </section>
 <section id="cacheblend">
-<h2><a class="toc-backref" href="#id28" role="doc-backlink">CacheBlend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend'"><span>#</span></a></h2>
+<span id="mp-operator-cacheblend"></span><h2><a class="toc-backref" href="#id35" role="doc-backlink">CacheBlend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend'"><span>#</span></a></h2>
 <p>CacheBlend 通过重新计算一小部分 Token 来复用偏移（非前缀）位置的缓存 KV。该操作符将其作为第二个 CRD <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> 进行管理，并通过一个 <strong>变更准入 Webhook</strong> 将纯 Python 的 <code class="docutils literal notranslate"><span class="pre">lmcache-cacheblend</span></code> vLLM 插件注入到您的服务 Pod 中，因此您 <strong>无需</strong> 重新构建 vLLM 镜像。有关该技术的详细信息，请参见 <a class="reference internal" href="../kv_cache_optimizations/blending.html"><span class="doc">混合</span></a>。</p>
 <p>它由两个部分组成，操作符同时管理它们：</p>
 <ul class="simple">
@@ -1012,7 +1137,7 @@ for buffer-only mode.</p></td>
 <li><p>vLLM 侧插件，由 Webhook 注入到已选择启用的 Pod 中。</p></li>
 </ul>
 <section id="additional-prerequisites">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">附加先决条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">附加先决条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
 <p>除上述操作符前提条件外，还需满足：</p>
 <ul>
 <li><p><strong>cert-manager</strong> -- webhook 的服务证书由 cert-manager <code class="docutils literal notranslate"><span class="pre">Issuer</span></code> + <code class="docutils literal notranslate"><span class="pre">Certificate</span></code> 颁发。在 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code> 之前安装它：</p>
@@ -1026,7 +1151,7 @@ for buffer-only mode.</p></td>
 </ul>
 </section>
 <section id="deploying-a-cacheblendengine">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">部署 CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">部署 CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CacheBlendEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1049,8 +1174,8 @@ for buffer-only mode.</p></td>
 </div>
 <p>该引擎以 DaemonSet 方式运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>，并生成一个包含 <code class="docutils literal notranslate"><span class="pre">CBKVConnector</span></code> <code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> 的 <code class="docutils literal notranslate"><span class="pre">my-cacheblend-connection</span></code> ConfigMap（操作符将节点本地服务的主机/端口和 <code class="docutils literal notranslate"><span class="pre">cb.*</span></code> 可调参数连接起来）。</p>
 </section>
-<section id="opting-a-vllm-pod-in">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">为 vLLM Pod 启用注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#opting-a-vllm-pod-in" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#opting-a-vllm-pod-in'"><span>#</span></a></h3>
+<section id="id3">
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">为 vLLM Pod 启用注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>为 Pod 模板打上 webhook 所需的标签，并按名称将其绑定到引擎。通过镜像 <strong>ENTRYPOINT</strong> 启动 vLLM（仅传参数）——应跳过 <code class="docutils literal notranslate"><span class="pre">command:</span> <span class="pre">[\"/bin/sh\",</span> <span class="pre">\"-c\",</span> <span class="pre">...]</span></code> 包装器，否则附加的参数无法传递给 <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code>：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
@@ -1081,8 +1206,8 @@ for buffer-only mode.</p></td>
 </div>
 <p>Webhook 注入插件初始化容器、<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>、<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>、私有镜像拉取密钥，以及所需的 CacheBlend vLLM 标志（<code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">CUSTOM</span></code>、<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> 来自引擎的连接 ConfigMap、<code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">64</span></code>、<code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-async-scheduling</span></code>、<code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>）。您只需提供模型和非 CacheBlend 标志。</p>
 </section>
-<section id="verifying-injection">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-injection" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-injection'"><span>#</span></a></h3>
+<section id="id4">
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
 <p>该 Webhook 变更的是 <strong>Pod</strong>，而非 Deployment，因此请检查 Pod：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-cacheblend<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|attention-backend|cacheblend-injected|skip-reason"</span>
@@ -1091,7 +1216,7 @@ for buffer-only mode.</p></td>
 <p>若未注入任何内容，请检查 Pod 的 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/cacheblend-skip-reason</span></code> 注解：<code class="docutils literal notranslate"><span class="pre">command-override</span></code>（使用了 <code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-c</span></code> 包装器）、<code class="docutils literal notranslate"><span class="pre">kv-transfer-config-present</span></code>（已自行设置了该配置）、<code class="docutils literal notranslate"><span class="pre">engine-not-found</span></code>（缺少 <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;-connection</span></code> ConfigMap）、<code class="docutils literal notranslate"><span class="pre">payload-image-unset</span></code>（引擎的 <code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code> 未设置仓库），或 <code class="docutils literal notranslate"><span class="pre">target-container-not-found</span></code>（所请求的 <code class="docutils literal notranslate"><span class="pre">targetContainer</span></code> / <code class="docutils literal notranslate"><span class="pre">cacheblend-container</span></code> 注解指向了 Pod 中不存在的容器）。在 <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> 的情况下，Webhook 或证书问题也会使 Pod 静默地保持未变更 —— 请确认操作符 Pod 处于 <code class="docutils literal notranslate"><span class="pre">Running</span></code> 状态，且 <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> 已存在。</p>
 </section>
 <section id="cacheblendengine-fields">
-<h3><a class="toc-backref" href="#id33" role="doc-backlink">CacheBlendEngine 字段</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">CacheBlendEngine 字段</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">CacheBlendEngineSpec</span></code> 包含 <code class="docutils literal notranslate"><span class="pre">LMCacheEngineSpec</span></code> 的全部字段（见上方 CRD Spec 参考），并新增了：</p>
 <table class="docutils align-default">
 <colgroup>
@@ -1136,10 +1261,10 @@ for buffer-only mode.</p></td>
 </section>
 </section>
 <section id="lmcachecoordinator">
-<h2><a class="toc-backref" href="#id34" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id41" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> CRD 运行 <strong>mp coordinator</strong> -- 一个跨集群的 HTTP 服务，跟踪 mp 服务器实例，逐出心跳超时的实例，执行 L2 配额逐出，并托管全局 CacheBlend 指纹目录。它是一个普通的 (非 GPU) <code class="docutils literal notranslate"><span class="pre">Deployment</span></code>，通过 ClusterIP 服务暴露；引擎通过 <code class="docutils literal notranslate"><span class="pre">coordinator.ref</span></code> 或 <code class="docutils literal notranslate"><span class="pre">coordinator.url</span></code> 访问它。</p>
 <section id="deploying-a-coordinator">
-<h3><a class="toc-backref" href="#id35" role="doc-backlink">部署协调器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id42" role="doc-backlink">部署协调器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
 <p>一个可以编辑的清单位于操作员仓库中的 <code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcachecoordinator.yaml</span></code>。一个最小的协调器：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheCoordinator</span>
@@ -1154,7 +1279,7 @@ for buffer-only mode.</p></td>
 </div>
 </section>
 <section id="connecting-an-engine">
-<h3><a class="toc-backref" href="#id36" role="doc-backlink">连接引擎</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id43" role="doc-backlink">连接引擎</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
 <p>通过其 <code class="docutils literal notranslate"><span class="pre">coordinator</span></code> 块将 <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> / <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> 指向协调器。使用 <code class="docutils literal notranslate"><span class="pre">ref</span></code> 在同一命名空间中命名协调器（操作符将其解析为集群内服务 URL），或使用 <code class="docutils literal notranslate"><span class="pre">url</span></code> 指定明确的端点：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">spec</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">coordinator</span><span class="p">:</span>
@@ -1166,7 +1291,7 @@ for buffer-only mode.</p></td>
 </div>
 </section>
 <section id="coordinator-crd-spec-reference">
-<h3><a class="toc-backref" href="#id37" role="doc-backlink">协调器 CRD 规格参考</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id44" role="doc-backlink">协调器 CRD 规格参考</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
 <section id="topology">
 <h4>拓扑<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#topology"><span>#</span></a></h4>
 <table class="docutils align-default">
@@ -1365,7 +1490,7 @@ for buffer-only mode.</p></td>
 </section>
 </section>
 <section id="coordinator-resources-created">
-<h3><a class="toc-backref" href="#id38" role="doc-backlink">创建协调器资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id45" role="doc-backlink">创建协调器资源</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
 <p>对于名为 <code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code> 的 <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code>：</p>
 <table class="docutils align-default">
 <colgroup>
@@ -1401,7 +1526,7 @@ for buffer-only mode.</p></td>
 <p>其他组件用来访问协调器的状态 <code class="docutils literal notranslate"><span class="pre">endpoint</span></code> 是 <code class="docutils literal notranslate"><span class="pre">http://&lt;name&gt;.&lt;namespace&gt;.svc:&lt;port&gt;</span></code>（例如 <code class="docutils literal notranslate"><span class="pre">http://my-coordinator.default.svc:9300</span></code>）。</p>
 </section>
 <section id="coordinator-status-conditions">
-<h3><a class="toc-backref" href="#id39" role="doc-backlink">协调器状态与条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id46" role="doc-backlink">协调器状态与条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
 <p>状态部分包括：</p>
 <ul class="simple">
 <li><p><strong>phase</strong>: <code class="docutils literal notranslate"><span class="pre">Pending</span></code>、<code class="docutils literal notranslate"><span class="pre">Running</span></code>、<code class="docutils literal notranslate"><span class="pre">Degraded</span></code> 或 <code class="docutils literal notranslate"><span class="pre">Failed</span></code>。</p></li>
@@ -1418,7 +1543,7 @@ for buffer-only mode.</p></td>
 </ul>
 </section>
 <section id="coordinator-validation-rules">
-<h3><a class="toc-backref" href="#id40" role="doc-backlink">协调器验证规则</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id47" role="doc-backlink">协调器验证规则</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1456,7 +1581,7 @@ for buffer-only mode.</p></td>
 </section>
 </section>
 <section id="operator-vs-manual-deployment">
-<h2><a class="toc-backref" href="#id41" role="doc-backlink">Operator 与手动部署对比</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id48" role="doc-backlink">Operator 与手动部署对比</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1506,7 +1631,7 @@ for buffer-only mode.</p></td>
 </table>
 </section>
 <section id="security-considerations">
-<h2><a class="toc-backref" href="#id42" role="doc-backlink">安全注意事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id49" role="doc-backlink">安全注意事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
 <p><strong>hostIPC</strong> 将主机的 IPC 命名空间（System V IPC，POSIX 消息队列）暴露给容器。容器中的任何进程都可以与同一主机上其他进程的 IPC 资源进行交互。</p>
 <ul class="simple">
 <li><p>仅在受信任的环境中部署。</p></li>
@@ -1514,7 +1639,7 @@ for buffer-only mode.</p></td>
 </ul>
 </section>
 <section id="development">
-<h2><a class="toc-backref" href="#id43" role="doc-backlink">开发</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id50" role="doc-backlink">开发</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">make<span class="w"> </span>generate<span class="w">     </span><span class="c1"># Generate DeepCopy methods</span>
 </span><span id="line-2">make<span class="w"> </span>manifests<span class="w">    </span><span class="c1"># Generate CRD YAML + RBAC</span>
 </span><span id="line-3">make<span class="w"> </span>build<span class="w">        </span><span class="c1"># Compile operator binary</span>
@@ -1568,6 +1693,12 @@ for buffer-only mode.</p></td>
 <li><a :data-current="activeSection === '#installing-the-operator'" class="reference internal" href="#installing-the-operator">安装 Operator</a></li>
 <li><a :data-current="activeSection === '#deploying-an-lmcacheengine'" class="reference internal" href="#deploying-an-lmcacheengine">部署 LMCacheEngine</a></li>
 <li><a :data-current="activeSection === '#connecting-vllm'" class="reference internal" href="#connecting-vllm">连接 vLLM</a></li>
+<li><a :data-current="activeSection === '#connection-injection-webhook'" class="reference internal" href="#connection-injection-webhook">Connection Injection (Webhook)</a><ul>
+<li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">前提条件</a></li>
+<li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">为 vLLM Pod 启用注入</a></li>
+<li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">验证注入</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#verifying-the-deployment'" class="reference internal" href="#verifying-the-deployment">验证部署</a></li>
 <li><a :data-current="activeSection === '#crd-spec-reference'" class="reference internal" href="#crd-spec-reference">CRD 规格参考</a><ul>
 <li><a :data-current="activeSection === '#image'" class="reference internal" href="#image">镜像</a></li>
@@ -1596,8 +1727,8 @@ for buffer-only mode.</p></td>
 <li><a :data-current="activeSection === '#cacheblend'" class="reference internal" href="#cacheblend">CacheBlend</a><ul>
 <li><a :data-current="activeSection === '#additional-prerequisites'" class="reference internal" href="#additional-prerequisites">附加先决条件</a></li>
 <li><a :data-current="activeSection === '#deploying-a-cacheblendengine'" class="reference internal" href="#deploying-a-cacheblendengine">部署 CacheBlendEngine</a></li>
-<li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">为 vLLM Pod 启用注入</a></li>
-<li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">验证注入</a></li>
+<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">为 vLLM Pod 启用注入</a></li>
+<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">验证注入</a></li>
 <li><a :data-current="activeSection === '#cacheblendengine-fields'" class="reference internal" href="#cacheblendengine-fields">CacheBlendEngine 字段</a></li>
 </ul>
 </li>
