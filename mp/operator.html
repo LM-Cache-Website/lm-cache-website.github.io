@@ -307,7 +307,7 @@ resource and the operator reconciles all underlying Kubernetes objects.</p>
 <li><p><a class="reference internal" href="#eviction" id="id18">Eviction</a></p></li>
 <li><p><a class="reference internal" href="#prometheus" id="id19">Prometheus</a></p></li>
 <li><p><a class="reference internal" href="#l2-storage" id="id20">L2 Storage</a></p></li>
-<li><p><a class="reference internal" href="#gpu-vendor" id="id21">GPU Vendor</a></p></li>
+<li><p><a class="reference internal" href="#gpu-security" id="id21">GPU &amp; Security</a></p></li>
 <li><p><a class="reference internal" href="#scheduling" id="id22">Scheduling</a></p></li>
 <li><p><a class="reference internal" href="#overrides-extras" id="id23">Overrides &amp; Extras</a></p></li>
 <li><p><a class="reference internal" href="#auto-computed-resources" id="id24">Auto-Computed Resources</a></p></li>
@@ -822,8 +822,8 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 </tbody>
 </table>
 </section>
-<section id="gpu-vendor">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">GPU Vendor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-vendor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-vendor'"><span>#</span></a></h3>
+<section id="gpu-security">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">GPU &amp; Security</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-security" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-security'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -840,7 +840,17 @@ See <a class="reference internal" href="l2_storage/index.html"><span class="doc"
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gpuVendor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">nvidia</span></code></p></td>
 <td><p>GPU vendor: <code class="docutils literal notranslate"><span class="pre">nvidia</span></code> (uses the <code class="docutils literal notranslate"><span class="pre">nvidia</span></code> RuntimeClass) or <code class="docutils literal notranslate"><span class="pre">amd</span></code>
-(runs on the default runtime with <code class="docutils literal notranslate"><span class="pre">privileged:</span> <span class="pre">true</span></code>).</p></td>
+(runs on the default runtime).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">privileged</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Run the engine container in privileged mode. On most clusters
+<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> already
+grant GPU visibility without it; set <code class="docutils literal notranslate"><span class="pre">true</span></code> only where the engine
+cannot otherwise see the GPUs. Required for <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code> (no
+RuntimeClass device injection, so privileged is the only path to
+<code class="docutils literal notranslate"><span class="pre">/dev/kfd</span></code>/<code class="docutils literal notranslate"><span class="pre">/dev/dri</span></code>). Enabling it requires the namespace to allow
+the <code class="docutils literal notranslate"><span class="pre">privileged</span></code> Pod Security Standard.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1177,9 +1187,10 @@ for the technique itself.</p>
 <ul class="simple">
 <li><p>a GPU-resident CacheBlend V3 engine (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>),
 deployed as a DaemonSet with the <strong>same GPU model as</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code>
-(<code class="docutils literal notranslate"><span class="pre">privileged</span></code> + <code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code>
-+ <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, and <strong>no</strong> <code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> claim) so it shares the vLLM GPU
-for same-device CUDA IPC; and</p></li>
+(<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>,
+plus <code class="docutils literal notranslate"><span class="pre">privileged</span></code> when <code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> is set, and <strong>no</strong>
+<code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> claim) so it shares the vLLM GPU for same-device CUDA IPC;
+and</p></li>
 <li><p>the vLLM-side plugin, injected into opted-in pods by the webhook.</p></li>
 </ul>
 <section id="additional-prerequisites">
@@ -1732,6 +1743,10 @@ resources from other processes on the same host.</p>
 <li><p>Clusters using Pod Security Standards must allow the <code class="docutils literal notranslate"><span class="pre">privileged</span></code> profile
 for the LMCache namespace – the <code class="docutils literal notranslate"><span class="pre">baseline</span></code> and <code class="docutils literal notranslate"><span class="pre">restricted</span></code> profiles
 reject <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">false</span></code>. When enabled (required for
+<code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code>), the engine container additionally runs privileged,
+granting it full device access – enable it only where GPU visibility
+requires it.</p></li>
 </ul>
 </section>
 <section id="development">
@@ -1803,7 +1818,7 @@ reject <code class="docutils literal notranslate"><span class="pre">hostIPC</spa
 <li><a :data-current="activeSection === '#eviction'" class="reference internal" href="#eviction">Eviction</a></li>
 <li><a :data-current="activeSection === '#prometheus'" class="reference internal" href="#prometheus">Prometheus</a></li>
 <li><a :data-current="activeSection === '#l2-storage'" class="reference internal" href="#l2-storage">L2 Storage</a></li>
-<li><a :data-current="activeSection === '#gpu-vendor'" class="reference internal" href="#gpu-vendor">GPU Vendor</a></li>
+<li><a :data-current="activeSection === '#gpu-security'" class="reference internal" href="#gpu-security">GPU &amp; Security</a></li>
 <li><a :data-current="activeSection === '#scheduling'" class="reference internal" href="#scheduling">Scheduling</a></li>
 <li><a :data-current="activeSection === '#overrides-extras'" class="reference internal" href="#overrides-extras">Overrides &amp; Extras</a></li>
 <li><a :data-current="activeSection === '#auto-computed-resources'" class="reference internal" href="#auto-computed-resources">Auto-Computed Resources</a></li>

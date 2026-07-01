@@ -303,7 +303,7 @@
 <li><p><a class="reference internal" href="#eviction" id="id19">逐出</a></p></li>
 <li><p><a class="reference internal" href="#prometheus" id="id20">Prometheus</a></p></li>
 <li><p><a class="reference internal" href="#l2-storage" id="id21">L2 存储</a></p></li>
-<li><p><a class="reference internal" href="#gpu-vendor" id="id22">GPU Vendor</a></p></li>
+<li><p><a class="reference internal" href="#gpu-security" id="id22">GPU &amp; Security</a></p></li>
 <li><p><a class="reference internal" href="#scheduling" id="id23">调度</a></p></li>
 <li><p><a class="reference internal" href="#overrides-extras" id="id24">覆盖与额外选项</a></p></li>
 <li><p><a class="reference internal" href="#auto-computed-resources" id="id25">自动计算资源</a></p></li>
@@ -796,8 +796,8 @@ for buffer-only mode.</p></td>
 </tbody>
 </table>
 </section>
-<section id="gpu-vendor">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">GPU Vendor</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-vendor" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-vendor'"><span>#</span></a></h3>
+<section id="gpu-security">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">GPU &amp; Security</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-security" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gpu-security'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -814,7 +814,17 @@ for buffer-only mode.</p></td>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gpuVendor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">nvidia</span></code></p></td>
 <td><p>GPU vendor: <code class="docutils literal notranslate"><span class="pre">nvidia</span></code> (uses the <code class="docutils literal notranslate"><span class="pre">nvidia</span></code> RuntimeClass) or <code class="docutils literal notranslate"><span class="pre">amd</span></code>
-(runs on the default runtime with <code class="docutils literal notranslate"><span class="pre">privileged:</span> <span class="pre">true</span></code>).</p></td>
+(runs on the default runtime).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">privileged</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Run the engine container in privileged mode. On most clusters
+<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> already
+grant GPU visibility without it; set <code class="docutils literal notranslate"><span class="pre">true</span></code> only where the engine
+cannot otherwise see the GPUs. Required for <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code> (no
+RuntimeClass device injection, so privileged is the only path to
+<code class="docutils literal notranslate"><span class="pre">/dev/kfd</span></code>/<code class="docutils literal notranslate"><span class="pre">/dev/dri</span></code>). Enabling it requires the namespace to allow
+the <code class="docutils literal notranslate"><span class="pre">privileged</span></code> Pod Security Standard.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1133,7 +1143,12 @@ for buffer-only mode.</p></td>
 <p>CacheBlend 通过重新计算一小部分 Token 来复用偏移（非前缀）位置的缓存 KV。该操作符将其作为第二个 CRD <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> 进行管理，并通过一个 <strong>变更准入 Webhook</strong> 将纯 Python 的 <code class="docutils literal notranslate"><span class="pre">lmcache-cacheblend</span></code> vLLM 插件注入到您的服务 Pod 中，因此您 <strong>无需</strong> 重新构建 vLLM 镜像。有关该技术的详细信息，请参见 <a class="reference internal" href="../kv_cache_optimizations/blending.html"><span class="doc">混合</span></a>。</p>
 <p>它由两个部分组成，操作符同时管理它们：</p>
 <ul class="simple">
-<li><p>一个驻留在 GPU 上的 CacheBlend V3 引擎（<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>），作为 DaemonSet 部署，<strong>与</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> <strong>相同的 GPU 型号</strong>（<code class="docutils literal notranslate"><span class="pre">privileged</span></code> + <code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>，并且<strong>没有</strong> <code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> 声明），因此它共享同设备的 vLLM GPU 进行 CUDA IPC；并且</p></li>
+<li><p>a GPU-resident CacheBlend V3 engine (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>),
+deployed as a DaemonSet with the <strong>same GPU model as</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code>
+(<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>,
+plus <code class="docutils literal notranslate"><span class="pre">privileged</span></code> when <code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> is set, and <strong>no</strong>
+<code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> claim) so it shares the vLLM GPU for same-device CUDA IPC;
+and</p></li>
 <li><p>vLLM 侧插件，由 Webhook 注入到已选择启用的 Pod 中。</p></li>
 </ul>
 <section id="additional-prerequisites">
@@ -1636,6 +1651,10 @@ for buffer-only mode.</p></td>
 <ul class="simple">
 <li><p>仅在受信任的环境中部署。</p></li>
 <li><p>使用 Pod 安全标准的集群必须为 LMCache 命名空间开启 <code class="docutils literal notranslate"><span class="pre">privileged</span></code> 配置文件——<code class="docutils literal notranslate"><span class="pre">baseline</span></code> 和 <code class="docutils literal notranslate"><span class="pre">restricted</span></code> 配置文件均会拒绝 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">false</span></code>. When enabled (required for
+<code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code>), the engine container additionally runs privileged,
+granting it full device access -- enable it only where GPU visibility
+requires it.</p></li>
 </ul>
 </section>
 <section id="development">
@@ -1707,7 +1726,7 @@ for buffer-only mode.</p></td>
 <li><a :data-current="activeSection === '#eviction'" class="reference internal" href="#eviction">逐出</a></li>
 <li><a :data-current="activeSection === '#prometheus'" class="reference internal" href="#prometheus">Prometheus</a></li>
 <li><a :data-current="activeSection === '#l2-storage'" class="reference internal" href="#l2-storage">L2 存储</a></li>
-<li><a :data-current="activeSection === '#gpu-vendor'" class="reference internal" href="#gpu-vendor">GPU Vendor</a></li>
+<li><a :data-current="activeSection === '#gpu-security'" class="reference internal" href="#gpu-security">GPU &amp; Security</a></li>
 <li><a :data-current="activeSection === '#scheduling'" class="reference internal" href="#scheduling">调度</a></li>
 <li><a :data-current="activeSection === '#overrides-extras'" class="reference internal" href="#overrides-extras">覆盖与额外选项</a></li>
 <li><a :data-current="activeSection === '#auto-computed-resources'" class="reference internal" href="#auto-computed-resources">自动计算资源</a></li>
