@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="zh-CN" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>多服务器协调 | LMCache</title>
+<meta content="多服务器协调 | LMCache" property="og:title"/>
+<meta content="多服务器协调 | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="搜索"/>
+<link href="../genindex.html" rel="index" title="索引"/>
+<link href="kv_cache_management.html" rel="next" title="KV Cache 管理"/>
+<link href="p2p.html" rel="prev" title="P2P KV 缓存共享"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">入门指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="index.html">概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">安装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">快速入门</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">配置参考</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">基准测试</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache 大小计算器</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache 操作<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI 参考<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend_dashboard.html">前端仪表板</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">配置示例<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="hybrid_models.html">Hybrid Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs.html">文件系统</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs_native.html">FS（原生）</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/raw_block.html">原始块（Rust）</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/remote_and_distributed.html">远程与分布式<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/mock.html">模拟</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/fault_inject.html">故障注入</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">分布式 KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="disaggregated_prefill.html">分离式预填充</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p2p.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">多服务器协调</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kv_cache_management.html">KV Cache 管理</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">在生产环境中使用 LMCache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="deployment.html">部署指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">运行时插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo 集成</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="observability/index.html">可观察性<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="observability/metrics.html">指标</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observability/logs.html">日志记录</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observability/traces.html">追踪</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache 优化<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">分段式预填充</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">开发者指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">贡献指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">添加原生后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/cli.html">扩展 CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_http_api.html">扩展 HTTP API</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">非 KV 缓存<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">编码</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">隐藏状态</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">旧版（进程内模式）<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">更多示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">使用不同的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">异步加载</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">使用不同的缓存策略</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">编码器缓存</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">使用 NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">使用共享存储</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">压缩</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">逐层 KV 传输</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache 控制器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">混合</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">多模态模型的 KV Cache 与 vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">添加新的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM 动态连接器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">配置 LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">内部 API 服务器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">控制器 WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">可观察性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">性能调优</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache 事件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/architecture.html">架构概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">集成</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">使用数据模块</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">基本检查工具</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">存储插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">远程存储插件</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../distributed_kv_cache.html">分布式 KV Cache</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">多服务器协调</span>
+</nav>
+<div id="content" role="main">
+<section id="multi-server-coordination">
+<h1>多服务器协调<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-server-coordination"><span>#</span></a></h1>
+<p>当您运行多个 LMCache 多进程（MP）服务器时，<strong>MP 协调器</strong>是一个独立服务，各服务器向其注册，从而为您提供覆盖所有运行中服务器的单一全局视图。每个 MP 服务器独立缓存；协调器将它们整合为一个统一管理的集群。</p>
+<nav class="contents local" id="id1">
+<ul class="simple">
+<li><p><a class="reference internal" href="#running-the-coordinator" id="id2">运行协调器</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id3">配置</a></p></li>
+<li><p><a class="reference internal" href="#connecting-mp-servers" id="id4">连接 MP 服务器</a></p></li>
+<li><p><a class="reference internal" href="#http-endpoints" id="id5">HTTP endpoints</a></p></li>
+<li><p><a class="reference internal" href="#fleet-membership-and-health" id="id6">Fleet membership and health</a></p>
+<ul>
+<li><p><a class="reference internal" href="#post-instances" id="id7"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/instances</span></code></a></p></li>
+<li><p><a class="reference internal" href="#put-instances-instance-id-heartbeat" id="id8"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/instances/{instance_id}/heartbeat</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-instances-instance-id" id="id9"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/instances/{instance_id}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-instances" id="id10"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-healthz" id="id11"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/healthz</span></code></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#quota-usage-and-eviction" id="id12">Quota, usage, and eviction</a></p>
+<ul>
+<li><p><a class="reference internal" href="#put-quota-cache-salt" id="id13"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/quota/{cache_salt}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-quota-cache-salt" id="id14"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-quota-cache-salt" id="id15"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-quota" id="id16"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-quota-events" id="id17"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#cache-control" id="id18">Cache control</a></p>
+<ul>
+<li><p><a class="reference internal" href="#post-cache-prefetches" id="id19"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id20"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="running-the-coordinator">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">运行协调器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-the-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-the-coordinator'"><span>#</span></a></h2>
+<p>协调器是一个 FastAPI 服务。使用以下命令启动它：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>coordinator
+</span></code></pre></div>
+</div>
+<p>预期的日志输出：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: MP coordinator listening on http://0.0.0.0:9300
+</span></code></pre></div>
+</div>
+<p>The CLI accepts <code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, <code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>, <code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-chunk-size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>; any flag overrides the
+matching environment variable below. See <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
+Equivalently, the coordinator can still be launched as a module with
+<code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code>.</p>
+</section>
+<section id="configuration">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>协调器通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_*</span></code> 环境变量进行配置：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 48.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>环境变量</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_HOST</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code></p></td>
+<td><p>HTTP服务器绑定的主机。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_PORT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9300</span></code></p></td>
+<td><p>HTTP服务器绑定的端口。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_INSTANCE_TIMEOUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30</span></code></p></td>
+<td><p>超过此秒数未收到心跳后，服务器将从集群中移除。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_HEALTH_CHECK_INTERVAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>健康检查扫描之间的秒数。<code class="docutils literal notranslate"><span class="pre">0</span></code> 禁用逐出。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>L2 逐出清扫之间的秒数。<code class="docutils literal notranslate"><span class="pre">0</span></code> 禁用循环。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_RATIO</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>每个周期逐出的跟踪键的比例（按计数，范围为 0.0 到 1.0）。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TRIGGER_WATERMARK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
+<td><p>当使用量达到配额的该比例时触发逐出（取值范围为 (0.0, 1.0]，不含 0.0）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_CHUNK_SIZE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>全局 CacheBlend 目录每块的令牌数。必须等于混合服务器使用的 LMCache 块大小。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>在 CacheBlend 匹配探针之间的位置。<code class="docutils literal notranslate"><span class="pre">1</span></code> 在每个偏移量进行探测以实现完全回忆。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>Seconds the HTTP server keeps idle connections open before closing
+them. Must be greater than the MP servers' heartbeat interval
+(default <code class="docutils literal notranslate"><span class="pre">5</span></code>), otherwise heartbeat requests may hit a closing
+connection and fail with <code class="docutils literal notranslate"><span class="pre">Server</span> <span class="pre">disconnected</span> <span class="pre">without</span> <span class="pre">sending</span> <span class="pre">a</span>
+<span class="pre">response</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
+startup that paginates an MP server's <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and
+backfills usage + eviction trackers from existing L2 contents.
+Disable to start from empty trackers (handy for tests, or
+deployments that start the coordinator before any MP server).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>在等待第一个 MP 服务器注册以便启动重新同步可以开始时，注册检查之间的秒数。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
+<td><p>最大秒数启动重新同步等待 MP 服务器在放弃之前。协调器保持运行，使用空的跟踪器，直到正常使用事件填充它们。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> forwarded to the MP server's <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code>
+during resync. Larger values reduce RTT count; the server
+clamps to its own ceiling.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="connecting-mp-servers">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">连接 MP 服务器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-mp-servers" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-mp-servers'"><span>#</span></a></h2>
+<p>当您通过 <code class="docutils literal notranslate"><span class="pre">--coordinator-url</span></code> 为 MP 服务器（<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>）指定协调器地址时，该服务器便会加入协调器。它在启动时注册、运行时持续发送心跳、关闭时注销——所有操作均在服务器自身的事件循环中完成。此功能为可选项：若未设置 URL，服务器的行为与之前完全相同。每个标志均可回退到对应的 <code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_*</span></code> 环境变量（在使用 Kubernetes Downward API 时非常便捷）；显式标志优先于环境变量。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38.0%"/>
+<col style="width: 24.0%"/>
+<col style="width: 38.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志（在 MP 服务器上）</p></th>
+<th class="head"><p>环境回退</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-url</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_URL</span></code></p></td>
+<td><p>协调器基础 URL，例如 <code class="docutils literal notranslate"><span class="pre">http://coordinator:9300</span></code>。设置后启用注册。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-advertise-ip</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_ADVERTISE_IP</span></code></p></td>
+<td><p>协调器应通过此服务器访问的 IP（默认为服务器的外部 IP）。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-heartbeat-interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_HEARTBEAT_INTERVAL</span></code></p></td>
+<td><p>心跳之间的秒数（必须为 <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>，默认值为 <code class="docutils literal notranslate"><span class="pre">5</span></code>）。保持远低于协调器的 <code class="docutils literal notranslate"><span class="pre">INSTANCE_TIMEOUT</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_REPORTING</span></code></p></td>
+<td><p>启用向协调器上报 L2 存储/查找事件，用于全集群使用量跟踪及基于配额的逐出。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-flush-interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_FLUSH_INTERVAL</span></code></p></td>
+<td><p>L2 事件批量刷新之间的秒数（必须为 <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>，默认值为 <code class="docutils literal notranslate"><span class="pre">1</span></code>）。</p></td>
+</tr>
+</tbody>
+</table>
+<p>服务器在其稳定身份下注册（<code class="docutils literal notranslate"><span class="pre">--instance-id</span></code> / OTel <code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code>）；如果未传递该标志，服务器将在启动时生成一个随机的 UUID v4 并在该 UUID 下注册。</p>
+<p>注册是尽力而为的：如果协调器无法访问，MP 服务器会记录警告，持续重试，并继续提供服务。启动时会拒绝格式错误的心跳间隔值。</p>
+</section>
+<section id="http-endpoints">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">HTTP endpoints</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#http-endpoints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#http-endpoints'"><span>#</span></a></h2>
+<p>The coordinator's HTTP surface (base URL <code class="docutils literal notranslate"><span class="pre">http://localhost:9300</span></code>) groups into:</p>
+<ul class="simple">
+<li><p><strong>Fleet membership and health</strong> -- registration and liveness
+(<code class="docutils literal notranslate"><span class="pre">/instances</span></code>, <code class="docutils literal notranslate"><span class="pre">/healthz</span></code>).</p></li>
+<li><p><strong>Quota, usage, and eviction</strong> -- the <code class="docutils literal notranslate"><span class="pre">/quota</span></code> group: per-tenant byte
+budgets, usage accounting, and the usage-event ingest that drives fleet-wide
+eviction.</p></li>
+<li><p><strong>Cache control</strong> -- the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
+named server (currently warm prefetch, with more to come).</p></li>
+</ul>
+<p>Each endpoint is documented below. Success is <code class="docutils literal notranslate"><span class="pre">200</span></code> unless noted, and
+<code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> uses the <code class="docutils literal notranslate"><span class="pre">_default</span></code> sentinel for the empty salt. The wire
+types live in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>.</p>
+</section>
+<section id="fleet-membership-and-health">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Fleet membership and health</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#fleet-membership-and-health" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#fleet-membership-and-health'"><span>#</span></a></h2>
+<p>MP servers register, heartbeat, and deregister automatically (see
+<a class="reference internal" href="#connecting-mp-servers">Connecting MP servers</a>); <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances</span></code> and <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/healthz</span></code> are read-only
+operator views.</p>
+<section id="post-instances">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/instances</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-instances" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-instances'"><span>#</span></a></h3>
+<p>Register (or re-register) an MP server. Called automatically by each server on
+startup.</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 64.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ip</span></code></p></td>
+<td><p>string</p></td>
+<td><p>IP/host of the server's HTTP API; the coordinator dials this address, so
+it must be non-empty.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">http_port</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Port of the server's HTTP API.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional. Server identifier; if omitted (or blank) the coordinator
+generates one and returns it.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">metadata</span></code></p></td>
+<td><p>object</p></td>
+<td><p>Optional. Free-form <code class="docutils literal notranslate"><span class="pre">string</span> <span class="pre">-&gt;</span> <span class="pre">string</span></code> registration hints.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p2p_advertised_url</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional. URL the server advertises for peer-to-peer transfers; empty
+when it is not in P2P.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mq_port</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">0</span></code>). ZMQ message-queue port P2P peers send
+lookup/unlock RPCs to; <code class="docutils literal notranslate"><span class="pre">0</span></code> when P2P is disabled.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"re_registered"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code> is the registered id (the generated one when the request omitted
+it); <code class="docutils literal notranslate"><span class="pre">re_registered</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code> when this replaced an existing registration.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: registered.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation (e.g. blank <code class="docutils literal notranslate"><span class="pre">ip</span></code> or
+out-of-range <code class="docutils literal notranslate"><span class="pre">http_port</span></code>).</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/instances<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"ip": "10.0.0.5", "http_port": 8080}'</span>
+</span><span id="line-4"><span class="c1"># -&gt; {"instance_id": "mp-3f2c9d...", "re_registered": false}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="put-instances-instance-id-heartbeat">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/instances/{instance_id}/heartbeat</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#put-instances-instance-id-heartbeat" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#put-instances-instance-id-heartbeat'"><span>#</span></a></h3>
+<p>Record a liveness heartbeat. Called automatically while the server runs.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> — the instance recording the heartbeat.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: heartbeat recorded.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: unknown instance — the caller should re-register via
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/instances</span></code>.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:9300/instances/server-1/heartbeat
+</span><span id="line-2"><span class="c1"># -&gt; {"instance_id": "server-1"}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="delete-instances-instance-id">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/instances/{instance_id}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-instances-instance-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-instances-instance-id'"><span>#</span></a></h3>
+<p>Deregister an MP server. Called automatically on shutdown.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> — the server to deregister.</p>
+<p><strong>Response:</strong> <code class="docutils literal notranslate"><span class="pre">204</span> <span class="pre">No</span> <span class="pre">Content</span></code> with an empty body, returned whether or not the
+instance was registered (idempotent).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">204</span></code>: deregistered (also returned for an unknown instance).</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/instances/server-1<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{http_code}\n'</span>
+</span><span id="line-2"><span class="c1"># -&gt; 204</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-instances">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-instances" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-instances'"><span>#</span></a></h3>
+<p>List every registered MP server.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"instances"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">      </span><span class="nt">"ip"</span><span class="p">:</span><span class="w"> </span><span class="s2">"10.0.0.5"</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">      </span><span class="nt">"http_port"</span><span class="p">:</span><span class="w"> </span><span class="mi">8080</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">      </span><span class="nt">"registration_time"</span><span class="p">:</span><span class="w"> </span><span class="mf">1719000000.0</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">      </span><span class="nt">"metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+</span><span id="line-9"><span class="w">      </span><span class="nt">"p2p_advertised_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">      </span><span class="nt">"mq_port"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+</span><span id="line-11"><span class="w">    </span><span class="p">}</span>
+</span><span id="line-12"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-13"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>Each entry reports the server's <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>, the <code class="docutils literal notranslate"><span class="pre">ip</span></code> / <code class="docutils literal notranslate"><span class="pre">http_port</span></code> the
+coordinator reaches it at, the wall-clock <code class="docutils literal notranslate"><span class="pre">registration_time</span></code> (epoch seconds),
+any <code class="docutils literal notranslate"><span class="pre">metadata</span></code> supplied at registration, and the <code class="docutils literal notranslate"><span class="pre">p2p_advertised_url</span></code> /
+<code class="docutils literal notranslate"><span class="pre">mq_port</span></code> used for peer-to-peer transfers (empty / <code class="docutils literal notranslate"><span class="pre">0</span></code> when P2P is disabled).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: fleet listed (an empty fleet returns <code class="docutils literal notranslate"><span class="pre">{"instances":</span> <span class="pre">[]}</span></code>).</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/instances
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-healthz">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/healthz</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-healthz" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-healthz'"><span>#</span></a></h3>
+<p>Coordinator liveness probe (for Kubernetes).</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"healthy"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: the coordinator is up.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/healthz
+</span><span id="line-2"><span class="c1"># -&gt; {"status": "healthy"}</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="quota-usage-and-eviction">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Quota, usage, and eviction</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quota-usage-and-eviction" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quota-usage-and-eviction'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">/quota</span></code> group owns per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> byte budgets, the live usage
+accounting behind them, and the usage-event stream that drives fleet-wide
+eviction. (The MP server exposes a node-local <code class="docutils literal notranslate"><span class="pre">/quota</span></code> with the same shape;
+this is its fleet-wide counterpart.) Salts without a quota default to a 0-byte
+limit (allowlist semantics); use <code class="docutils literal notranslate"><span class="pre">_default</span></code> as the path parameter to target
+the empty-string salt.</p>
+<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>, they stream L2
+<code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">lookup</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator, which aggregates
+per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and selects LRU keys to evict. Each
+batch carries the server's <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and a monotonically increasing
+sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>) scoped to that instance, enabling future gap detection.</p>
+<p><strong>Active eviction loop.</strong> Every
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code> seconds, the
+coordinator inspects per-salt usage against the registered quotas and,
+for any salt over the trigger watermark, picks LRU victims and
+dispatches a single <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> to a uniformly random registered MP
+server. Because all MP servers share the same backing L2 (e.g. one S3
+bucket), one dispatch evicts the keys for the whole fleet. The MP
+server's L2 adapter fires <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> listeners after the
+delete completes; those listeners ship <code class="docutils literal notranslate"><span class="pre">delete</span></code> events back through
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code>, which is what updates the coordinator's LRU +
+per-salt totals. Dispatch failures or no-instances-registered fall
+through to the next cycle — at-least-once semantics, safe because the
+S3 delete is idempotent.</p>
+<p><strong>Startup resync.</strong> On boot, the coordinator waits up to
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code> seconds for the first MP
+server to register, then paginates its
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and seeds the in-memory usage + eviction trackers
+with whatever is already resident in L2 — so a fresh coordinator
+does not start from zero usage. Set
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC=False</span></code> to skip this
+phase. Best-effort: resync failures are logged and the manager gives
+up; the ongoing usage-event stream from MP servers eventually corrects
+any initial blind spots.</p>
+<section id="put-quota-cache-salt">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/quota/{cache_salt}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#put-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#put-quota-cache-salt'"><span>#</span></a></h3>
+<p>Create or update a tenant's byte budget.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (<code class="docutils literal notranslate"><span class="pre">_default</span></code> for the
+empty salt).</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 68.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">limit_gb</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Byte budget in GiB; must be <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">0</span></code> (<code class="docutils literal notranslate"><span class="pre">0</span></code> clears the tenant's data on
+the next eviction cycle).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). Cache tier the quota applies to; only <code class="docutils literal notranslate"><span class="pre">l2</span></code> is
+supported today.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user-a"</span><span class="p">,</span><span class="w"> </span><span class="nt">"limit_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota applied.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: invalid limit (negative or non-finite).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:9300/quota/user-a<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"limit_gb": 10.0}'</span>
+</span><span id="line-4"><span class="c1"># -&gt; {"cache_salt": "user-a", "limit_gb": 10.0, "status": "ok"}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="delete-quota-cache-salt">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-quota-cache-salt'"><span>#</span></a></h3>
+<p>Remove a salt's quota entry. Any bytes still cached under it become over-budget
+on the next eviction cycle (effective limit drops to <code class="docutils literal notranslate"><span class="pre">0</span></code>).</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (<code class="docutils literal notranslate"><span class="pre">_default</span></code> for the
+empty salt).</p>
+<p><strong>Query parameters:</strong> <code class="docutils literal notranslate"><span class="pre">tier</span></code> — optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>); cache tier the quota
+applies to.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user-a"</span><span class="p">,</span><span class="w"> </span><span class="nt">"limit_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"removed"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>When no quota was registered for the salt, <code class="docutils literal notranslate"><span class="pre">status</span></code> is <code class="docutils literal notranslate"><span class="pre">"not_found"</span></code> (still
+<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: removed, or <code class="docutils literal notranslate"><span class="pre">not_found</span></code> if no quota existed.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/quota/user-a
+</span><span id="line-2"><span class="c1"># -&gt; {"cache_salt": "user-a", "limit_gb": 0.0, "status": "removed"}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-quota-cache-salt">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-quota-cache-salt" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-quota-cache-salt'"><span>#</span></a></h3>
+<p>Read the quota and live usage for a single salt.</p>
+<p><strong>Path parameters:</strong> <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> — tenant identifier (<code class="docutils literal notranslate"><span class="pre">_default</span></code> for the
+empty salt).</p>
+<p><strong>Query parameters:</strong> <code class="docutils literal notranslate"><span class="pre">tier</span></code> — optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>).</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user-a"</span><span class="p">,</span><span class="w"> </span><span class="nt">"quota_limit_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"quota_exists"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"usage_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.001</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">quota_limit_gb</span></code> is the configured limit in GiB (<code class="docutils literal notranslate"><span class="pre">0.0</span></code> when no quota is set),
+<code class="docutils literal notranslate"><span class="pre">quota_exists</span></code> whether an explicit quota is registered, and <code class="docutils literal notranslate"><span class="pre">usage_gb</span></code> the
+current aggregate usage. This endpoint never returns <code class="docutils literal notranslate"><span class="pre">404</span></code> for an unknown salt.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: quota and usage reported.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/quota/user-a
+</span><span id="line-2"><span class="c1"># -&gt; {"cache_salt": "user-a", "quota_limit_gb": 10.0, "quota_exists": true, "usage_gb": 0.001}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-quota">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-quota" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-quota'"><span>#</span></a></h3>
+<p>List total usage and a per-salt breakdown.</p>
+<p><strong>Query parameters:</strong> <code class="docutils literal notranslate"><span class="pre">tier</span></code> — optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>).</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"total_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.005</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"by_cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"cache_salt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user-a"</span><span class="p">,</span><span class="w"> </span><span class="nt">"quota_limit_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"quota_exists"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"usage_gb"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.001</span><span class="p">}</span>
+</span><span id="line-5"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-6"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">total_gb</span></code> is aggregate usage across all salts in GiB; each <code class="docutils literal notranslate"><span class="pre">by_cache_salt</span></code>
+entry has the same fields as the <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code> response.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: usage reported.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/quota
+</span><span id="line-2"><span class="c1"># -&gt; {"total_gb": 0.005, "by_cache_salt": [...]}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="post-quota-events">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-quota-events" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-quota-events'"><span>#</span></a></h3>
+<p>Ingest a batch of usage events. Sent automatically by reporting MP servers; not
+usually called by hand.</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 16.0%"/>
+<col style="width: 66.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The MP server that produced this batch.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">seq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Monotonic per-instance sequence number (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>); supports future gap
+detection of lost batches.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). Cache tier the events apply to.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">events</span></code></p></td>
+<td><p>list[object]</p></td>
+<td><p>The events to record. Each is <code class="docutils literal notranslate"><span class="pre">{"type",</span> <span class="pre">"key",</span> <span class="pre">"bytes"}</span></code>: <code class="docutils literal notranslate"><span class="pre">type</span></code> is
+<code class="docutils literal notranslate"><span class="pre">"store"</span></code>, <code class="docutils literal notranslate"><span class="pre">"lookup"</span></code>, or <code class="docutils literal notranslate"><span class="pre">"delete"</span></code>; <code class="docutils literal notranslate"><span class="pre">key</span></code> is the encoded object
+key; <code class="docutils literal notranslate"><span class="pre">bytes</span></code> (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">0</span></code>) is the stored size — counted for <code class="docutils literal notranslate"><span class="pre">store</span></code> and
+ignored for <code class="docutils literal notranslate"><span class="pre">lookup</span></code> / <code class="docutils literal notranslate"><span class="pre">delete</span></code> (a <code class="docutils literal notranslate"><span class="pre">delete</span></code> subtracts the size
+recorded at the original <code class="docutils literal notranslate"><span class="pre">store</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"recorded"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">recorded</span></code> is the number of events processed.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: events processed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/quota/events<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
+</span><span id="line-5"><span class="s1">        "seq": 1,</span>
+</span><span id="line-6"><span class="s1">        "events": [</span>
+</span><span id="line-7"><span class="s1">            {"type": "store",  "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 1024},</span>
+</span><span id="line-8"><span class="s1">            {"type": "lookup", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0},</span>
+</span><span id="line-9"><span class="s1">            {"type": "delete", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0}</span>
+</span><span id="line-10"><span class="s1">        ]</span>
+</span><span id="line-11"><span class="s1">    }'</span>
+</span><span id="line-12"><span class="c1"># -&gt; {"recorded": 3}</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="cache-control">
+<h2><a class="toc-backref" href="#id18" role="doc-backlink">Cache control</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. Today it
+covers <strong>warm prefetch</strong>; further cache-control operations will be documented as
+endpoints here as they land.</p>
+<p><strong>Warm prefetch (pre-loading L1 from L2).</strong> Pre-warm one MP server's L1 with the
+KV for a known prompt <strong>before</strong> the requests arrive, so the first request hits
+L1 instead of paying the L2 fetch inline -- useful when you know a workload is
+about to be routed to a node (a traffic shift, a hot shared system prompt).</p>
+<p>You describe the content by <strong>token ids</strong> -- the unit the cache speaks -- never
+by internal cache keys, which you cannot construct (a key is a content hash
+plus a per-rank layout bitmap). The coordinator forwards the request to the
+named server, which hashes the tokens, expands them across the node's ranks,
+loads the chunks from L2 into L1, and <strong>retains</strong> them so a later lookup hits.
+The submit returns a <code class="docutils literal notranslate"><span class="pre">request_id</span></code>; poll the status endpoint until
+<code class="docutils literal notranslate"><span class="pre">completed</span></code>. The warm acquires no lock -- the poll simply reports progress and
+clears the server-side job once the load finishes.</p>
+<section id="post-cache-prefetches">
+<h3><a class="toc-backref" href="#id19" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-prefetches" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-prefetches'"><span>#</span></a></h3>
+<p>Submit a warm prefetch of a token sequence on one named server.</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 16.0%"/>
+<col style="width: 66.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Target MP server; must be registered.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Model whose layout sizes the target's L1 buffers.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
+<td><p>int</p></td>
+<td><p>World size (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>) selecting the KV layout and the per-rank fan-out
+(<code class="docutils literal notranslate"><span class="pre">1</span></code> for a single-GPU, TP=1 deployment).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<td><p>list[int]</p></td>
+<td><p>Prompt tokens whose complete <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> chunks are warmed; must match
+what was stored (same tokenizer / special tokens). A sub-chunk sequence
+is a <code class="docutils literal notranslate"><span class="pre">noop</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">""</span></code>). Per-tenant isolation salt applied to the
+produced keys.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"request_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123"</span><span class="p">,</span><span class="w"> </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"submitted"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>When the sequence is shorter than one chunk, nothing is submitted and
+<code class="docutils literal notranslate"><span class="pre">request_id</span></code> is empty:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"request_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w"> </span><span class="nt">"chunks"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"noop"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">request_id</span></code> is the id to poll; <code class="docutils literal notranslate"><span class="pre">chunks</span></code> is the number of whole chunks
+submitted to warm.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: submitted (or a <code class="docutils literal notranslate"><span class="pre">noop</span></code> as above).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: unknown <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> (not registered).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">502</span></code>: the target server was unreachable or rejected the submit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><strong>Single-node scope:</strong> one <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> warms only that node's shards. For
+a model sharded across multiple nodes, submit one request per node's instance.</p>
+</div>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/cache/prefetches<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
+</span><span id="line-5"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-6"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-7"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-8"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-9"><span class="s1">    }'</span>
+</span><span id="line-10"><span class="c1"># -&gt; {"instance_id": "server-1", "request_id": "abc123", "chunks": 12, "status": "submitted"}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-cache-prefetches-instance-id-request-id">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-cache-prefetches-instance-id-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-cache-prefetches-instance-id-request-id'"><span>#</span></a></h3>
+<p>Poll a submitted warm prefetch; the response relays the owning server's status
+verbatim with its code.</p>
+<p><strong>Path parameters:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 64.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The server the prefetch was submitted to.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">request_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>The id returned by <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>) while the load runs:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>…and once complete:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"completed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"found_keys"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"total_keys"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">found_keys</span></code> of <code class="docutils literal notranslate"><span class="pre">total_keys</span></code> requested chunks were resident.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: status reported (<code class="docutils literal notranslate"><span class="pre">pending</span></code> or <code class="docutils literal notranslate"><span class="pre">completed</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: unknown <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>, or unknown <code class="docutils literal notranslate"><span class="pre">request_id</span></code> relayed from the
+server.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">502</span></code>: the target server was unreachable.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/cache/prefetches/server-1/abc123
+</span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 12, "total_keys": 12}</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="p2p.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        P2P KV 缓存共享
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="kv_cache_management.html">
+        KV Cache 管理
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#running-the-coordinator'" class="reference internal" href="#running-the-coordinator">运行协调器</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
+<li><a :data-current="activeSection === '#connecting-mp-servers'" class="reference internal" href="#connecting-mp-servers">连接 MP 服务器</a></li>
+<li><a :data-current="activeSection === '#http-endpoints'" class="reference internal" href="#http-endpoints">HTTP endpoints</a></li>
+<li><a :data-current="activeSection === '#fleet-membership-and-health'" class="reference internal" href="#fleet-membership-and-health">Fleet membership and health</a><ul>
+<li><a :data-current="activeSection === '#post-instances'" class="reference internal" href="#post-instances"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/instances</span></code></a></li>
+<li><a :data-current="activeSection === '#put-instances-instance-id-heartbeat'" class="reference internal" href="#put-instances-instance-id-heartbeat"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/instances/{instance_id}/heartbeat</span></code></a></li>
+<li><a :data-current="activeSection === '#delete-instances-instance-id'" class="reference internal" href="#delete-instances-instance-id"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/instances/{instance_id}</span></code></a></li>
+<li><a :data-current="activeSection === '#get-instances'" class="reference internal" href="#get-instances"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances</span></code></a></li>
+<li><a :data-current="activeSection === '#get-healthz'" class="reference internal" href="#get-healthz"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/healthz</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#quota-usage-and-eviction'" class="reference internal" href="#quota-usage-and-eviction">Quota, usage, and eviction</a><ul>
+<li><a :data-current="activeSection === '#put-quota-cache-salt'" class="reference internal" href="#put-quota-cache-salt"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/quota/{cache_salt}</span></code></a></li>
+<li><a :data-current="activeSection === '#delete-quota-cache-salt'" class="reference internal" href="#delete-quota-cache-salt"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code></a></li>
+<li><a :data-current="activeSection === '#get-quota-cache-salt'" class="reference internal" href="#get-quota-cache-salt"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code></a></li>
+<li><a :data-current="activeSection === '#get-quota'" class="reference internal" href="#get-quota"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code></a></li>
+<li><a :data-current="activeSection === '#post-quota-events'" class="reference internal" href="#post-quota-events"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#cache-control'" class="reference internal" href="#cache-control">Cache control</a><ul>
+<li><a :data-current="activeSection === '#post-cache-prefetches'" class="reference internal" href="#post-cache-prefetches"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></li>
+<li><a :data-current="activeSection === '#get-cache-prefetches-instance-id-request-id'" class="reference internal" href="#get-cache-prefetches-instance-id-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=7d86a446"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/translations.js?v=beaddf03"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>
