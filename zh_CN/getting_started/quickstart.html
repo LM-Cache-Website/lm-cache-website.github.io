@@ -299,19 +299,28 @@ vLLM</label><div class="sd-tab-content docutils">
 <input checked="checked" id="sd-tab-item-3" name="sd-tab-set-1" type="radio"/>
 <label class="sd-tab-label" data-sync-group="vllm-mode" data-sync-id="mp" for="sd-tab-item-3">
 MP 模式（推荐）</label><div class="sd-tab-content docutils">
-<p>启动 LMCache 服务器：</p>
+<p>Start the LMCache server. <code class="docutils literal notranslate"><span class="pre">--host</span></code> / <code class="docutils literal notranslate"><span class="pre">--port</span></code> set the ZMQ
+address vLLM connects to; they are spelled out here so the two
+commands line up (these are also the defaults):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># chunk-size 16 is an illustrative demo value so a short</span>
 </span><span id="line-2"><span class="c1"># prompt produces visible cache traffic; use the default</span>
 </span><span id="line-3"><span class="c1"># (256) in production.</span>
 </span><span id="line-4">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">16</span>
+</span><span id="line-5"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">16</span>
 </span></code></pre></div>
 </div>
-<p>ZMQ 端口（默认 <strong>5555</strong>）接受来自 vLLM 的连接；HTTP 前端（默认 <strong>8080</strong>）提供管理和指标端点。有关 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> 和连接器选项的完整列表，请参见 <a class="reference internal" href="../mp/configuration.html"><span class="doc">配置参考</span></a>。</p>
-<p>在另一个终端中使用 MP 连接器启动 vLLM：</p>
+<p>The ZMQ port (<code class="docutils literal notranslate"><span class="pre">--port</span></code>, default <strong>5555</strong>) accepts connections
+from vLLM; the HTTP frontend (default <strong>8080</strong>) serves the
+management and metrics endpoints. See <a class="reference internal" href="../mp/configuration.html"><span class="doc">配置参考</span></a>
+for the full list of <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> and connector options.</p>
+<p>Start vLLM with the MP connector in a separate terminal. Point the
+connector at the server above via <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> /
+<code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> -- the host
+<strong>must</strong> carry a ZMQ transport prefix such as <code class="docutils literal notranslate"><span class="pre">tcp://</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "tcp://localhost", "lmcache.mp.port": 5555}}'</span>
 </span></code></pre></div>
 </div>
 <div class="admonition note">
@@ -619,7 +628,7 @@ MP 模式</label><div class="sd-tab-content docutils">
 <p>上述的 vLLM MP 示例在默认端口上本地运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>。常见变体：</p>
 <p><strong>自定义端口或远程主机</strong> -- 默认情况下，连接器与 <code class="docutils literal notranslate"><span class="pre">localhost:5555</span></code> 通信。要使用不同的端口或其他主机上的服务器，请在 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 中传递 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code>：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "10.0.0.1", "lmcache.mp.port": 6555}}'</span>
+</span><span id="line-2"><span class="w">  </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "tcp://10.0.0.1", "lmcache.mp.port": 6555}}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>CPU-only (no GPU)</strong> -- the server runs with a <code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code> and shares
