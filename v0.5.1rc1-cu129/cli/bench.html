@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>lmcache bench | LMCache</title>
+<meta content="lmcache bench | LMCache" property="og:title"/>
+<meta content="lmcache bench | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="Search"/>
+<link href="../genindex.html" rel="index" title="Index"/>
+<link href="kvcache.html" rel="next" title="lmcache kvcache"/>
+<link href="query.html" rel="prev" title="lmcache query"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">Getting Started<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/index.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/configuration.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">Benchmarking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache Size Calculator</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache Operations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="query.html">lmcache query</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/frontend_dashboard.html">Frontend Dashboard</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">Recipes<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/hybrid_models.html">Hybrid Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/index.html">Secondary KV Storage<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/supported_storages.html">Supported Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/file_and_block.html">File &amp; Block<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs.html">FileSystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs_native.html">FS (native)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/raw_block.html">Raw Block (Rust)</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/remote_and_distributed.html">Remote &amp; Distributed<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/mock.html">Mock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/fault_inject.html">Fault Inject</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/serde.html">KV Cache Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/disaggregated_prefill.html">Disaggregated Prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/p2p.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/coordinator.html">Multi-Server Coordination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/kv_cache_management.html">KV Cache Management</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">Use LMCache in Production<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/deployment.html">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes Deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">Runtime Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo Integration</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/observability/index.html">Observability<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/logs.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/traces.html">Tracing</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">Community<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache Optimizations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">Segmented Prefill</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">Developer Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">Contributing Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">Adding Native Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/cli.html">Extending the CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_http_api.html">Extending the HTTP API</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">Non-KV Caching<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">Encodings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">Hidden states</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">Legacy (In-Process Mode)<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">Using Different Storage Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">Async Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">Encoder caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">Using NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">Compression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">Layerwise KV Transfer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache Controller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">Blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">KV Caching for Multimodal Models with vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">Adding new storage backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM Dynamic Connector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">Configuring LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">Internal API Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">Controller WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">Observability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">Performance Tuning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache Events</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">Usage Data Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">Basic Check Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">Storage Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">Remote Storage Plugins</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../interacting_with_server.html">KV Cache Operations</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">CLI Reference</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">lmcache bench</span>
+</nav>
+<div id="content" role="main">
+<section id="lmcache-bench">
+<span id="id1"></span><h1>lmcache bench<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-bench"><span>#</span></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span></code> command runs sustained performance benchmarks. It has
+three sub-commands, each targeting a different layer of the stack:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 80.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Sub-command</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">engine</span></code></p></td>
+<td><p>Benchmark an inference engine (e.g. vLLM) with workloads that
+exercise different KV-cache reuse patterns.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<td><p>End-to-end sanity test against a running LMCache MP cache server
+(ZMQ + HTTP). Requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install and a GPU.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2</span></code></p></td>
+<td><p>Throughput / latency benchmark against an L2 cache adapter
+(store / lookup / load).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span><span class="o">{</span>engine,server,l2<span class="o">}</span><span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<section id="engine">
+<span id="lmcache-bench-engine"></span><h2>engine<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> command runs sustained performance benchmarks
+against an inference engine (e.g., vLLM). It supports multiple workload types
+that exercise different caching patterns and reports TTFT, decoding speed, and
+throughput metrics.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>There are three ways to configure the benchmark:</p>
+<ol class="arabic simple">
+<li><p><strong>CLI arguments</strong> – pass all options on the command line.</p></li>
+<li><p><strong>Interactive mode</strong> – run <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> without required args
+and follow the step-by-step prompts.</p></li>
+<li><p><strong>Config file</strong> – save a configuration to JSON and replay it with
+<code class="docutils literal notranslate"><span class="pre">--config</span></code>.</p></li>
+</ol>
+<section id="quick-start">
+<h3>Quick Start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h3>
+<p><strong>Minimal (with all required arguments):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p><strong>Interactive mode (guided setup):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine
+</span></code></pre></div>
+</div>
+<p>The interactive mode walks you through each required setting, then asks
+whether you want to configure general and workload-specific options or use
+defaults.</p>
+<p><strong>From a saved config file:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>Config files contain benchmark parameters (workload, KV cache settings, etc.)
+but not the engine URL, so you can reuse the same config against different
+engines.</p>
+<p><strong>Export a config without running the benchmark:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--export-config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>This resolves all auto-detected values (model name, tokens per GB) and saves
+them to a portable JSON file that works without an LMCache server.</p>
+<p><strong>Non-interactive mode (for scripts and CI):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--no-interactive
+</span></code></pre></div>
+</div>
+<p>Errors immediately if any required argument is missing, instead of entering
+interactive mode. Useful in automated pipelines.</p>
+<p>If you don’t have an LMCache server, you can pass <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code>
+directly instead of <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>
+(see <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">Finding --tokens-per-gb-kvcache</span></a> for how to find this value).</p>
+</section>
+<section id="general-options">
+<h3>General Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#general-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#general-options'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Load configuration from a JSON file. Skips interactive mode.
+CLI flags override values in the file. The engine URL is not
+stored in config files and must be provided separately.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--export-config</span> <span class="pre">FILE</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Export resolved configuration to a JSON file and exit. Does not
+run the benchmark. Auto-detected values (model, tokens per GB)
+are resolved and saved so the config is portable. Environment-
+specific values (engine URL, LMCache URL) are excluded.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-interactive</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Disable interactive mode. Errors if required arguments are
+missing instead of prompting. Useful for scripts and CI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--engine-url</span> <span class="pre">URL</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Inference engine URL (e.g., <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code>).
+Set <code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY</span></code> env var if authentication is needed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--workload</span> <span class="pre">TYPE</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Workload type: <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>,
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span> <span class="pre">N</span></code></p></td>
+<td><p>*</p></td>
+<td><p>Tokens per GB of KV cache. Required unless <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> is set.
+See <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">Finding --tokens-per-gb-kvcache</span></a> for how to find this value.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lmcache-url</span> <span class="pre">URL</span></code></p></td>
+<td><p>No</p></td>
+<td><p>LMCache HTTP server URL. When provided, <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code>
+is auto-detected from the server.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">NAME</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Model name. Auto-detected from the engine if omitted.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span> <span class="pre">GB</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Target active KV cache volume in GB (default: 100).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--seed</span> <span class="pre">N</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Random seed (default: 42).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Directory for CSV and JSON output files (default: current directory).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-csv</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Skip CSV export.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--json</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Export a JSON summary file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Suppress the real-time progress display.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="finding-tokens-per-gb-kvcache">
+<span id="bench-tokens-per-gb"></span><h4>Finding <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#finding-tokens-per-gb-kvcache"><span>#</span></a></h4>
+<p>If you have an LMCache server running, the easiest approach is to pass
+<code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> and let the tool auto-detect the value.</p>
+<p>If you are using <strong>vLLM without LMCache</strong>, look for these lines in vLLM’s
+startup log:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">INFO: Available KV cache memory: 12.34 GiB
+</span><span id="line-2">INFO: GPU KV cache size: 567,890 tokens
+</span></code></pre></div>
+</div>
+<p>Then compute:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">tokens_per_gb</span> <span class="o">=</span> <span class="mi">567890</span> <span class="o">/</span> <span class="mf">12.34</span> <span class="o">=</span> <span class="mi">46</span><span class="p">,</span><span class="mi">020</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="workloads">
+<h3>Workloads<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workloads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workloads'"><span>#</span></a></h3>
+<section id="long-doc-qa">
+<h4>long-doc-qa<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-qa"><span>#</span></a></h4>
+<p>Simulates repeated Q&amp;A over long documents. Warmup sends each document once
+to populate the KV cache, then benchmark queries are dispatched with
+semaphore-controlled concurrency.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-document-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>Token length of each synthetic document.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-query-per-document</span></code></p></td>
+<td><p>2</p></td>
+<td><p>Number of questions asked per document.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-shuffle-policy</span></code></p></td>
+<td><p>random</p></td>
+<td><p>Request ordering: <code class="docutils literal notranslate"><span class="pre">random</span></code> (shuffled) or <code class="docutils literal notranslate"><span class="pre">tile</span></code> (round-by-round).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-num-inflight-requests</span></code></p></td>
+<td><p>3</p></td>
+<td><p>Maximum concurrent in-flight requests.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-cache-volume<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--ldqa-document-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--ldqa-query-per-document<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--ldqa-shuffle-policy<span class="w"> </span>tile
+</span></code></pre></div>
+</div>
+</section>
+<section id="multi-round-chat">
+<h4>multi-round-chat<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-round-chat"><span>#</span></a></h4>
+<p>Simulates multi-round chat with stateful sessions. Creates concurrent user
+sessions, dispatches requests at a fixed QPS rate, and records responses in
+session history so each subsequent query includes prior context.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-shared-prompt-length</span></code></p></td>
+<td><p>2000</p></td>
+<td><p>System prompt token length per session.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-chat-history-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>Pre-filled chat history token length.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-user-input-length</span></code></p></td>
+<td><p>50</p></td>
+<td><p>Tokens per user query.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-output-length</span></code></p></td>
+<td><p>200</p></td>
+<td><p>Max tokens to generate per response.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-qps</span></code></p></td>
+<td><p>1.0</p></td>
+<td><p>Target queries per second.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-duration</span></code></p></td>
+<td><p>60.0</p></td>
+<td><p>Benchmark duration in seconds.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>multi-round-chat<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--mrc-qps<span class="w"> </span><span class="m">2</span>.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--mrc-duration<span class="w"> </span><span class="m">120</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="long-doc-permutator">
+<h4>long-doc-permutator<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-permutator"><span>#</span></a></h4>
+<p>Stress-tests blended KV cache reuse by sending permutations of a set of context
+documents. Each request concatenates all context documents in a different order:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[System Prompt] + [Doc_i1] + [Doc_i2] + ... + [Doc_iN]
+</span></code></pre></div>
+</div>
+<p>A single dummy warmup request is sent before the benchmark phase. Requests are
+dispatched with semaphore-controlled concurrency.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-contexts</span></code></p></td>
+<td><p>5</p></td>
+<td><p>Number of unique context documents.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-context-length</span></code></p></td>
+<td><p>5000</p></td>
+<td><p>Token length of each context document.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-system-prompt-length</span></code></p></td>
+<td><p>1000</p></td>
+<td><p>Token length of the shared system prompt. Use <code class="docutils literal notranslate"><span class="pre">0</span></code> for no system prompt.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-permutations</span></code></p></td>
+<td><p>10</p></td>
+<td><p>Number of distinct permutations to send. Capped at N! where
+N = <code class="docutils literal notranslate"><span class="pre">--ldp-num-contexts</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-inflight-requests</span></code></p></td>
+<td><p>1</p></td>
+<td><p>Maximum concurrent in-flight requests.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-permutator<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--ldp-num-contexts<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--ldp-context-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--ldp-num-permutations<span class="w"> </span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--ldp-num-inflight-requests<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="prefix-suffix-tuner">
+<h4>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner"><span>#</span></a></h4>
+<p>A two-pass sequential workload designed to be run <strong>unchanged</strong> across
+three LMCache configurations to demonstrate the value of each cache tier
+(L0 HBM, L1 DRAM, L2 disk):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 30.0%"/>
+<col style="width: 30.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Baseline</p></th>
+<th class="head"><p>LMCache config</p></th>
+<th class="head"><p>Targeted overflow</p></th>
+<th class="head"><p>Expected pass-2 hits</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>vanilla vLLM (L0 only)</p></td>
+<td><p>L0 (HBM)</p></td>
+<td><p>none – every request a cold prefill</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>vLLM + LMCache L1 + L2</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 prefix hits (suffix recomputed)</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>vLLM + LMCache L1 + L2 + CacheBlend</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 prefix hits + CacheBlend suffix hits</p></td>
+</tr>
+</tbody>
+</table>
+<p>Set <code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> to the size in GB of the tier you want to overflow
+(L0 size for Baseline 1, L1 size for Baselines 2 and 3). The workload itself
+is identical across baselines.</p>
+<p>Each request has the layout:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="n">prefix_i</span> <span class="k">with</span> <span class="n">unique</span><span class="o">-</span><span class="n">ID</span><span class="p">][</span><span class="n">random</span> <span class="n">breaker</span><span class="p">][</span><span class="n">shared</span> <span class="n">suffix</span><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_prefixes</span></code> distinct prefixes, each starting with <code class="docutils literal notranslate"><span class="pre">PREFIX_&lt;8-hex&gt;</span></code>
+so the prefix’s tokenized hash differs across the pool.</p></li>
+<li><p>A fresh random 32-token breaker per request, defeating ordinary prefix
+caching past the prefix boundary.</p></li>
+<li><p>A single shared suffix used by every request – the only entry CacheBlend
+can reuse.</p></li>
+</ul>
+<p>Pass 1 (warmup) sends each prefix once to populate the cache; its stats are
+discarded. Pass 2 sends them again in identical order. Because LRU evicts
+the next-needed prefix on each pass-2 access, even a 1.05x overflow of the
+targeted tier is enough to make every pass-2 request miss that tier and
+fall through to the next one.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-context-length</span></code></p></td>
+<td><p>8000</p></td>
+<td><p>Total tokens per request (prefix + breaker + suffix).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-prefix-ratio</span></code></p></td>
+<td><p>0.8</p></td>
+<td><p>Fraction of context-length used by the prefix. Must be in (0.0, 1.0).
+The remainder (minus a 32-token breaker) is the shared suffix.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code></p></td>
+<td><p>20.0</p></td>
+<td><p><strong>Size in GB of the KV-cache tier to overflow.</strong> Use the L0 (HBM)
+size for vanilla vLLM, or the L1 (LMCache DRAM) size for tiered
+baselines. The workload sizes its prefix pool to slightly more than
+this (5% overflow internally), enough to drive every pass-2 request
+to a miss of that tier under sequential dispatch + LRU.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The number of pass-2 (measured) requests equals the prefix pool size,
+computed as
+<code class="docutils literal notranslate"><span class="pre">floor(psf_thrash</span> <span class="pre">*</span> <span class="pre">1.05</span> <span class="pre">*</span> <span class="pre">tokens_per_gb</span> <span class="pre">/</span> <span class="pre">prefix_tokens)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> is unused by this workload — sizing is driven solely
+by <code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code>.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>prefix-suffix-tuner<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--psf-context-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--psf-prefix-ratio<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--psf-thrash<span class="w"> </span><span class="m">100</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For the analytical-model claim “thrash ≈ L1 size → ~0% LMCache hit rate”
+to hold empirically, the LMCache server must be started with
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">0.99</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.20</span></code> only clears 20% per cycle,
+leaving ~60% of pass-1 content in cache through pass 2):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span>&lt;SIZE&gt;<span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.80<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.99
+</span></code></pre></div>
+</div>
+<p>The workload itself sleeps 5 seconds between pass 1 (warmup) and pass 2
+(measured), so LMCache’s 1Hz batched-eviction polling thread has time
+to actually run.  Without that sleep, fast benchmarks complete before
+any eviction fires.</p>
+</div>
+</section>
+<section id="random-prefill">
+<h4>random-prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill"><span>#</span></a></h4>
+<p>Fires all requests simultaneously with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> to measure pure
+prefill performance. No warmup phase.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rp-request-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>Token length per prefill request.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rp-num-requests</span></code></p></td>
+<td><p>50</p></td>
+<td><p>Number of requests to fire.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>random-prefill<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--rp-request-length<span class="w"> </span><span class="m">15000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--rp-num-requests<span class="w"> </span><span class="m">100</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="interactive-mode">
+<h3>Interactive Mode<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#interactive-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#interactive-mode'"><span>#</span></a></h3>
+<a class="reference internal image-reference" href="../_images/bench_interactive_demo.gif"><img alt="Interactive mode demo" src="../_images/bench_interactive_demo.gif" style="width: 100%;"/>
+</a>
+<p>When <code class="docutils literal notranslate"><span class="pre">--engine-url</span></code> or <code class="docutils literal notranslate"><span class="pre">--workload</span></code> is not provided (and
+<code class="docutils literal notranslate"><span class="pre">--no-interactive</span></code> is not set), the tool enters interactive mode. It guides
+you through four phases:</p>
+<ol class="arabic simple">
+<li><p><strong>Required settings</strong> – engine URL, workload type, LMCache server
+(or tokens per GB).</p></li>
+<li><p><strong>General settings</strong> (optional gate) – model name, KV cache volume.</p></li>
+<li><p><strong>Workload settings</strong> (optional gate) – workload-specific parameters.</p></li>
+<li><p><strong>Summary and action</strong> – review configuration, then start the benchmark
+or export to a JSON file.</p></li>
+</ol>
+<p>Each prompt focuses on a single setting. Selection prompts use arrow keys;
+text and number prompts accept typed input with defaults shown in brackets.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">══════════════════════════════════════════════════
+</span><span id="line-2"> lmcache bench engine -- Interactive Setup
+</span><span id="line-3">══════════════════════════════════════════════════
+</span><span id="line-4">
+</span><span id="line-5">Engine URL
+</span><span id="line-6">  URL of the inference engine.
+</span><span id="line-7">  [default: http://localhost:8000] &gt;
+</span><span id="line-8">
+</span><span id="line-9">Workload
+</span><span id="line-10">  The type of benchmark workload to run.
+</span><span id="line-11">  Use up/down to navigate, Enter to select.
+</span><span id="line-12">
+</span><span id="line-13">  * long-doc-qa           Repeated Q&amp;A over long documents
+</span><span id="line-14">    multi-round-chat       Multi-turn chat with stateful sessions
+</span><span id="line-15">    long-doc-permutator    Permutations of context documents
+</span><span id="line-16">    prefix-suffix-tuner    Two-pass tiered KV-cache demonstrator
+</span><span id="line-17">    random-prefill         Prefill-only requests fired simultaneously
+</span><span id="line-18">
+</span><span id="line-19">LMCache Server
+</span><span id="line-20">  Do you have a running LMCache server?
+</span><span id="line-21">  It can auto-detect KV cache size information.
+</span><span id="line-22">  [default: Y] (Y/n) &gt;
+</span><span id="line-23">
+</span><span id="line-24">...
+</span><span id="line-25">
+</span><span id="line-26">──────────────────────────────────────────────────
+</span><span id="line-27"> Configuration Summary
+</span><span id="line-28">──────────────────────────────────────────────────
+</span><span id="line-29">  Workload:             long-doc-qa
+</span><span id="line-30">  Model:                Qwen/Qwen3-14B
+</span><span id="line-31">  Tokens per GB:        6553
+</span><span id="line-32">  ...
+</span><span id="line-33">──────────────────────────────────────────────────
+</span><span id="line-34">
+</span><span id="line-35">What would you like to do?
+</span><span id="line-36">  * Start benchmark
+</span><span id="line-37">    Export configuration for later use and exit
+</span></code></pre></div>
+</div>
+<p>When you choose “Export configuration”, all auto-detected values (model name,
+tokens per GB) are resolved and saved to a portable JSON file.</p>
+</section>
+<section id="config-file">
+<h3>Config File<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#config-file" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#config-file'"><span>#</span></a></h3>
+<p>Config files store benchmark parameters but <strong>not</strong> environment-specific
+values like engine URL or LMCache URL. This lets you reuse the same config
+across different environments.</p>
+<p>You can create a config file in three ways:</p>
+<ol class="arabic simple">
+<li><p><strong>Interactive mode</strong> – choose “Export configuration” at the summary step.</p></li>
+<li><p><strong>``–export-config``</strong> – resolve and export from CLI without running.</p></li>
+<li><p><strong>Manually</strong> – write JSON with keys matching CLI arg names (dashes
+replaced by underscores).</p></li>
+</ol>
+<p>Example config file:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Qwen/Qwen3-14B"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"workload"</span><span class="p">:</span><span class="w"> </span><span class="s2">"long-doc-qa"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"tokens_per_gb_kvcache"</span><span class="p">:</span><span class="w"> </span><span class="mi">6553</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"kv_cache_volume"</span><span class="p">:</span><span class="w"> </span><span class="mf">100.0</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"ldqa_document_length"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">"ldqa_query_per_document"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"ldqa_shuffle_policy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"random"</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">"ldqa_num_inflight_requests"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+</span><span id="line-10"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>Load it with <code class="docutils literal notranslate"><span class="pre">--config</span></code> (engine URL must be provided separately):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>CLI arguments override config file values, so you can use a base config and
+tweak individual settings:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Use saved config but override KV cache volume</span>
+</span><span id="line-2">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--config<span class="w"> </span>my_bench.json<span class="w"> </span>--kv-cache-volume<span class="w"> </span><span class="m">200</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="output">
+<h3>Output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#output'"><span>#</span></a></h3>
+<section id="terminal-real-time-progress">
+<h4>Terminal (real-time progress)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-real-time-progress"><span>#</span></a></h4>
+<p>During the benchmark, a live progress display shows in-flight requests,
+average TTFT, decode speed, and throughput. Suppress it with <code class="docutils literal notranslate"><span class="pre">-q</span></code>.</p>
+</section>
+<section id="terminal-final-summary">
+<h4>Terminal (final summary)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-final-summary"><span>#</span></a></h4>
+<p>After completion, a summary table is printed:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">======= Engine Benchmark Result (long-doc-qa) ========
+</span><span id="line-2">---------------------- Configuration ------------------
+</span><span id="line-3">Engine URL:                       http://localhost:8000
+</span><span id="line-4">Model:                            Qwen/Qwen3-14B
+</span><span id="line-5">Workload:                         long-doc-qa
+</span><span id="line-6">------------------------- Results ---------------------
+</span><span id="line-7">Successful requests:              20
+</span><span id="line-8">Failed requests:                  0
+</span><span id="line-9">Benchmark duration (s):           31.34
+</span><span id="line-10">Total input tokens:               200000
+</span><span id="line-11">Total output tokens:              2560
+</span><span id="line-12">Input throughput (tok/s):         6381.62
+</span><span id="line-13">Output throughput (tok/s):        81.69
+</span><span id="line-14">--------------- Time to First Token -------------------
+</span><span id="line-15">Mean TTFT (ms):                   313.41
+</span><span id="line-16">P50 TTFT (ms):                    272.83
+</span><span id="line-17">P90 TTFT (ms):                    587.21
+</span><span id="line-18">P99 TTFT (ms):                    837.32
+</span><span id="line-19">------------------ Decoding Speed ---------------------
+</span><span id="line-20">Mean decode (tok/s):              48.23
+</span><span id="line-21">P99 decode (tok/s):               38.55
+</span><span id="line-22">======================================================
+</span></code></pre></div>
+</div>
+</section>
+<section id="csv-and-json">
+<h4>CSV and JSON<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#csv-and-json"><span>#</span></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bench_results.csv</span></code> – per-request metrics (TTFT, latency, decode speed,
+token counts). Written by default; skip with <code class="docutils literal notranslate"><span class="pre">--no-csv</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bench_summary.json</span></code> – aggregate statistics with percentiles and config
+metadata. Opt-in with <code class="docutils literal notranslate"><span class="pre">--json</span></code>.</p></li>
+</ul>
+<p>Both files are written to <code class="docutils literal notranslate"><span class="pre">--output-dir</span></code> (default: current directory).</p>
+</section>
+</section>
+<section id="exit-codes">
+<h3>Exit Codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#exit-codes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#exit-codes'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>All requests succeeded.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>One or more requests failed.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="server">
+<span id="lmcache-bench-server"></span><h2>server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> command is an end-to-end sanity test for the
+LMCache Multi-Process (MP) cache server. It connects to a running server
+over ZMQ and exercises the full KV-cache data path for a sequence of
+synthetic requests, then optionally verifies per-chunk checksums through
+the HTTP API.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
+<strong>not</strong> require an inference engine. It only needs a running LMCache MP
+server (ZMQ + HTTP). GPU mode additionally requires a CUDA-capable device.
+It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install (not the lightweight
+<code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
+<section id="what-it-does">
+<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
+<p>For each sequence in <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code>, the tool runs two passes:</p>
+<ol class="arabic simple">
+<li><p><strong>Cold pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to miss, so the generated KV
+tensors are <code class="docutils literal notranslate"><span class="pre">STORE</span></code>d on the server.</p></li>
+<li><p><strong>Warm pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to hit; the tool issues
+<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> and compares the retrieved KV chunks’ checksums to the
+originals.</p></li>
+</ol>
+<p>The full RPC path exercised is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">REGISTER_KV_CACHE → GET_CHUNK_SIZE → LOOKUP
+</span><span id="line-2">  → QUERY_PREFETCH_STATUS → RETRIEVE → STORE
+</span><span id="line-3">  → END_SESSION
+</span></code></pre></div>
+</div>
+<p>When <code class="docutils literal notranslate"><span class="pre">--url</span></code> points to the server’s HTTP endpoint, per-chunk checksums
+are additionally cross-checked against the server-side computation, so a
+mismatch between producer and consumer surfaces as a loud
+<code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code> log line.</p>
+</section>
+<section id="id2">
+<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
+<p>Start the MP server in one terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">15556</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Then in another terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p>By default the tool runs forever (<code class="docutils literal notranslate"><span class="pre">--end</span></code> unset); stop it with
+<code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> at any time. Pass <code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code> for a bounded run.</p>
+</section>
+<section id="options">
+<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#options'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rpc-url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost:5555</span></code></p></td>
+<td><p>ZMQ endpoint of the MP cache server.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
+<td><p>HTTP base URL of the server’s checksum API. Used to
+verify per-chunk checksums end-to-end.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
+<td><p>Run mode. <code class="docutils literal notranslate"><span class="pre">gpu</span></code> allocates real CUDA tensors and uses CUDA IPC
+(lmcache-driven handle path). <code class="docutils literal notranslate"><span class="pre">cpu</span></code> allocates POSIX-SHM-backed tensors
+and uses the engine-driven (worker-side gather/scatter) path by default.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">{auto,engine_driven,lmcache_driven}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
+<td><p>Transport routing for STORE/RETRIEVE. <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> forces the
+single-shot handle path (<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code> + <code class="docutils literal notranslate"><span class="pre">STORE</span></code>/<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>),
+which supports both CUDA IPC and CPU SHM zero-copy transfers.
+<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> forces the worker-side gather/scatter path
+(<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code> + <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code>/<code class="docutils literal notranslate"><span class="pre">COMMIT</span></code>).
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> maps gpu→lmcache_driven and cpu→engine_driven.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
+<td><p>Tokens per synthetic request.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
+<td><p>Number of paged blocks allocated on the GPU.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p>Tokens per paged block.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>First sequence number to run.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Exclusive upper bound on sequence numbers. When omitted the
+loop runs forever.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
+<td><p>Delay between successive sub-passes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
+<td><p>KV cache shape spec (see below).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
+<td><p>Stdout output format for the final metrics summary. Available:
+<code class="docutils literal notranslate"><span class="pre">terminal</span></code>, <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Save the final metrics summary to a file at PATH (format chosen
+by <code class="docutils literal notranslate"><span class="pre">--format</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Suppress all progress messages during the run. Only the final
+structured metrics summary is emitted (unless also redirected
+via <code class="docutils literal notranslate"><span class="pre">--output</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="cpu-mode-no-gpu">
+<h3>CPU mode (no GPU)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-mode-no-gpu" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-mode-no-gpu'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> runs the same end-to-end path without a GPU. The server
+runs on a CPU-only host (<code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code>); the bench tool allocates
+POSIX-SHM-backed KV tensors and exercises the full RPC path.</p>
+<p>By default <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> uses the engine-driven gather/scatter path
+(<code class="docutils literal notranslate"><span class="pre">auto</span></code> → <code class="docutils literal notranslate"><span class="pre">cpu→engine_driven</span></code>). To use the zero-copy SHM
+handle path instead, pass <code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">lmcache_driven</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1 -- start the LMCache server (no GPU required)</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Terminal 2 -- run bench in CPU + lmcache_driven mode</span>
+</span><span id="line-7">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="kv-cache-shape-spec">
+<h3>KV cache shape spec<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-cache-shape-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kv-cache-shape-spec'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span></code> flag describes how KV tensors are laid out on
+the GPU. A spec is one or more groups separated by <code class="docutils literal notranslate"><span class="pre">;</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">(kv_size,NB,BS,NH,HS):dtype:layers[;(...):dtype:layers...]
+</span></code></pre></div>
+</div>
+<p>Fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kv_size</span></code> – 2 for classical attention (separate K/V), 1 for MLA.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NB</span></code> – number of paged blocks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BS</span></code> – block size (tokens per block).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NH</span></code> – number of attention heads per layer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HS</span></code> – head size (in elements).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtype</span></code> – element dtype (e.g. <code class="docutils literal notranslate"><span class="pre">float16</span></code>, <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code>, <code class="docutils literal notranslate"><span class="pre">float32</span></code>,
+<code class="docutils literal notranslate"><span class="pre">uint8</span></code>). The full set matches the keys of <code class="docutils literal notranslate"><span class="pre">DTYPE_MAP</span></code> in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> – number of layers in this group.</p></li>
+</ul>
+<p>Multi-group specs let you model heterogeneous layers (for example, MLA
+layers + classical attention layers in the same model):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):float16:4;(2,1024,16,8,128):float16:28"</span>
+</span></code></pre></div>
+</div>
+<p>All groups must share the same <code class="docutils literal notranslate"><span class="pre">NB</span></code> and <code class="docutils literal notranslate"><span class="pre">BS</span></code> (this is a physical
+constraint of paged KV). Layer counts across groups sum to the total
+layer count registered with the server.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code> in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>
+for the authoritative parsing rules and validation errors.</p>
+</section>
+<section id="id3">
+<h3>Output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<p>After the run completes (or is interrupted with <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code>), a structured
+metrics summary is printed. The summary includes:</p>
+<ul class="simple">
+<li><p><strong>Configuration</strong> – RPC URL, mode, transfer mode, tokens per request,
+interval.</p></li>
+<li><p><strong>Results</strong> – total requests, checksum OK / FAIL counts, pass rate.</p></li>
+<li><p><strong>Latency sections</strong> – per-operation latency statistics (count, mean,
+min, max, p50, p99) for cold lookup, cold store, warm lookup, and warm
+retrieve.</p></li>
+</ul>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> to get machine-readable output, or <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">FILE</span></code>
+to save the summary to a file.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">================ Server Bench Result =================
+</span><span id="line-2">---------------------- Configuration -----------------
+</span><span id="line-3">RPC URL:                          tcp://localhost:15556
+</span><span id="line-4">Mode:                             gpu
+</span><span id="line-5">Transfer mode:                    auto
+</span><span id="line-6">Tokens / request:                 512
+</span><span id="line-7">Interval (s):                     0.5
+</span><span id="line-8">------------------------- Results --------------------
+</span><span id="line-9">Total requests:                   3
+</span><span id="line-10">Checksum OK:                      3
+</span><span id="line-11">Checksum FAIL:                    0
+</span><span id="line-12">Pass rate (%):                    100.0
+</span><span id="line-13">-------------------- Cold Lookup (ms) ---------------
+</span><span id="line-14">count:                            3
+</span><span id="line-15">mean:                             1.647
+</span><span id="line-16">min:                              1.312
+</span><span id="line-17">max:                              1.823
+</span><span id="line-18">p50:                              1.647
+</span><span id="line-19">p99:                              1.823
+</span><span id="line-20">--------------------- Cold Store (ms) ---------------
+</span><span id="line-21">count:                            3
+</span><span id="line-22">mean:                             1.740
+</span><span id="line-23">min:                              1.521
+</span><span id="line-24">max:                              1.982
+</span><span id="line-25">p50:                              1.740
+</span><span id="line-26">p99:                              1.982
+</span><span id="line-27">-------------------- Warm Lookup (ms) ---------------
+</span><span id="line-28">count:                            3
+</span><span id="line-29">mean:                             1.310
+</span><span id="line-30">min:                              1.102
+</span><span id="line-31">max:                              1.512
+</span><span id="line-32">p50:                              1.310
+</span><span id="line-33">p99:                              1.512
+</span><span id="line-34">------------------- Warm Retrieve (ms) --------------
+</span><span id="line-35">count:                            3
+</span><span id="line-36">mean:                             1.480
+</span><span id="line-37">min:                              1.321
+</span><span id="line-38">max:                              1.612
+</span><span id="line-39">p50:                              1.480
+</span><span id="line-40">p99:                              1.612
+</span><span id="line-41">=====================================================
+</span></code></pre></div>
+</div>
+</section>
+<section id="example-output-progress">
+<h3>Example output (progress)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output-progress" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output-progress'"><span>#</span></a></h3>
+<p>During the run, progress messages are printed to stdout (suppressed by
+<code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
+</span><span id="line-2">Server chunk_size = 256
+</span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
+</span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)
+</span><span id="line-5">[seq=0] STORE:        2 chunks stored (1.74 ms)
+</span><span id="line-6">[seq=0] LOOKUP warm:  2/2 chunks hit (1.31 ms)
+</span><span id="line-7">[seq=0] RETRIEVE:     2 chunks retrieved (1.48 ms)
+</span><span id="line-8">[seq=0] CHECKSUM MATCH OK
+</span><span id="line-9">[seq=1] ...
+</span></code></pre></div>
+</div>
+<p>Any <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code>, <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>, or Python traceback in the log
+indicates a real problem worth investigating.</p>
+</section>
+<section id="id4">
+<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Test loop completed (or was interrupted cleanly with Ctrl-C)
+with no checksum mismatches.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Fatal error (for example, CUDA unavailable in <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">gpu</span></code>,
+server unreachable, or a checksum mismatch).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="l2">
+<span id="lmcache-bench-l2"></span><h2>l2<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> command benchmarks an L2 cache adapter
+(e.g. the local-filesystem adapter) end-to-end through the same
+<code class="docutils literal notranslate"><span class="pre">parse_args_to_l2_adapters_config</span></code> + <code class="docutils literal notranslate"><span class="pre">create_l2_adapter</span></code> pipeline that
+LMCache uses in production. Any registered adapter type can be tested
+without code changes: you describe the adapter with a single JSON spec
+and pick the operations to exercise.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command
+does <strong>not</strong> require an inference engine or an LMCache MP server. It
+only needs the adapter’s own backing storage to be reachable (for the
+<code class="docutils literal notranslate"><span class="pre">fs</span></code> adapter, that simply means a writable directory).</p>
+<section id="id5">
+<h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id5" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id5'"><span>#</span></a></h3>
+<p>For each measured operation the tool drives the adapter directly via
+its public submit/wait API:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Store</span></code>  – <code class="docutils literal notranslate"><span class="pre">submit_store_task</span></code> writes <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> MemoryObjs per
+submit and waits for the store eventfd.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Lookup</span></code> – <code class="docutils literal notranslate"><span class="pre">submit_lookup_and_lock_task</span></code> checks key existence
+(no payload transfer) and waits for the lookup eventfd.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Load</span></code>   – <code class="docutils literal notranslate"><span class="pre">submit_load_task</span></code> reads <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> MemoryObjs per
+submit and waits for the load eventfd.</p></li>
+</ul>
+<p>Each measured <strong>round</strong> issues <code class="docutils literal notranslate"><span class="pre">--in-flight</span></code> submits sequentially from
+a single producer thread and then waits for all of them to complete; the
+round duration is the wall-clock time from the first submit until the
+last completion. Warmup rounds run before measurement and their results
+are discarded from the final summary.</p>
+<p>All three operations share the same key idx universe, so running
+<code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">store</span></code> followed by <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">load</span></code> (or <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">lookup</span></code>) with
+identical other flags hits exactly the same keys. This makes the
+benchmark useful as a quick regression test for adapters that should
+support a clean store -&gt; load round-trip.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">--only</span></code> is not given, the three operations are run <strong>in a
+single process in the order</strong> <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>. For
+adapters whose backing storage sits behind an OS-level cache –
+most notably the local-filesystem (<code class="docutils literal notranslate"><span class="pre">fs</span></code>) adapter, which is
+subject to the Linux <strong>page cache</strong> – this means <code class="docutils literal notranslate"><span class="pre">lookup</span></code> and
+<code class="docutils literal notranslate"><span class="pre">load</span></code> will almost always observe the data that <code class="docutils literal notranslate"><span class="pre">store</span></code> just
+wrote still hot in RAM, and the reported numbers reflect
+page-cache throughput rather than the underlying device.</p>
+<p>To benchmark each operation against a cold cache, run them
+separately with <code class="docutils literal notranslate"><span class="pre">--only</span></code> and drop the OS caches in between, for
+example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">store</span>
+</span><span id="line-2"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-3"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">lookup</span>
+</span><span id="line-4"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-5"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">load</span>
+</span></code></pre></div>
+</div>
+<p>For adapters that bypass the page cache (e.g. <code class="docutils literal notranslate"><span class="pre">fs</span></code> with
+<code class="docutils literal notranslate"><span class="pre">"use_odirect":</span> <span class="pre">true</span></code>) or that talk to a remote service without
+a local cache, the default combined run is usually fine.</p>
+<p>O_DIRECT adapters may also require the benchmark L1 buffer to
+satisfy the adapter’s block alignment. Use <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> to
+set that alignment, commonly <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local block devices. The
+payload size (<code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code>) must be a multiple of the
+selected alignment.</p>
+</div>
+</section>
+<section id="id6">
+<h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id6" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id6'"><span>#</span></a></h3>
+<p>Benchmark the local filesystem adapter with default parameters:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span></code></pre></div>
+</div>
+<p>This runs all three operations (store, lookup, load) with one warmup
+round and one measurement round.</p>
+<p>Stress the adapter with more in-flight submits and larger payloads:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span>--warmup-rounds<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Benchmark an O_DIRECT adapter with aligned L1 buffers:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"raw_block","device_path":"/dev/nvme0n1","slot_bytes":4194304,"use_odirect":true,"block_align":4096}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span>
+</span></code></pre></div>
+</div>
+<p>Run only one operation (useful to isolate store vs. load throughput):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>store
+</span></code></pre></div>
+</div>
+<p>Lookup with a controlled hit rate (the benchmark splits the lookup keys
+between a potentially-existing range and a guaranteed-non-existent
+range):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>lookup<span class="w"> </span>--lookup-max-hit-rate<span class="w"> </span><span class="m">0</span>.5
+</span></code></pre></div>
+</div>
+<p>Enable a store -&gt; load round-trip data integrity check on the last
+measured round:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--no-skip-verify
+</span></code></pre></div>
+</div>
+<p>If you prefer to keep the JSON spec out of the command line, set the
+<code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> environment variable instead of passing
+<code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">L2_ADAPTER_JSON</span><span class="o">=</span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span><span id="line-2">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="id7">
+<h3>Options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id7'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">JSON</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>L2 adapter spec as JSON with a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field plus
+adapter-specific configs, e.g.
+<code class="docutils literal notranslate"><span class="pre">'{"type":"fs","base_path":"/tmp/bench"}'</span></code>. May be passed
+multiple times; only the first spec is benchmarked. If not
+provided, falls back to the <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> environment
+variable. Either the flag or the env var is <strong>required</strong>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-keys</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>Number of keys per submit.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--in-flight</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>In-flight submits per round. Each round issues this many
+submits sequentially from a single producer thread, then waits
+for all of them.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>Data size per key, in KiB.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Alignment in bytes for benchmark L1 buffers. Use a value
+at least as large as the adapter’s block alignment when
+benchmarking O_DIRECT backends, for example <code class="docutils literal notranslate"><span class="pre">4096</span></code> for local
+block devices. <code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code> must be a multiple of
+this value.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Measurement rounds per operation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Warmup rounds run before measurement; their results are
+discarded.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>Upper bound on the lookup hit rate, in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>. The benchmark
+requests <code class="docutils literal notranslate"><span class="pre">floor(N</span> <span class="pre">*</span> <span class="pre">rate)</span></code> keys from the
+potentially-existing range and <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">-</span> <span class="pre">hit</span></code> keys from a
+guaranteed-non-existent range, where <code class="docutils literal notranslate"><span class="pre">N</span></code> is the total number
+of lookup keys. The actual hit rate may be lower if those keys
+were never stored in this run.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code></p></td>
+<td><p>Skip the store -&gt; load round-trip data integrity check (the
+default). Pass <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> to enable verification on
+the last measured round; this requires both <code class="docutils literal notranslate"><span class="pre">store</span></code> and
+<code class="docutils literal notranslate"><span class="pre">load</span></code> to be exercised.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">{lookup,store,load}</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Run only the specified operation. When omitted, all three
+operations are run in the order <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="adapter-json-spec">
+<h3>Adapter JSON spec<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adapter-json-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adapter-json-spec'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON is parsed by
+<code class="docutils literal notranslate"><span class="pre">lmcache.v1.distributed.l2_adapters.config.parse_args_to_l2_adapters_config</span></code>,
+the same entry point LMCache uses everywhere else. The minimum required
+field is <code class="docutils literal notranslate"><span class="pre">type</span></code>; all remaining fields are forwarded to the adapter
+implementation as keyword arguments.</p>
+<p>Example for the local-filesystem adapter:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"fs"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"base_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/data/lmcache-bench"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"relative_tmp_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tmp"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"read_ahead_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"use_odirect"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+</span><span id="line-7"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>See the source under <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/</span></code> for the
+full list of adapter types and their accepted fields.</p>
+</section>
+<section id="example-output">
+<h3>Example output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
+<p>Per-round progress (suppressed by <code class="docutils literal notranslate"><span class="pre">-q</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">============================================================
+</span><span id="line-2">L2 Adapter Benchmark
+</span><span id="line-3">============================================================
+</span><span id="line-4">  Adapter config         : FSL2AdapterConfig
+</span><span id="line-5">  L2 adapter JSON        : {"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}
+</span><span id="line-6">  Keys / submit          : 32
+</span><span id="line-7">  In-flight / round      : 3
+</span><span id="line-8">  Keys / round           : 96
+</span><span id="line-9">  Data size / key        : 256 KB
+</span><span id="line-10">  Data / round           : 24.00 MB
+</span><span id="line-11">  Rounds                 : 1 (+ 1 warmup)
+</span><span id="line-12">  Lookup max hit rate    : 0.00%
+</span><span id="line-13">============================================================
+</span><span id="line-14">
+</span><span id="line-15">[Init] Creating adapter...
+</span><span id="line-16">[Init] Adapter created successfully (FSL2Adapter).
+</span><span id="line-17">
+</span><span id="line-18">[Store] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-19">  [Store] Round 1: 47.83 ms, success_keys=96/96
+</span><span id="line-20">  [Store] Round 2: 46.19 ms, success_keys=96/96
+</span><span id="line-21">
+</span><span id="line-22">[Lookup] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-23">  [Lookup] Round 1:  5.36 ms, found=96/96
+</span><span id="line-24">  [Lookup] Round 2:  5.03 ms, found=96/96
+</span><span id="line-25">
+</span><span id="line-26">[Load] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-27">  [Load] Round 1: 18.15 ms, loaded=96/96
+</span><span id="line-28">  [Load] Round 2: 17.63 ms, loaded=96/96
+</span></code></pre></div>
+</div>
+<p>Final summary (one section per exercised operation):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">====== L2 Adapter Benchmark Result (FSL2Adapter) =======
+</span><span id="line-2">----------------------- Configuration -------------------
+</span><span id="line-3">Adapter:                          FSL2Adapter
+</span><span id="line-4">Keys / submit:                    32
+</span><span id="line-5">In-flight / round:                3
+</span><span id="line-6">Data size / key (KB):             256
+</span><span id="line-7">Measurement rounds:               1
+</span><span id="line-8">Warmup rounds:                    1
+</span><span id="line-9">Lookup max hit rate:              0.0
+</span><span id="line-10">--------------------------- Store -----------------------
+</span><span id="line-11">Operation:                        Store
+</span><span id="line-12">Rounds:                           1
+</span><span id="line-13">Keys / round:                     96
+</span><span id="line-14">Total keys:                       96
+</span><span id="line-15">Total success:                    96
+</span><span id="line-16">Duration avg (ms):                46.19
+</span><span id="line-17">...
+</span><span id="line-18">Throughput avg (MB/s):            519.62
+</span><span id="line-19">Avg ops/s:                        2078.50
+</span><span id="line-20">Avg latency / key (ms):           0.481
+</span><span id="line-21">--------------------------- Lookup ----------------------
+</span><span id="line-22">...
+</span><span id="line-23">---------------------------- Load -----------------------
+</span><span id="line-24">...
+</span><span id="line-25">=========================================================
+</span></code></pre></div>
+</div>
+<p>Each operation section reports per-round duration statistics
+(avg / min / max / p50 / p99 / std), aggregate throughput
+(<code class="docutils literal notranslate"><span class="pre">avg_throughput_mbps</span></code> – 0 for <code class="docutils literal notranslate"><span class="pre">Lookup</span></code> since it has no payload),
+average key-rate (<code class="docutils literal notranslate"><span class="pre">avg_ops_per_sec</span></code>), and a per-key latency.</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">Lookup</span></code>, three additional fields are reported when
+<code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span></code> is non-zero or some keys were found:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">max</span> <span class="pre">hit</span> <span class="pre">rate</span></code> – the configured upper bound.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">hit</span> <span class="pre">keys</span></code> – <code class="docutils literal notranslate"><span class="pre">floor(total_keys</span> <span class="pre">*</span> <span class="pre">rate)</span></code>, scaled for
+the measured rounds only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Actual</span> <span class="pre">hit</span> <span class="pre">rate</span></code> – the measured hit rate over the kept rounds.</p></li>
+</ul>
+</section>
+<section id="round-trip-verification">
+<h3>Round-trip verification<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#round-trip-verification" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#round-trip-verification'"><span>#</span></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> is passed and both <code class="docutils literal notranslate"><span class="pre">store</span></code> and <code class="docutils literal notranslate"><span class="pre">load</span></code> were
+run, the benchmark compares the load buffers from the last measured
+round against the byte pattern that <code class="docutils literal notranslate"><span class="pre">store</span></code> wrote (see
+<code class="docutils literal notranslate"><span class="pre">make_memory_objects</span></code> in
+<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/bench/l2_adapter_bench/data.py</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[Verify] Checking store -&gt; load data integrity for last measured round...
+</span><span id="line-2">[Verify] OK
+</span></code></pre></div>
+</div>
+<p>Verification is <strong>off</strong> by default because the stricter byte pattern
+requires both the store and load object batches to stay resident so the
+loaded data can be compared against the original store pattern.</p>
+</section>
+<section id="id8">
+<h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>All requested operations completed and (when enabled) the
+round-trip verification passed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Adapter creation failed, round-trip verification failed, or
+an operation hit a fatal error (e.g. all rounds timed out).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON / <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> env var was
+missing or could not be parsed.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="query.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        lmcache query
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="kvcache.html">
+        lmcache kvcache
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#engine'" class="reference internal" href="#engine">engine</a><ul>
+<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">Quick Start</a></li>
+<li><a :data-current="activeSection === '#general-options'" class="reference internal" href="#general-options">General Options</a><ul>
+<li><a :data-current="activeSection === '#finding-tokens-per-gb-kvcache'" class="reference internal" href="#finding-tokens-per-gb-kvcache">Finding <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#workloads'" class="reference internal" href="#workloads">Workloads</a><ul>
+<li><a :data-current="activeSection === '#long-doc-qa'" class="reference internal" href="#long-doc-qa">long-doc-qa</a></li>
+<li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
+<li><a :data-current="activeSection === '#long-doc-permutator'" class="reference internal" href="#long-doc-permutator">long-doc-permutator</a></li>
+<li><a :data-current="activeSection === '#prefix-suffix-tuner'" class="reference internal" href="#prefix-suffix-tuner">prefix-suffix-tuner</a></li>
+<li><a :data-current="activeSection === '#random-prefill'" class="reference internal" href="#random-prefill">random-prefill</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#interactive-mode'" class="reference internal" href="#interactive-mode">Interactive Mode</a></li>
+<li><a :data-current="activeSection === '#config-file'" class="reference internal" href="#config-file">Config File</a></li>
+<li><a :data-current="activeSection === '#output'" class="reference internal" href="#output">Output</a><ul>
+<li><a :data-current="activeSection === '#terminal-real-time-progress'" class="reference internal" href="#terminal-real-time-progress">Terminal (real-time progress)</a></li>
+<li><a :data-current="activeSection === '#terminal-final-summary'" class="reference internal" href="#terminal-final-summary">Terminal (final summary)</a></li>
+<li><a :data-current="activeSection === '#csv-and-json'" class="reference internal" href="#csv-and-json">CSV and JSON</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#exit-codes'" class="reference internal" href="#exit-codes">Exit Codes</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#server'" class="reference internal" href="#server">server</a><ul>
+<li><a :data-current="activeSection === '#what-it-does'" class="reference internal" href="#what-it-does">What it does</a></li>
+<li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">Quick start</a></li>
+<li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">Options</a></li>
+<li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU mode (no GPU)</a></li>
+<li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV cache shape spec</a></li>
+<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Output</a></li>
+<li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">Example output (progress)</a></li>
+<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">Exit codes</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#l2'" class="reference internal" href="#l2">l2</a><ul>
+<li><a :data-current="activeSection === '#id5'" class="reference internal" href="#id5">What it does</a></li>
+<li><a :data-current="activeSection === '#id6'" class="reference internal" href="#id6">Quick start</a></li>
+<li><a :data-current="activeSection === '#id7'" class="reference internal" href="#id7">Options</a></li>
+<li><a :data-current="activeSection === '#adapter-json-spec'" class="reference internal" href="#adapter-json-spec">Adapter JSON spec</a></li>
+<li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">Example output</a></li>
+<li><a :data-current="activeSection === '#round-trip-verification'" class="reference internal" href="#round-trip-verification">Round-trip verification</a></li>
+<li><a :data-current="activeSection === '#id8'" class="reference internal" href="#id8">Exit codes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=5929fcd5"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>

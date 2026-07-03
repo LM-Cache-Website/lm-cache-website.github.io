@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="zh-CN" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>lmcache bench | LMCache</title>
+<meta content="lmcache bench | LMCache" property="og:title"/>
+<meta content="lmcache bench | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="搜索"/>
+<link href="../genindex.html" rel="index" title="索引"/>
+<link href="kvcache.html" rel="next" title="lmcache kvcache"/>
+<link href="query.html" rel="prev" title="lmcache query"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">入门指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/index.html">概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">安装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">快速入门</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/configuration.html">配置参考</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">基准测试</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache 大小计算器</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache 操作<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">CLI 参考<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="query.html">lmcache query</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/frontend_dashboard.html">前端仪表板</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">配置示例<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/hybrid_models.html">Hybrid Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs.html">文件系统</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs_native.html">FS（原生）</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/raw_block.html">原始块（Rust）</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/remote_and_distributed.html">远程与分布式<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/mock.html">模拟</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/fault_inject.html">故障注入</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">分布式 KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/disaggregated_prefill.html">分离式预填充</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/p2p.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/coordinator.html">多服务器协调</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/kv_cache_management.html">KV Cache 管理</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">在生产环境中使用 LMCache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/deployment.html">部署指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">运行时插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo 集成</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/observability/index.html">可观察性<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/metrics.html">指标</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/logs.html">日志记录</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/traces.html">追踪</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache 优化<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">分段式预填充</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">开发者指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">贡献指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">添加原生后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/cli.html">扩展 CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_http_api.html">扩展 HTTP API</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">非 KV 缓存<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">编码</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">隐藏状态</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">旧版（进程内模式）<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">更多示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">使用不同的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">异步加载</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">使用不同的缓存策略</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">编码器缓存</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">使用 NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">使用共享存储</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">压缩</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">逐层 KV 传输</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache 控制器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">混合</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">多模态模型的 KV Cache 与 vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">添加新的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM 动态连接器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">配置 LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">内部 API 服务器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">控制器 WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">可观察性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">性能调优</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache 事件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/architecture.html">架构概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">集成</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">使用数据模块</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">基本检查工具</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">存储插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">远程存储插件</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../interacting_with_server.html">KV Cache 操作</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">CLI 参考</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">lmcache bench</span>
+</nav>
+<div id="content" role="main">
+<section id="lmcache-bench">
+<span id="id1"></span><h1>lmcache bench<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-bench"><span>#</span></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span></code> 命令用于运行持续性能基准测试。它有三个子命令，分别针对不同的栈层级：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 80.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>子命令</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">engine</span></code></p></td>
+<td><p>使用多种 KV Cache 重用模式的工作负载对推理引擎（例如 vLLM）进行基准测试。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<td><p>针对正在运行的 LMCache MP 缓存服务器（ZMQ + HTTP）的端到端健全性测试。需要完整安装 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 以及一块 GPU。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2</span></code></p></td>
+<td><p>针对 L2 缓存适配器的吞吐量／延迟基准测试（存储／查找／加载）。</p></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span><span class="o">{</span>engine,server,l2<span class="o">}</span><span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<section id="engine">
+<span id="lmcache-bench-engine"></span><h2>engine<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> 命令对推理引擎（例如 vLLM）执行持续性能基准测试。它支持多种工作负载类型，用于测试不同的缓存模式，并上报 TTFT、解码速度和吞吐量等指标。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>配置基准测试有三种方法：</p>
+<ol class="arabic simple">
+<li><p><strong>CLI 参数</strong> -- 在命令行中传递所有选项。</p></li>
+<li><p><strong>交互模式</strong> -- 在不传入必需参数的情况下运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code>，然后按照逐步提示进行操作。</p></li>
+<li><p><strong>配置文件</strong> -- 将配置保存为 JSON 并使用 <code class="docutils literal notranslate"><span class="pre">--config</span></code> 进行重放。</p></li>
+</ol>
+<section id="quick-start">
+<h3>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h3>
+<p><strong>最小示例（包含所有必需参数）：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p><strong>交互模式（引导设置）：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine
+</span></code></pre></div>
+</div>
+<p>交互模式会引导您逐一完成每项必需设置，然后询问是否需要配置通用选项和工作负载专项选项，或者直接使用默认值。</p>
+<p><strong>从保存的配置文件中：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>配置文件包含基准测试参数（工作负载、KV Cache 设置等），但不包含引擎 URL，因此同一份配置可以在不同引擎上复用。</p>
+<p><strong>导出配置而不运行基准测试：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--export-config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>此操作会解析所有自动检测到的值（模型名称、每 GB 的 token 数），并将其保存为可移植的 JSON 文件，无需 LMCache 服务器即可使用。</p>
+<p><strong>非交互模式（用于脚本和 CI）：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--no-interactive
+</span></code></pre></div>
+</div>
+<p>若缺少任何必需参数，立即报错而非进入交互模式，适用于自动化流水线。</p>
+<p>如果您没有 LMCache 服务器，可以直接传递 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code>，而不是 <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>（有关如何找到此值，请参见 <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">查找 --tokens-per-gb-kvcache</span></a>）。</p>
+</section>
+<section id="general-options">
+<h3>常规选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#general-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#general-options'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>必需的</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">FILE</span></code></p></td>
+<td><p>不</p></td>
+<td><p>从 JSON 文件加载配置，跳过交互模式。命令行参数会覆盖文件中的值。引擎 URL 不存储于配置文件中，需单独提供。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--export-config</span> <span class="pre">FILE</span></code></p></td>
+<td><p>不</p></td>
+<td><p>将已解析的配置导出到 JSON 文件后退出，不会执行基准测试。自动检测的值（模型名称、每 GB 的 token 数）会被解析并保存，使配置具有可移植性。特定于环境的值（引擎 URL、LMCache URL）不会被导出。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-interactive</span></code></p></td>
+<td><p>不</p></td>
+<td><p>禁用交互模式。若缺少必需参数则立即报错，而非进行提示。适合在脚本和 CI 中使用。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--engine-url</span> <span class="pre">URL</span></code></p></td>
+<td><p>是</p></td>
+<td><p>推理引擎 URL（例如 <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code>）。若需要身份验证，请设置 <code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY</span></code> 环境变量。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--workload</span> <span class="pre">TYPE</span></code></p></td>
+<td><p>是</p></td>
+<td><p>工作负载类型：<code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>、<code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>、<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>、<code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code> 或 <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span> <span class="pre">N</span></code></p></td>
+<td><p>*</p></td>
+<td><p>每 GB KV Cache 的 token 数。除非已设置 <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>，否则此参数为必填项。关于如何获取该值，请参见 <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">查找 --tokens-per-gb-kvcache</span></a>。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lmcache-url</span> <span class="pre">URL</span></code></p></td>
+<td><p>不</p></td>
+<td><p>LMCache HTTP 服务器 URL。若提供此参数，<code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code> 将自动从服务器检测。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">NAME</span></code></p></td>
+<td><p>不</p></td>
+<td><p>模型名称。若省略，将自动从引擎检测。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span> <span class="pre">GB</span></code></p></td>
+<td><p>不</p></td>
+<td><p>目标活跃 KV Cache 容量，单位为 GB（默认值：100）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--seed</span> <span class="pre">N</span></code></p></td>
+<td><p>不</p></td>
+<td><p>随机种子（默认值：42）。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p>不</p></td>
+<td><p>CSV 和 JSON 输出文件的保存目录（默认：当前目录）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-csv</span></code></p></td>
+<td><p>不</p></td>
+<td><p>跳过 CSV 导出。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--json</span></code></p></td>
+<td><p>不</p></td>
+<td><p>导出 JSON 摘要文件。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>不</p></td>
+<td><p>禁止显示实时进度。</p></td>
+</tr>
+</tbody>
+</table>
+<section id="finding-tokens-per-gb-kvcache">
+<span id="bench-tokens-per-gb"></span><h4>查找 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#finding-tokens-per-gb-kvcache"><span>#</span></a></h4>
+<p>如果已有正在运行的 LMCache 服务器，最简便的方法是传递 <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>，让工具自动检测该值。</p>
+<p>如果正在使用 <strong>不带 LMCache 的 vLLM</strong>，请在 vLLM 的启动日志中查找以下行：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">INFO: Available KV cache memory: 12.34 GiB
+</span><span id="line-2">INFO: GPU KV cache size: 567,890 tokens
+</span></code></pre></div>
+</div>
+<p>然后计算:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">tokens_per_gb</span> <span class="o">=</span> <span class="mi">567890</span> <span class="o">/</span> <span class="mf">12.34</span> <span class="o">=</span> <span class="mi">46</span><span class="p">,</span><span class="mi">020</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="workloads">
+<h3>工作负载<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workloads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workloads'"><span>#</span></a></h3>
+<section id="long-doc-qa">
+<h4>long-doc-qa<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-qa"><span>#</span></a></h4>
+<p>模拟对长文档的重复问答。预热阶段将每个文档发送一次以填充 KV Cache，然后以信号量控制的并发方式派发基准测试查询。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-document-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>每个合成文档的 token 长度。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-query-per-document</span></code></p></td>
+<td><p>2</p></td>
+<td><p>每个文档的提问数量。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-shuffle-policy</span></code></p></td>
+<td><p>随机</p></td>
+<td><p>请求排序方式：<code class="docutils literal notranslate"><span class="pre">random</span></code>（随机打乱）或 <code class="docutils literal notranslate"><span class="pre">tile</span></code>（逐轮轮转）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldqa-num-inflight-requests</span></code></p></td>
+<td><p>3</p></td>
+<td><p>最大并发在途请求数。</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-cache-volume<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--ldqa-document-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--ldqa-query-per-document<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--ldqa-shuffle-policy<span class="w"> </span>tile
+</span></code></pre></div>
+</div>
+</section>
+<section id="multi-round-chat">
+<h4>multi-round-chat<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multi-round-chat"><span>#</span></a></h4>
+<p>模拟有状态的多轮聊天。创建并发用户会话，以固定 QPS 速率调度请求，并将响应记录到会话历史中，使每个后续查询都包含先前的上下文。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-shared-prompt-length</span></code></p></td>
+<td><p>2000</p></td>
+<td><p>每个会话的系统提示 token 长度。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-chat-history-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>预填充的聊天历史 token 长度。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-user-input-length</span></code></p></td>
+<td><p>50</p></td>
+<td><p>每个用户查询的 token 数。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-output-length</span></code></p></td>
+<td><p>200</p></td>
+<td><p>每个响应最多生成的 token 数。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-qps</span></code></p></td>
+<td><p>1.0</p></td>
+<td><p>每秒目标查询数。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mrc-duration</span></code></p></td>
+<td><p>60.0</p></td>
+<td><p>基准测试持续时间，单位为秒。</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>multi-round-chat<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--mrc-qps<span class="w"> </span><span class="m">2</span>.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--mrc-duration<span class="w"> </span><span class="m">120</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="long-doc-permutator">
+<h4>long-doc-permutator<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#long-doc-permutator"><span>#</span></a></h4>
+<p>通过发送一组上下文文档的不同排列，对混合 KV Cache 的重用进行压力测试。每个请求以不同顺序拼接所有上下文文档：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[System Prompt] + [Doc_i1] + [Doc_i2] + ... + [Doc_iN]
+</span></code></pre></div>
+</div>
+<p>基准测试阶段开始前会发送一个虚拟预热请求。请求以信号量控制并发方式派发。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-contexts</span></code></p></td>
+<td><p>5</p></td>
+<td><p>独立上下文文档的数量。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-context-length</span></code></p></td>
+<td><p>5000</p></td>
+<td><p>每个上下文文档的 token 长度。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-system-prompt-length</span></code></p></td>
+<td><p>1000</p></td>
+<td><p>共享系统提示的 token 长度。使用 <code class="docutils literal notranslate"><span class="pre">0</span></code> 表示无系统提示。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-permutations</span></code></p></td>
+<td><p>10</p></td>
+<td><p>发送的不同排列数量，上限为 N!（其中 N = <code class="docutils literal notranslate"><span class="pre">--ldp-num-contexts</span></code>）。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ldp-num-inflight-requests</span></code></p></td>
+<td><p>1</p></td>
+<td><p>最大并发在途请求数。</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-permutator<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--ldp-num-contexts<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--ldp-context-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--ldp-num-permutations<span class="w"> </span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--ldp-num-inflight-requests<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="prefix-suffix-tuner">
+<h4>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner"><span>#</span></a></h4>
+<p>一个两遍顺序工作负载，设计为在三种 LMCache 配置下 <strong>不做任何修改</strong> 地运行，以展示各缓存层级（L0 HBM、L1 DRAM、L2 磁盘）的价值：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 30.0%"/>
+<col style="width: 30.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>基线</p></th>
+<th class="head"><p>LMCache 配置</p></th>
+<th class="head"><p>目标溢出</p></th>
+<th class="head"><p>预期的 pass-2 命中</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>原生 vLLM (仅 L0)</p></td>
+<td><p>L0 (HBM)</p></td>
+<td><p>无 —— 每个请求均为冷预填充</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>vLLM + LMCache L1 + L2</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 前缀命中（后缀重计算）</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>vLLM + LMCache L1 + L2 + CacheBlend</p></td>
+<td><p>L1 (DRAM)</p></td>
+<td><p>L2 前缀命中 + CacheBlend 后缀命中</p></td>
+</tr>
+</tbody>
+</table>
+<p>将 <code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> 设置为希望发生溢出的层的大小（基线 1 对应 L0 大小，基线 2 和 3 对应 L1 大小）。各基线的工作负载本身完全相同。</p>
+<p>每个请求的布局:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="n">prefix_i</span> <span class="k">with</span> <span class="n">unique</span><span class="o">-</span><span class="n">ID</span><span class="p">][</span><span class="n">random</span> <span class="n">breaker</span><span class="p">][</span><span class="n">shared</span> <span class="n">suffix</span><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_prefixes</span></code> 个不同的前缀，每个前缀以 <code class="docutils literal notranslate"><span class="pre">PREFIX_&lt;8-hex&gt;</span></code> 开头，以确保各前缀在池内的 token 化哈希各不相同。</p></li>
+<li><p>每个请求包含一段新的随机 32-token 分隔符，用于突破普通前缀缓存的前缀边界。</p></li>
+<li><p>所有请求共享的单个后缀 —— 这是 CacheBlend 唯一能够重用的条目。</p></li>
+</ul>
+<p>第 1 遍（预热）将每个前缀各发送一次以填充缓存，其统计数据被丢弃。第 2 遍以相同顺序再次发送。由于 LRU 在每次第 2 遍访问时会逐出下一个所需前缀，即使目标层仅溢出 1.05 倍，也足以使每个第 2 遍请求在该层未命中并降级到下一层。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-context-length</span></code></p></td>
+<td><p>8000</p></td>
+<td><p>每个请求的总 token 数（前缀 + 分隔符 + 后缀）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-prefix-ratio</span></code></p></td>
+<td><p>0.8</p></td>
+<td><p>前缀占上下文长度的比例，必须在 (0.0, 1.0) 区间内。剩余部分（减去 32 个 token 的分隔符）即为共享后缀。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code></p></td>
+<td><p>20.0</p></td>
+<td><p><strong>要溢出的 KV Cache 层的大小（单位：GB）。</strong> 原生 vLLM 请使用 L0（HBM）大小；分层基线请使用 L1（LMCache DRAM）大小。工作负载的前缀池大小略大于此值（内部溢出 5%），足以在顺序调度 + LRU 条件下使每个 pass-2 请求在该层发生未命中。</p></td>
+</tr>
+</tbody>
+</table>
+<p>pass-2（测量阶段）的请求数等于前缀池大小，计算公式为 <code class="docutils literal notranslate"><span class="pre">floor(psf_thrash</span> <span class="pre">*</span> <span class="pre">1.05</span> <span class="pre">*</span> <span class="pre">tokens_per_gb</span> <span class="pre">/</span> <span class="pre">prefix_tokens)</span></code>。此工作负载不使用 <code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code>，规模完全由 <code class="docutils literal notranslate"><span class="pre">--psf-thrash</span></code> 决定。</p>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>prefix-suffix-tuner<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--psf-context-length<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--psf-prefix-ratio<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--psf-thrash<span class="w"> </span><span class="m">100</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>为使分析模型的论断“thrash ≈ L1 大小 → ~0% LMCache 命中率”在实验中成立，LMCache 服务器必须以 <code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">0.99</span></code> 启动（默认值 <code class="docutils literal notranslate"><span class="pre">0.20</span></code> 每个周期仅清除 20%，第 2 遍时约有 60% 的第 1 遍内容仍留存在缓存中）：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span>&lt;SIZE&gt;<span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.80<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.99
+</span></code></pre></div>
+</div>
+<p>工作负载在第 1 遍（预热）和第 2 遍（测量）之间会休眠 5 秒，以便 LMCache 的 1Hz 批量逐出轮询线程有机会实际运行。若没有这段休眠，快速基准测试会在任何逐出触发之前就已完成。</p>
+</div>
+</section>
+<section id="random-prefill">
+<h4>random-prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill"><span>#</span></a></h4>
+<p>以 <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> 同时发送所有请求，用于测量纯预填充性能，无预热阶段。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rp-request-length</span></code></p></td>
+<td><p>10000</p></td>
+<td><p>每个预填充请求的 token 长度。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rp-num-requests</span></code></p></td>
+<td><p>50</p></td>
+<td><p>发送的请求总数。</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>random-prefill<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--rp-request-length<span class="w"> </span><span class="m">15000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--rp-num-requests<span class="w"> </span><span class="m">100</span>
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="interactive-mode">
+<h3>交互模式<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#interactive-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#interactive-mode'"><span>#</span></a></h3>
+<a class="reference internal image-reference" href="../_images/bench_interactive_demo.gif"><img alt="交互模式演示" src="../_images/bench_interactive_demo.gif" style="width: 100%;"/>
+</a>
+<p>当未提供 <code class="docutils literal notranslate"><span class="pre">--engine-url</span></code> 或 <code class="docutils literal notranslate"><span class="pre">--workload</span></code>（且未设置 <code class="docutils literal notranslate"><span class="pre">--no-interactive</span></code>）时，工具将进入交互模式，引导您完成以下四个阶段：</p>
+<ol class="arabic simple">
+<li><p><strong>必需设置</strong> —— 引擎 URL、工作负载类型、LMCache 服务器（或每 GB 的 token 数）。</p></li>
+<li><p><strong>通用设置</strong>（可选）—— 模型名称、KV Cache 容量。</p></li>
+<li><p><strong>工作负载设置</strong>（可选）—— 工作负载专项参数。</p></li>
+<li><p><strong>摘要与操作</strong> —— 审查配置，然后启动基准测试或将配置导出为 JSON 文件。</p></li>
+</ol>
+<p>每个提示聚焦于单一设置。选择类提示使用方向键操作；文本和数字类提示接受键入输入，默认值显示在括号中。</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">══════════════════════════════════════════════════
+</span><span id="line-2"> lmcache bench engine -- Interactive Setup
+</span><span id="line-3">══════════════════════════════════════════════════
+</span><span id="line-4">
+</span><span id="line-5">Engine URL
+</span><span id="line-6">  URL of the inference engine.
+</span><span id="line-7">  [default: http://localhost:8000] &gt;
+</span><span id="line-8">
+</span><span id="line-9">Workload
+</span><span id="line-10">  The type of benchmark workload to run.
+</span><span id="line-11">  Use up/down to navigate, Enter to select.
+</span><span id="line-12">
+</span><span id="line-13">  * long-doc-qa           Repeated Q&amp;A over long documents
+</span><span id="line-14">    multi-round-chat       Multi-turn chat with stateful sessions
+</span><span id="line-15">    long-doc-permutator    Permutations of context documents
+</span><span id="line-16">    prefix-suffix-tuner    Two-pass tiered KV-cache demonstrator
+</span><span id="line-17">    random-prefill         Prefill-only requests fired simultaneously
+</span><span id="line-18">
+</span><span id="line-19">LMCache Server
+</span><span id="line-20">  Do you have a running LMCache server?
+</span><span id="line-21">  It can auto-detect KV cache size information.
+</span><span id="line-22">  [default: Y] (Y/n) &gt;
+</span><span id="line-23">
+</span><span id="line-24">...
+</span><span id="line-25">
+</span><span id="line-26">──────────────────────────────────────────────────
+</span><span id="line-27"> Configuration Summary
+</span><span id="line-28">──────────────────────────────────────────────────
+</span><span id="line-29">  Workload:             long-doc-qa
+</span><span id="line-30">  Model:                Qwen/Qwen3-14B
+</span><span id="line-31">  Tokens per GB:        6553
+</span><span id="line-32">  ...
+</span><span id="line-33">──────────────────────────────────────────────────
+</span><span id="line-34">
+</span><span id="line-35">What would you like to do?
+</span><span id="line-36">  * Start benchmark
+</span><span id="line-37">    Export configuration for later use and exit
+</span></code></pre></div>
+</div>
+<p>当您选择“导出配置”时，所有自动检测到的值（模型名称、每 GB 的 token 数）将被解析并保存为可移植的 JSON 文件。</p>
+</section>
+<section id="config-file">
+<h3>配置文件<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#config-file" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#config-file'"><span>#</span></a></h3>
+<p>配置文件存储基准测试参数，但<strong>不</strong>存储特定于环境的值（如引擎 URL 或 LMCache URL），以便同一份配置可在不同环境下复用。</p>
+<p>您可以通过三种方式创建配置文件：</p>
+<ol class="arabic simple">
+<li><p><strong>交互模式</strong> -- 在摘要步骤选择“导出配置”。</p></li>
+<li><p><strong>``--export-config``</strong> -- 从 CLI 解析并导出，而不运行。</p></li>
+<li><p><strong>手动编写</strong> —— 编写 JSON，键名与 CLI 参数名称对应（将连字符替换为下划线）。</p></li>
+</ol>
+<p>示例配置文件：</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Qwen/Qwen3-14B"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"workload"</span><span class="p">:</span><span class="w"> </span><span class="s2">"long-doc-qa"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"tokens_per_gb_kvcache"</span><span class="p">:</span><span class="w"> </span><span class="mi">6553</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"kv_cache_volume"</span><span class="p">:</span><span class="w"> </span><span class="mf">100.0</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"ldqa_document_length"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">  </span><span class="nt">"ldqa_query_per_document"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"ldqa_shuffle_policy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"random"</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">"ldqa_num_inflight_requests"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+</span><span id="line-10"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>通过 <code class="docutils literal notranslate"><span class="pre">--config</span></code> 加载该配置文件（引擎 URL 需单独提供）：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--config<span class="w"> </span>my_bench.json
+</span></code></pre></div>
+</div>
+<p>命令行参数会覆盖配置文件中的值，因此可以以基础配置为模板，按需调整个别设置：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Use saved config but override KV cache volume</span>
+</span><span id="line-2">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--config<span class="w"> </span>my_bench.json<span class="w"> </span>--kv-cache-volume<span class="w"> </span><span class="m">200</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="output">
+<h3>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#output'"><span>#</span></a></h3>
+<section id="terminal-real-time-progress">
+<h4>终端（实时进度）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-real-time-progress"><span>#</span></a></h4>
+<p>基准测试运行期间，实时进度面板会展示在途请求数、平均 TTFT、解码速度和吞吐量。可通过 <code class="docutils literal notranslate"><span class="pre">-q</span></code> 禁止显示。</p>
+</section>
+<section id="terminal-final-summary">
+<h4>终端（最终摘要）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#terminal-final-summary"><span>#</span></a></h4>
+<p>完成后，将打印一个摘要表：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">======= Engine Benchmark Result (long-doc-qa) ========
+</span><span id="line-2">---------------------- Configuration ------------------
+</span><span id="line-3">Engine URL:                       http://localhost:8000
+</span><span id="line-4">Model:                            Qwen/Qwen3-14B
+</span><span id="line-5">Workload:                         long-doc-qa
+</span><span id="line-6">------------------------- Results ---------------------
+</span><span id="line-7">Successful requests:              20
+</span><span id="line-8">Failed requests:                  0
+</span><span id="line-9">Benchmark duration (s):           31.34
+</span><span id="line-10">Total input tokens:               200000
+</span><span id="line-11">Total output tokens:              2560
+</span><span id="line-12">Input throughput (tok/s):         6381.62
+</span><span id="line-13">Output throughput (tok/s):        81.69
+</span><span id="line-14">--------------- Time to First Token -------------------
+</span><span id="line-15">Mean TTFT (ms):                   313.41
+</span><span id="line-16">P50 TTFT (ms):                    272.83
+</span><span id="line-17">P90 TTFT (ms):                    587.21
+</span><span id="line-18">P99 TTFT (ms):                    837.32
+</span><span id="line-19">------------------ Decoding Speed ---------------------
+</span><span id="line-20">Mean decode (tok/s):              48.23
+</span><span id="line-21">P99 decode (tok/s):               38.55
+</span><span id="line-22">======================================================
+</span></code></pre></div>
+</div>
+</section>
+<section id="csv-and-json">
+<h4>CSV 和 JSON<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#csv-and-json"><span>#</span></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bench_results.csv</span></code> —— 每个请求的指标（TTFT、延迟、解码速度、token 计数）。默认写入；可通过 <code class="docutils literal notranslate"><span class="pre">--no-csv</span></code> 跳过。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bench_summary.json</span></code> —— 聚合统计数据，包含百分位数和配置元数据。通过 <code class="docutils literal notranslate"><span class="pre">--json</span></code> 选项启用。</p></li>
+</ul>
+<p>两个文件均写入 <code class="docutils literal notranslate"><span class="pre">--output-dir</span></code> 指定的目录（默认：当前目录）。</p>
+</section>
+</section>
+<section id="exit-codes">
+<h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#exit-codes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#exit-codes'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>代码</p></th>
+<th class="head"><p>含义</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>所有请求均成功。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>一个或多个请求失败。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="server">
+<span id="lmcache-bench-server"></span><h2>server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> 命令是针对 LMCache MP 模式（多进程）缓存服务器的端到端健全性测试。它通过 ZMQ 连接至正在运行的服务器，对一系列合成请求执行完整的 KV Cache 数据路径，并可选地通过 HTTP API 验证每个块的校验和。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>与 <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a> 不同，此命令<strong>不</strong>需要推理引擎，只需要一个正在运行的 LMCache MP 服务器（ZMQ + HTTP）。GPU 模式还额外需要支持 CUDA 的设备，同时需要完整安装 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>（而非轻量级的 <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> 包）。</p>
+<section id="what-it-does">
+<h3>它的功能<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
+<p>对于 <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code> 范围内的每个序列，该工具执行两个阶段：</p>
+<ol class="arabic simple">
+<li><p><strong>冷通道</strong> —— <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> 预计未命中，因此生成的 KV 张量将通过 <code class="docutils literal notranslate"><span class="pre">STORE</span></code>\ 写入服务器。</p></li>
+<li><p><strong>热通道</strong> —— <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> 预计命中；工具发出 <code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> 并将检索到的 KV 块校验和与原始值进行比对。</p></li>
+</ol>
+<p>完整的 RPC 路径是:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">REGISTER_KV_CACHE → GET_CHUNK_SIZE → LOOKUP
+</span><span id="line-2">  → QUERY_PREFETCH_STATUS → RETRIEVE → STORE
+</span><span id="line-3">  → END_SESSION
+</span></code></pre></div>
+</div>
+<p>当 <code class="docutils literal notranslate"><span class="pre">--url</span></code> 指向服务器的 HTTP 端点时，逐块校验和还会与服务器端的计算结果进行交叉核验，生产者与消费者之间的任何不一致都将以醒目的 <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code> 日志行呈现。</p>
+</section>
+<section id="id2">
+<h3>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
+<p>在一个终端中启动 MP 服务器：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">15556</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--max-workers<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>然后在另一个终端中：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080
+</span></code></pre></div>
+</div>
+<p>默认情况下该工具会持续运行（<code class="docutils literal notranslate"><span class="pre">--end</span></code> 未设置）；可随时使用 <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> 停止。传递 <code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code> 可限定运行次数。</p>
+</section>
+<section id="options">
+<h3>选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#options'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rpc-url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost:5555</span></code></p></td>
+<td><p>MP 模式缓存服务器的 ZMQ 端点。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
+<td><p>服务器校验和 API 的 HTTP 基础 URL，用于端到端逐块校验和验证。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
+<td><p>运行模式。<code class="docutils literal notranslate"><span class="pre">gpu</span></code> 分配真实的 CUDA 张量并使用 CUDA IPC（基于 lmcache 的句柄路径）。<code class="docutils literal notranslate"><span class="pre">cpu</span></code> 默认分配基于 POSIX-SHM 的张量并使用引擎驱动的（工作端聚集/散布）路径。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">{auto,engine_driven,lmcache_driven}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
+<td><p>用于 STORE/RETRIEVE 的传输路由。<code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> 强制使用单次处理路径 (<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code> + <code class="docutils literal notranslate"><span class="pre">STORE</span></code>/<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code>)，支持 CUDA IPC 和 CPU SHM 零拷贝传输。<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> 强制使用工作端的聚集/分散路径 (<code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code> + <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code>/<code class="docutils literal notranslate"><span class="pre">COMMIT</span></code>)。<code class="docutils literal notranslate"><span class="pre">auto</span></code> 将 gpu 映射到 lmcache_driven，将 cpu 映射到 engine_driven。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-tokens</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
+<td><p>每个合成请求的 token 数。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
+<td><p>在 GPU 上分配的分页 KV 块数量。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p>每个分页块的 token 数。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>运行的第一个序列号。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<td><p>(未设置)</p></td>
+<td><p>序列号的独占上限，省略时循环将无限运行。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
+<td><p>连续子通道之间的延迟。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
+<td><p>KV Cache 形状规格（见下文）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
+<td><p>最终指标摘要的标准输出格式。可用格式：<code class="docutils literal notranslate"><span class="pre">terminal</span></code>、<code class="docutils literal notranslate"><span class="pre">json</span></code>。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<td><p>(未设置)</p></td>
+<td><p>将最终的指标摘要保存到 PATH 指定的文件中（格式由 <code class="docutils literal notranslate"><span class="pre">--format</span></code> 选择）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>(未设置)</p></td>
+<td><p>在运行期间抑制所有进度消息。仅输出最终的结构化指标摘要（除非也通过 <code class="docutils literal notranslate"><span class="pre">--output</span></code> 重定向）。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="cpu-mode-no-gpu">
+<h3>CPU 模式（无 GPU）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-mode-no-gpu" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-mode-no-gpu'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> 在没有 GPU 的情况下运行相同的端到端路径。服务器在仅有 CPU 的主机 (<code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code>) 上运行；基准工具分配基于 POSIX-SHM 的 KV 张量并执行完整的 RPC 路径。</p>
+<p>默认情况下，<code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">cpu</span></code> 使用引擎驱动的收集/分发路径 (<code class="docutils literal notranslate"><span class="pre">auto</span></code> → <code class="docutils literal notranslate"><span class="pre">cpu→engine_driven</span></code>)。要改用零拷贝 SHM 句柄路径，请传递 <code class="docutils literal notranslate"><span class="pre">--transfer-mode</span> <span class="pre">lmcache_driven</span></code>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1 -- start the LMCache server (no GPU required)</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Terminal 2 -- run bench in CPU + lmcache_driven mode</span>
+</span><span id="line-7">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="kv-cache-shape-spec">
+<h3>KV 缓存形状规格<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-cache-shape-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kv-cache-shape-spec'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span></code> 参数描述 KV 张量在 GPU 上的布局，规格由一个或多个以 <code class="docutils literal notranslate"><span class="pre">;</span></code> 分隔的组构成：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">(kv_size,NB,BS,NH,HS):dtype:layers[;(...):dtype:layers...]
+</span></code></pre></div>
+</div>
+<p>字段：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kv_size</span></code> —— 经典注意力机制（独立 K/V）为 2，MLA 为 1。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NB</span></code> —— 分页块数量。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BS</span></code> —— 块大小（每块的 token 数）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NH</span></code> —— 每层的注意力头数量。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HS</span></code> —— 注意力头大小（以元素为单位）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtype</span></code> —— 元素数据类型（例如 <code class="docutils literal notranslate"><span class="pre">float16</span></code>、<code class="docutils literal notranslate"><span class="pre">bfloat16</span></code>、<code class="docutils literal notranslate"><span class="pre">float32</span></code>、<code class="docutils literal notranslate"><span class="pre">uint8</span></code>），完整集合与 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code> 中 <code class="docutils literal notranslate"><span class="pre">DTYPE_MAP</span></code> 的键一致。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> —— 该组包含的层数。</p></li>
+</ul>
+<p>多组规格支持对异构层建模（例如，同一模型中同时包含 MLA 层和经典注意力层）：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):float16:4;(2,1024,16,8,128):float16:28"</span>
+</span></code></pre></div>
+</div>
+<p>所有组必须共享相同的 <code class="docutils literal notranslate"><span class="pre">NB</span></code> 和 <code class="docutils literal notranslate"><span class="pre">BS</span></code>（这是分页 KV 的物理约束），各组层数之和等于向服务器注册的总层数。</p>
+<p>完整的解析规则和验证错误说明请参阅 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code>。</p>
+</section>
+<section id="id3">
+<h3>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<p>运行完成后（或被 <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> 中断后），将打印结构化的指标摘要，内容包括：</p>
+<ul class="simple">
+<li><p><strong>配置</strong> —— RPC URL、模式、传输模式、每请求 token 数、间隔。</p></li>
+<li><p><strong>结果</strong> —— 总请求数、校验和 OK／FAIL 计数、通过率。</p></li>
+<li><p><strong>延迟部分</strong> —— 每个操作的延迟统计信息（count、mean、min、max、p50、p99），涵盖冷查找、冷存储、热查找和热检索。</p></li>
+</ul>
+<p>使用 <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> 获取机器可读的输出，或使用 <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">FILE</span></code> 将摘要保存到文件中。</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">================ Server Bench Result =================
+</span><span id="line-2">---------------------- Configuration -----------------
+</span><span id="line-3">RPC URL:                          tcp://localhost:15556
+</span><span id="line-4">Mode:                             gpu
+</span><span id="line-5">Transfer mode:                    auto
+</span><span id="line-6">Tokens / request:                 512
+</span><span id="line-7">Interval (s):                     0.5
+</span><span id="line-8">------------------------- Results --------------------
+</span><span id="line-9">Total requests:                   3
+</span><span id="line-10">Checksum OK:                      3
+</span><span id="line-11">Checksum FAIL:                    0
+</span><span id="line-12">Pass rate (%):                    100.0
+</span><span id="line-13">-------------------- Cold Lookup (ms) ---------------
+</span><span id="line-14">count:                            3
+</span><span id="line-15">mean:                             1.647
+</span><span id="line-16">min:                              1.312
+</span><span id="line-17">max:                              1.823
+</span><span id="line-18">p50:                              1.647
+</span><span id="line-19">p99:                              1.823
+</span><span id="line-20">--------------------- Cold Store (ms) ---------------
+</span><span id="line-21">count:                            3
+</span><span id="line-22">mean:                             1.740
+</span><span id="line-23">min:                              1.521
+</span><span id="line-24">max:                              1.982
+</span><span id="line-25">p50:                              1.740
+</span><span id="line-26">p99:                              1.982
+</span><span id="line-27">-------------------- Warm Lookup (ms) ---------------
+</span><span id="line-28">count:                            3
+</span><span id="line-29">mean:                             1.310
+</span><span id="line-30">min:                              1.102
+</span><span id="line-31">max:                              1.512
+</span><span id="line-32">p50:                              1.310
+</span><span id="line-33">p99:                              1.512
+</span><span id="line-34">------------------- Warm Retrieve (ms) --------------
+</span><span id="line-35">count:                            3
+</span><span id="line-36">mean:                             1.480
+</span><span id="line-37">min:                              1.321
+</span><span id="line-38">max:                              1.612
+</span><span id="line-39">p50:                              1.480
+</span><span id="line-40">p99:                              1.612
+</span><span id="line-41">=====================================================
+</span></code></pre></div>
+</div>
+</section>
+<section id="example-output-progress">
+<h3>示例输出（进度）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output-progress" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output-progress'"><span>#</span></a></h3>
+<p>运行期间，进度消息会打印到 stdout（可通过 <code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code> 禁止）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
+</span><span id="line-2">Server chunk_size = 256
+</span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
+</span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)
+</span><span id="line-5">[seq=0] STORE:        2 chunks stored (1.74 ms)
+</span><span id="line-6">[seq=0] LOOKUP warm:  2/2 chunks hit (1.31 ms)
+</span><span id="line-7">[seq=0] RETRIEVE:     2 chunks retrieved (1.48 ms)
+</span><span id="line-8">[seq=0] CHECKSUM MATCH OK
+</span><span id="line-9">[seq=1] ...
+</span></code></pre></div>
+</div>
+<p>日志中出现任何 <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code>、<code class="docutils literal notranslate"><span class="pre">ERROR</span></code> 或 Python 回溯，均表明存在值得调查的真实问题。</p>
+</section>
+<section id="id4">
+<h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>代码</p></th>
+<th class="head"><p>含义</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>测试循环正常完成（或通过 Ctrl-C 干净中断），无校验和不匹配。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>致命错误（例如，<code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">gpu</span></code> 时 CUDA 不可用、服务器无法访问或校验和不匹配）。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="l2">
+<span id="lmcache-bench-l2"></span><h2>l2<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> 命令通过与 LMCache 生产环境相同的 <code class="docutils literal notranslate"><span class="pre">parse_args_to_l2_adapters_config</span></code> + <code class="docutils literal notranslate"><span class="pre">create_l2_adapter</span></code> 流水线，对 L2 缓存适配器（例如本地文件系统适配器）进行端到端基准测试。任何已注册的适配器类型均可在无需修改代码的情况下进行测试：只需用一个 JSON 规范描述该适配器，并选择要执行的操作即可。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+</span></code></pre></div>
+</div>
+<p>与 <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a> 不同，此命令 <strong>不</strong> 需要推理引擎或 LMCache MP 服务器，只需适配器的后端存储可访问（对于 <code class="docutils literal notranslate"><span class="pre">fs</span></code> 适配器，只需一个可写目录）。</p>
+<section id="id5">
+<h3>它的功能<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id5" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id5'"><span>#</span></a></h3>
+<p>对于每个待测操作，该工具通过适配器的公共 submit/wait API 直接驱动适配器：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Store</span></code>  -- <code class="docutils literal notranslate"><span class="pre">submit_store_task</span></code> 每次提交写入 <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> 个 MemoryObj，并等待存储 eventfd。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Lookup</span></code> -- <code class="docutils literal notranslate"><span class="pre">submit_lookup_and_lock_task</span></code> 检查键是否存在（不传输负载），并等待查找 eventfd。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Load</span></code>   -- <code class="docutils literal notranslate"><span class="pre">submit_load_task</span></code> 每次提交读取 <code class="docutils literal notranslate"><span class="pre">num_keys</span></code> 个 MemoryObj，并等待加载 eventfd。</p></li>
+</ul>
+<p>每个测量 <strong>轮次</strong> 从单个生产者线程顺序发出 <code class="docutils literal notranslate"><span class="pre">--in-flight</span></code> 次提交，然后等待全部完成；轮次持续时间为从第一次提交到最后一次完成的墙钟时间。预热轮次在测量前运行，其结果不计入最终摘要。</p>
+<p>三种操作共享相同的键索引空间，因此在其他参数不变的情况下先运行 <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">store</span></code> 再运行 <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">load</span></code>（或 <code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">lookup</span></code>）会访问完全相同的键。这使基准测试可作为适配器的快速回归测试，验证其是否支持完整的存储 -&gt; 加载往返。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>若未指定 <code class="docutils literal notranslate"><span class="pre">--only</span></code>，三个操作将在 <strong>单个进程中按顺序</strong> 执行：<code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>。对于后端存储位于操作系统级缓存之后的适配器——尤其是受 Linux <strong>页面缓存</strong> 影响的本地文件系统（<code class="docutils literal notranslate"><span class="pre">fs</span></code>）适配器——<code class="docutils literal notranslate"><span class="pre">lookup</span></code> 和 <code class="docutils literal notranslate"><span class="pre">load</span></code> 几乎总能观察到 <code class="docutils literal notranslate"><span class="pre">store</span></code> 刚写入的数据仍驻留在 RAM 中，因此上报数字反映的是页面缓存吞吐量而非底层设备吞吐量。</p>
+<p>若要在冷缓存条件下对各操作分别进行基准测试，请使用 <code class="docutils literal notranslate"><span class="pre">--only</span></code> 单独运行，并在两次运行之间清除操作系统缓存，例如:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">store</span>
+</span><span id="line-2"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-3"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">lookup</span>
+</span><span id="line-4"><span class="n">sync</span> <span class="o">&amp;&amp;</span> <span class="n">echo</span> <span class="mi">3</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</span><span id="line-5"><span class="n">lmcache</span> <span class="n">bench</span> <span class="n">l2</span> <span class="o">--</span><span class="n">l2</span><span class="o">-</span><span class="n">adapter</span> <span class="s1">'...'</span> <span class="o">--</span><span class="n">only</span> <span class="n">load</span>
+</span></code></pre></div>
+</div>
+<p>对于绕过页面缓存的适配器（例如设置了 <code class="docutils literal notranslate"><span class="pre">"use_odirect":</span> <span class="pre">true</span></code> 的 <code class="docutils literal notranslate"><span class="pre">fs</span></code> 适配器）或与无本地缓存的远程服务通信的适配器，直接使用默认的组合运行即可。</p>
+<p>O_DIRECT 适配器可能还要求基准测试的 L1 缓冲区满足适配器的块对齐要求。可通过 <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> 设置对齐值，本地块设备通常为 <code class="docutils literal notranslate"><span class="pre">4096</span></code>。负载大小（<code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code>）必须是该对齐值的整数倍。</p>
+</div>
+</section>
+<section id="id6">
+<h3>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id6" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id6'"><span>#</span></a></h3>
+<p>使用默认参数对本地文件系统适配器进行基准测试：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span></code></pre></div>
+</div>
+<p>将运行全部三个操作（store、lookup、load），包括一次预热轮次和一次测量轮次。</p>
+<p>使用更多并发提交和更大负载对适配器施压：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span>--warmup-rounds<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>对使用对齐 L1 缓冲区的 O_DIRECT 适配器进行基准测试：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"raw_block","device_path":"/dev/nvme0n1","slot_bytes":4194304,"use_odirect":true,"block_align":4096}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--data-size-kb<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-align-bytes<span class="w"> </span><span class="m">4096</span>
+</span></code></pre></div>
+</div>
+<p>仅运行单个操作（用于单独测量 store 与 load 的吞吐量）：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>store
+</span></code></pre></div>
+</div>
+<p>使用受控命中率执行查找（基准测试将查找键拆分为可能存在的范围和保证不存在的范围）：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--only<span class="w"> </span>lookup<span class="w"> </span>--lookup-max-hit-rate<span class="w"> </span><span class="m">0</span>.5
+</span></code></pre></div>
+</div>
+<p>在最后一轮测量中启用 store -&gt; load 往返数据完整性校验：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--no-skip-verify
+</span></code></pre></div>
+</div>
+<p>如果希望不在命令行中暴露 JSON 规范，可设置 <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> 环境变量，而无需传递 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">L2_ADAPTER_JSON</span><span class="o">=</span><span class="s1">'{"type":"fs","base_path":"/tmp/lmcache-bench"}'</span>
+</span><span id="line-2">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span>--num-keys<span class="w"> </span><span class="m">32</span><span class="w"> </span>--in-flight<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="id7">
+<h3>选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id7'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">JSON</span></code></p></td>
+<td><p>(未设置)</p></td>
+<td><p>L2 适配器规范，以 JSON 格式提供，包含 <code class="docutils literal notranslate"><span class="pre">"type"</span></code> 字段及适配器专项配置，例如 <code class="docutils literal notranslate"><span class="pre">'{\"type\":\"fs\",\"base_path\":\"/tmp/bench\"}'</span></code>。可多次传递；仅对第一个规范进行基准测试。若未提供，则退回到 <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> 环境变量。该参数或环境变量二者之一 <strong>必须</strong> 指定。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-keys</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>每次提交的键数。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--in-flight</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>每轮的在途提交数。每轮从单个生产者线程按序发出指定数量的提交，然后等待全部完成。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>每个键的数据大小，单位为 KiB。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>基准测试 L1 缓冲区的对齐字节数。测试 O_DIRECT 后端时，该值应不小于适配器的块对齐要求，本地块设备通常为 <code class="docutils literal notranslate"><span class="pre">4096</span></code>。<code class="docutils literal notranslate"><span class="pre">--data-size-kb</span> <span class="pre">*</span> <span class="pre">1024</span></code> 必须是该值的整数倍。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>每个操作的测量轮数。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--warmup-rounds</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>在测量前运行的预热轮次，其结果不计入统计。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span> <span class="pre">F</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>查找命中率的上限，范围为 <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>。基准测试请求 <code class="docutils literal notranslate"><span class="pre">floor(N</span> <span class="pre">*</span> <span class="pre">rate)</span></code> 个来自可能存在范围的键，以及 <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">-</span> <span class="pre">hit</span></code> 个来自保证不存在范围的键，其中 <code class="docutils literal notranslate"><span class="pre">N</span></code> 为查找键总数。若这些键在本次运行中从未被存储过，则实际命中率可能更低。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--skip-verify</span></code></p></td>
+<td><p>跳过 store -&gt; load 往返数据完整性检查（默认行为）。传递 <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> 可在最后一轮测量中启用校验，此时要求同时执行 <code class="docutils literal notranslate"><span class="pre">store</span></code> 和 <code class="docutils literal notranslate"><span class="pre">load</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--only</span> <span class="pre">{lookup,store,load}</span></code></p></td>
+<td><p>(未设置)</p></td>
+<td><p>仅运行指定操作。省略时，按 <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code> 顺序运行全部三个操作。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="adapter-json-spec">
+<h3>适配器 JSON 规范<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adapter-json-spec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adapter-json-spec'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON 由 <code class="docutils literal notranslate"><span class="pre">lmcache.v1.distributed.l2_adapters.config.parse_args_to_l2_adapters_config</span></code> 解析，这也是 LMCache 在其他地方使用的同一入口点。最小必填字段为 <code class="docutils literal notranslate"><span class="pre">type</span></code>，其余字段均以关键字参数形式转发给适配器实现。</p>
+<p>本地文件系统适配器示例：</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"fs"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"base_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/data/lmcache-bench"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"relative_tmp_dir"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tmp"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">"read_ahead_size"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"use_odirect"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+</span><span id="line-7"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>适配器类型及其支持字段的完整列表，请参阅 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/</span></code> 目录下的源代码。</p>
+</section>
+<section id="example-output">
+<h3>示例输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output'"><span>#</span></a></h3>
+<p>每轮进度（可通过 <code class="docutils literal notranslate"><span class="pre">-q</span></code> 禁止）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">============================================================
+</span><span id="line-2">L2 Adapter Benchmark
+</span><span id="line-3">============================================================
+</span><span id="line-4">  Adapter config         : FSL2AdapterConfig
+</span><span id="line-5">  L2 adapter JSON        : {"type":"fs","base_path":"/data/lmcache-bench","relative_tmp_dir":"tmp"}
+</span><span id="line-6">  Keys / submit          : 32
+</span><span id="line-7">  In-flight / round      : 3
+</span><span id="line-8">  Keys / round           : 96
+</span><span id="line-9">  Data size / key        : 256 KB
+</span><span id="line-10">  Data / round           : 24.00 MB
+</span><span id="line-11">  Rounds                 : 1 (+ 1 warmup)
+</span><span id="line-12">  Lookup max hit rate    : 0.00%
+</span><span id="line-13">============================================================
+</span><span id="line-14">
+</span><span id="line-15">[Init] Creating adapter...
+</span><span id="line-16">[Init] Adapter created successfully (FSL2Adapter).
+</span><span id="line-17">
+</span><span id="line-18">[Store] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-19">  [Store] Round 1: 47.83 ms, success_keys=96/96
+</span><span id="line-20">  [Store] Round 2: 46.19 ms, success_keys=96/96
+</span><span id="line-21">
+</span><span id="line-22">[Lookup] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-23">  [Lookup] Round 1:  5.36 ms, found=96/96
+</span><span id="line-24">  [Lookup] Round 2:  5.03 ms, found=96/96
+</span><span id="line-25">
+</span><span id="line-26">[Load] Running 1 warmup + 1 measurement rounds...
+</span><span id="line-27">  [Load] Round 1: 18.15 ms, loaded=96/96
+</span><span id="line-28">  [Load] Round 2: 17.63 ms, loaded=96/96
+</span></code></pre></div>
+</div>
+<p>最终摘要（每个操作对应一个部分）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">====== L2 Adapter Benchmark Result (FSL2Adapter) =======
+</span><span id="line-2">----------------------- Configuration -------------------
+</span><span id="line-3">Adapter:                          FSL2Adapter
+</span><span id="line-4">Keys / submit:                    32
+</span><span id="line-5">In-flight / round:                3
+</span><span id="line-6">Data size / key (KB):             256
+</span><span id="line-7">Measurement rounds:               1
+</span><span id="line-8">Warmup rounds:                    1
+</span><span id="line-9">Lookup max hit rate:              0.0
+</span><span id="line-10">--------------------------- Store -----------------------
+</span><span id="line-11">Operation:                        Store
+</span><span id="line-12">Rounds:                           1
+</span><span id="line-13">Keys / round:                     96
+</span><span id="line-14">Total keys:                       96
+</span><span id="line-15">Total success:                    96
+</span><span id="line-16">Duration avg (ms):                46.19
+</span><span id="line-17">...
+</span><span id="line-18">Throughput avg (MB/s):            519.62
+</span><span id="line-19">Avg ops/s:                        2078.50
+</span><span id="line-20">Avg latency / key (ms):           0.481
+</span><span id="line-21">--------------------------- Lookup ----------------------
+</span><span id="line-22">...
+</span><span id="line-23">---------------------------- Load -----------------------
+</span><span id="line-24">...
+</span><span id="line-25">=========================================================
+</span></code></pre></div>
+</div>
+<p>每个操作部分报告每轮持续时间统计（avg / min / max / p50 / p99 / std）、汇总吞吐量（<code class="docutils literal notranslate"><span class="pre">avg_throughput_mbps</span></code>，<code class="docutils literal notranslate"><span class="pre">Lookup</span></code> 为 0，因其无负载传输）、平均键速率（<code class="docutils literal notranslate"><span class="pre">avg_ops_per_sec</span></code>）及每键延迟。</p>
+<p>对于 <code class="docutils literal notranslate"><span class="pre">Lookup</span></code>，当 <code class="docutils literal notranslate"><span class="pre">--lookup-max-hit-rate</span></code> 非零或存在命中键时，还会上报以下三个额外字段：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">max</span> <span class="pre">hit</span> <span class="pre">rate</span></code> —— 已配置的命中率上限。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Expected</span> <span class="pre">hit</span> <span class="pre">keys</span></code> —— <code class="docutils literal notranslate"><span class="pre">floor(total_keys</span> <span class="pre">*</span> <span class="pre">rate)</span></code>，仅对测量轮次进行缩放。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Actual</span> <span class="pre">hit</span> <span class="pre">rate</span></code> —— 在有效测量轮次中实测的命中率。</p></li>
+</ul>
+</section>
+<section id="round-trip-verification">
+<h3>往返验证<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#round-trip-verification" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#round-trip-verification'"><span>#</span></a></h3>
+<p>当传递 <code class="docutils literal notranslate"><span class="pre">--no-skip-verify</span></code> 且同时运行了 <code class="docutils literal notranslate"><span class="pre">store</span></code> 和 <code class="docutils literal notranslate"><span class="pre">load</span></code> 时，基准测试会将最后一轮测量的加载缓冲区与 <code class="docutils literal notranslate"><span class="pre">store</span></code> 写入的字节模式进行比对（参见 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/bench/l2_adapter_bench/data.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">make_memory_objects</span></code>）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[Verify] Checking store -&gt; load data integrity for last measured round...
+</span><span id="line-2">[Verify] OK
+</span></code></pre></div>
+</div>
+<p>默认情况下，验证是 <strong>关闭</strong> 的，因为更严格的字节模式要求存储和加载对象批次均保持常驻内存，以便将加载的数据与原始存储模式进行比对。</p>
+</section>
+<section id="id8">
+<h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 85.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>代码</p></th>
+<th class="head"><p>含义</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>所有请求操作均已完成，且（在启用时）往返验证通过。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>适配器创建失败、往返验证失败，或某个操作遭遇致命错误（例如所有轮次均超时）。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON 或 <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> 环境变量缺失或无法解析。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="query.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        lmcache query
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="kvcache.html">
+        lmcache kvcache
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#engine'" class="reference internal" href="#engine">engine</a><ul>
+<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">快速开始</a></li>
+<li><a :data-current="activeSection === '#general-options'" class="reference internal" href="#general-options">常规选项</a><ul>
+<li><a :data-current="activeSection === '#finding-tokens-per-gb-kvcache'" class="reference internal" href="#finding-tokens-per-gb-kvcache">查找 <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#workloads'" class="reference internal" href="#workloads">工作负载</a><ul>
+<li><a :data-current="activeSection === '#long-doc-qa'" class="reference internal" href="#long-doc-qa">long-doc-qa</a></li>
+<li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
+<li><a :data-current="activeSection === '#long-doc-permutator'" class="reference internal" href="#long-doc-permutator">long-doc-permutator</a></li>
+<li><a :data-current="activeSection === '#prefix-suffix-tuner'" class="reference internal" href="#prefix-suffix-tuner">prefix-suffix-tuner</a></li>
+<li><a :data-current="activeSection === '#random-prefill'" class="reference internal" href="#random-prefill">random-prefill</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#interactive-mode'" class="reference internal" href="#interactive-mode">交互模式</a></li>
+<li><a :data-current="activeSection === '#config-file'" class="reference internal" href="#config-file">配置文件</a></li>
+<li><a :data-current="activeSection === '#output'" class="reference internal" href="#output">输出</a><ul>
+<li><a :data-current="activeSection === '#terminal-real-time-progress'" class="reference internal" href="#terminal-real-time-progress">终端（实时进度）</a></li>
+<li><a :data-current="activeSection === '#terminal-final-summary'" class="reference internal" href="#terminal-final-summary">终端（最终摘要）</a></li>
+<li><a :data-current="activeSection === '#csv-and-json'" class="reference internal" href="#csv-and-json">CSV 和 JSON</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#exit-codes'" class="reference internal" href="#exit-codes">退出代码</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#server'" class="reference internal" href="#server">server</a><ul>
+<li><a :data-current="activeSection === '#what-it-does'" class="reference internal" href="#what-it-does">它的功能</a></li>
+<li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">快速开始</a></li>
+<li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">选项</a></li>
+<li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU 模式（无 GPU）</a></li>
+<li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV 缓存形状规格</a></li>
+<li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">输出</a></li>
+<li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">示例输出（进度）</a></li>
+<li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">退出代码</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#l2'" class="reference internal" href="#l2">l2</a><ul>
+<li><a :data-current="activeSection === '#id5'" class="reference internal" href="#id5">它的功能</a></li>
+<li><a :data-current="activeSection === '#id6'" class="reference internal" href="#id6">快速开始</a></li>
+<li><a :data-current="activeSection === '#id7'" class="reference internal" href="#id7">选项</a></li>
+<li><a :data-current="activeSection === '#adapter-json-spec'" class="reference internal" href="#adapter-json-spec">适配器 JSON 规范</a></li>
+<li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">示例输出</a></li>
+<li><a :data-current="activeSection === '#round-trip-verification'" class="reference internal" href="#round-trip-verification">往返验证</a></li>
+<li><a :data-current="activeSection === '#id8'" class="reference internal" href="#id8">退出代码</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=7d86a446"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/translations.js?v=beaddf03"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>
