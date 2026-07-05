@@ -1454,6 +1454,30 @@ the last measured round; this requires both <code class="docutils literal notran
 <td><p>Run only the specified operation. When omitted, all three
 operations are run in the order <code class="docutils literal notranslate"><span class="pre">store</span> <span class="pre">-&gt;</span> <span class="pre">lookup</span> <span class="pre">-&gt;</span> <span class="pre">load</span></code>.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">{on,off}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">off</span></code></p></td>
+<td><p>Capture a flame graph of the measured phases (<code class="docutils literal notranslate"><span class="pre">on</span></code>) or run the
+benchmark normally (<code class="docutils literal notranslate"><span class="pre">off</span></code>). When <code class="docutils literal notranslate"><span class="pre">on</span></code>, the benchmark profiles
+itself and renders an SVG. Default <code class="docutils literal notranslate"><span class="pre">off</span></code> leaves benchmark
+behavior unchanged. See
+<a class="reference internal" href="#lmcache-bench-l2-profiling"><span class="std std-ref">Profiling / flame charts</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span> <span class="pre">{on-cpu,off-cpu}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">on-cpu</span></code></p></td>
+<td><p>Flame-graph mode for <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code>. <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> shows
+where CPU time goes; <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> shows time blocked on I/O /
+locks (best for I/O-bound adapters).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span> <span class="pre">PATH</span></code></p></td>
+<td><p><em>(auto)</em></p></td>
+<td><p>SVG output path. Default:
+<code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p><em>($FLAMEGRAPH_DIR or ~/FlameGraph)</em></p></td>
+<td><p>Directory with the FlameGraph scripts (<code class="docutils literal notranslate"><span class="pre">flamegraph.pl</span></code>,
+<code class="docutils literal notranslate"><span class="pre">stackcollapse-perf.pl</span></code>).</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1566,6 +1590,49 @@ round against the byte pattern that <code class="docutils literal notranslate"><
 requires both the store and load object batches to stay resident so the
 loaded data can be compared against the original store pattern.</p>
 </section>
+<section id="profiling-flame-charts">
+<span id="lmcache-bench-l2-profiling"></span><h3>Profiling / flame charts<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-flame-charts" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-flame-charts'"><span>#</span></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> is passed, the benchmark profiles the L2
+adapter’s performance and renders a flame graph of the measured phases:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">300</span><span class="w"> </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>on-cpu
+</span><span id="line-4"><span class="c1">#   [Profile] on-cpu recording started (pid=12345) -&gt; .../FSL2Adapter.oncpu.svg</span>
+</span><span id="line-5"><span class="c1">#   [Profile] wrote /tmp/lmcache_bench_flames/FSL2Adapter.oncpu.svg</span>
+</span></code></pre></div>
+</div>
+<p>The recorder samples every thread of the process (including native
+worker threads). Two modes are available via <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code>:</p>
+<ul class="simple">
+<li><p><strong>on-cpu</strong> (default) – <code class="docutils literal notranslate"><span class="pre">perf</span> <span class="pre">record</span></code>; where CPU cycles go
+(serialization, copies, hashing).</p></li>
+<li><p><strong>off-cpu</strong> – <code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code> (bcc); time spent blocked
+(waiting on I/O, locks, eventfds). Often the more informative view
+for I/O-bound adapters such as <code class="docutils literal notranslate"><span class="pre">fs</span></code> and <code class="docutils literal notranslate"><span class="pre">s3</span></code>.</p></li>
+</ul>
+<p>Recording covers only the measured store/lookup/load work, so make the
+run long enough to collect samples (a few seconds is plenty – use a
+large <code class="docutils literal notranslate"><span class="pre">--rounds</span></code>). The SVG is written to <code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>).</p>
+<p><strong>Requirements.</strong> Rendering needs Brendan Gregg’s
+<a class="reference external" href="https://github.com/brendangregg/FlameGraph">FlameGraph</a> scripts
+(<code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span></code> or <code class="docutils literal notranslate"><span class="pre">FLAMEGRAPH_DIR</span></code>, default <code class="docutils literal notranslate"><span class="pre">~/FlameGraph</span></code>;
+auto-cloned to a temp directory when absent). <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> needs <code class="docutils literal notranslate"><span class="pre">perf</span></code>
+(and <code class="docutils literal notranslate"><span class="pre">kernel.perf_event_paranoid</span></code> low enough to profile non-root, or
+run as root); <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> needs <code class="docutils literal notranslate"><span class="pre">bcc</span></code> (<code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code>) and
+<code class="docutils literal notranslate"><span class="pre">sudo</span></code>. The required tools are checked up front: when <code class="docutils literal notranslate"><span class="pre">--flamegraph</span>
+<span class="pre">on</span></code> is requested but a tool is missing, the benchmark exits with a
+non-zero status and an actionable message naming the missing tool
+instead of running unprofiled. The default <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">off</span></code> skips
+all of this and leaves benchmark behavior unchanged.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When comparing a change, profile each variant with the same
+<code class="docutils literal notranslate"><span class="pre">--rounds</span></code> and <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> and distinct
+<code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code> paths (e.g. <code class="docutils literal notranslate"><span class="pre">baseline.svg</span></code> vs
+<code class="docutils literal notranslate"><span class="pre">after.svg</span></code>) so the two flame graphs are directly comparable.</p>
+</div>
+</section>
 <section id="id8">
 <h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
 <table class="docutils align-default">
@@ -1588,8 +1655,10 @@ round-trip verification passed.</p></td>
 an operation hit a fatal error (e.g. all rounds timed out).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
-<td><p>The <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON / <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code> env var was
-missing or could not be parsed.</p></td>
+<td><p>Invalid invocation: the <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> JSON / <code class="docutils literal notranslate"><span class="pre">L2_ADAPTER_JSON</span></code>
+env var was missing or could not be parsed, an option value was
+invalid, or <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> was requested but the profiling
+toolchain is unavailable.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1659,6 +1728,7 @@ missing or could not be parsed.</p></td>
 <li><a :data-current="activeSection === '#adapter-json-spec'" class="reference internal" href="#adapter-json-spec">Adapter JSON spec</a></li>
 <li><a :data-current="activeSection === '#example-output'" class="reference internal" href="#example-output">Example output</a></li>
 <li><a :data-current="activeSection === '#round-trip-verification'" class="reference internal" href="#round-trip-verification">Round-trip verification</a></li>
+<li><a :data-current="activeSection === '#profiling-flame-charts'" class="reference internal" href="#profiling-flame-charts">Profiling / flame charts</a></li>
 <li><a :data-current="activeSection === '#id8'" class="reference internal" href="#id8">Exit codes</a></li>
 </ul>
 </li>
