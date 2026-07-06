@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Extending the CLI | LMCache</title>
+<meta content="Extending the CLI | LMCache" property="og:title"/>
+<meta content="Extending the CLI | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="Search"/>
+<link href="../genindex.html" rel="index" title="Index"/>
+<link href="extending_http_api.html" rel="next" title="Extending the HTTP API"/>
+<link href="extending_lmcache/native_connectors.html" rel="prev" title="Adding Native Backends"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">Getting Started<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/index.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/configuration.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">Benchmarking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache Size Calculator</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache Operations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/frontend_dashboard.html">Frontend Dashboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/sdk.html">KV Cache SDK</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">Recipes<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/hybrid_models.html">Hybrid Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/index.html">Secondary KV Storage<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/supported_storages.html">Supported Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/file_and_block.html">File &amp; Block<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs.html">FileSystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs_native.html">FS (native)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/raw_block.html">Raw Block (Rust)</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/remote_and_distributed.html">Remote &amp; Distributed<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/mock.html">Mock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/fault_inject.html">Fault Inject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/serde.html">KV Cache Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/disaggregated_prefill.html">Disaggregated Prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/p2p.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/coordinator.html">Multi-Server Coordination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/kv_cache_management.html">KV Cache Management</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">Use LMCache in Production<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/deployment.html">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes Deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending_lmcache/runtime_plugins.html">Runtime Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo Integration</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/observability/index.html">Observability<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/logs.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/traces.html">Tracing</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">Community<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache Optimizations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">Segmented Prefill</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">Developer Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="contributing.html">Contributing Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending_lmcache/native_connectors.html">Adding Native Backends</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Extending the CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending_http_api.html">Extending the HTTP API</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">Non-KV Caching<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">Encodings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">Hidden states</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">Legacy (In-Process Mode)<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">Using Different Storage Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">Async Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">Encoder caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">Using NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">Compression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">Layerwise KV Transfer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache Controller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">Blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">KV Caching for Multimodal Models with vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">Adding new storage backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM Dynamic Connector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">Configuring LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">Internal API Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">Controller WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">Observability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">Performance Tuning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache Events</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html">Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/index.html">Usage Data Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/basic_check.html">Basic Check Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending_lmcache/storage_plugins.html">Storage Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending_lmcache/remote_storage_plugins.html">Remote Storage Plugins</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Developer Guide</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Extending the CLI</span>
+</nav>
+<div id="content" role="main">
+<section id="extending-the-cli">
+<h1>Extending the CLI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#extending-the-cli"><span>#</span></a></h1>
+<p>LMCache’s CLI is built on a plugin-style architecture that supports
+<strong>N-level nested subcommands</strong> with zero-registration auto-discovery.
+This guide explains how to add commands at each level.</p>
+<section id="architecture-overview">
+<h2>Architecture Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h2>
+<p>The CLI framework is composed of two core classes in
+<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/base.py</span></code>:</p>
+<ul class="simple">
+<li><p><strong>BaseCommand</strong> — Abstract base class for leaf commands (commands that
+perform actual work).</p></li>
+<li><p><strong>CompositeCommand</strong> — A <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass for commands that
+only group sub-subcommands. It auto-discovers child commands by
+scanning the package where it is defined.</p></li>
+</ul>
+<p>The discovery mechanism uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to scan direct
+submodules of a package, then collects all concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclasses found in those modules. This means:</p>
+<ol class="arabic simple">
+<li><p>Each command is a separate <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or a sub-package with an
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>).</p></li>
+<li><p>No manual registration is needed — just create the file and it is
+picked up automatically.</p></li>
+<li><p>Utility/helper modules should be prefixed with <code class="docutils literal notranslate"><span class="pre">_</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">_helpers.py</span></code>) so they are excluded from the scan.</p></li>
+</ol>
+</section>
+<section id="auto-discovery-mechanism">
+<h2>Auto-Discovery Mechanism<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-discovery-mechanism" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-discovery-mechanism'"><span>#</span></a></h2>
+<p>The CLI uses a unified <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> utility (defined in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/utils/subclass_discovery.py</span></code>) to locate command classes at
+every level.  Understanding the two discovery entry points is key to
+extending the CLI.</p>
+<section id="top-level-command-discovery">
+<h3>Top-Level Command Discovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
+<p>When the CLI starts, <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> calls
+<code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on its own package (<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>).
+This scans all <strong>direct submodules</strong> — both <code class="docutils literal notranslate"><span class="pre">.py</span></code> files and
+sub-packages (via their <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>) — and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py</span>
+</span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.utils.subclass_discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_subclasses</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="n">ALL_COMMANDS</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-5">    <span class="bp">cls</span><span class="p">()</span>
+</span><span id="line-6">    <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
+</span><span id="line-7">        <span class="vm">__name__</span><span class="p">,</span>                          <span class="c1"># "lmcache.cli.commands"</span>
+</span><span id="line-8">        <span class="n">BaseCommand</span><span class="p">,</span>
+</span><span id="line-9">        <span class="n">module_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"base"</span><span class="p">,</span>  <span class="c1"># skip base.py itself</span>
+</span><span id="line-10">    <span class="p">)</span>
+</span><span id="line-11"><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<p>The resulting <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> list is then registered with the root
+<code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser in <code class="docutils literal notranslate"><span class="pre">main.py</span></code>.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
+sub-package) placed under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> is automatically
+available as a top-level command — no manual imports or registration
+needed.</p>
+<p><strong>Filtering rules for top-level discovery:</strong></p>
+<ul class="simple">
+<li><p>The module named <code class="docutils literal notranslate"><span class="pre">base</span></code> is explicitly excluded (it defines the
+abstract base classes, not a command).</p></li>
+<li><p>Modules whose name starts with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded by the underlying
+<code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> convention (they are treated as private).</p></li>
+<li><p>Only <strong>concrete</strong> subclasses are collected — abstract classes are
+skipped.</p></li>
+<li><p>Only classes <strong>defined in</strong> the scanned module are collected (re-exports
+are ignored via <code class="docutils literal notranslate"><span class="pre">require_defined_in_module=True</span></code>).</p></li>
+</ul>
+</section>
+<section id="sub-command-discovery-compositecommand">
+<h3>Sub-Command Discovery (CompositeCommand)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sub-command-discovery-compositecommand" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sub-command-discovery-compositecommand'"><span>#</span></a></h3>
+<p>When a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> registers itself with the parser, its
+<code class="docutils literal notranslate"><span class="pre">register()</span></code> method calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on the package
+where the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass is defined (i.e. its own
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>’s package).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from CompositeCommand.register() in base.py</span>
+</span><span id="line-2"><span class="n">package</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span>   <span class="c1"># e.g. "lmcache.cli.commands.bench"</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
+</span><span id="line-5">    <span class="n">package</span><span class="p">,</span>
+</span><span id="line-6">    <span class="n">BaseCommand</span><span class="p">,</span>
+</span><span id="line-7">    <span class="n">module_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"_"</span><span class="p">),</span>
+</span><span id="line-8">    <span class="n">require_defined_in_module</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="line-9"><span class="p">):</span>
+</span><span id="line-10">    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">:</span>
+</span><span id="line-11">        <span class="k">continue</span>          <span class="c1"># skip the CompositeCommand itself</span>
+</span><span id="line-12">    <span class="n">inst</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+</span><span id="line-13">    <span class="n">inst</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>  <span class="c1"># register as a nested subcommand</span>
+</span></code></pre></div>
+</div>
+<p><strong>Filtering rules for sub-command discovery:</strong></p>
+<ul class="simple">
+<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded (use this prefix for helper
+files like <code class="docutils literal notranslate"><span class="pre">_utils.py</span></code>).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> class itself is skipped to avoid infinite
+recursion.</p></li>
+<li><p>Only concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclasses <strong>defined in</strong> the scanned
+module are collected.</p></li>
+<li><p>The scan is <strong>non-recursive</strong> (depth 1 only) — each
+<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only sees its own package’s direct children.</p></li>
+</ul>
+<p><strong>How nesting works:</strong> If a child is itself a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code>
+(defined in a sub-package’s <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>), its own <code class="docutils literal notranslate"><span class="pre">register()</span></code>
+method will in turn scan <em>its</em> package for further children.  This
+creates the recursive nesting without any special configuration.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">CLI startup
+</span><span id="line-2">└── __init__.py discovers ALL top-level commands
+</span><span id="line-3">    ├── ping.py          → PingCommand (leaf)
+</span><span id="line-4">    ├── bench/__init__.py → BenchCommand (composite)
+</span><span id="line-5">    │   └── BenchCommand.register() discovers:
+</span><span id="line-6">    │       ├── server_bench/__init__.py → ServerBenchCommand (leaf)
+</span><span id="line-7">    │       ├── l2_adapter_bench/__init__.py → L2AdapterBenchCommand (leaf)
+</span><span id="line-8">    │       └── engine_bench/__init__.py → EngineBenchCommand (leaf)
+</span><span id="line-9">    └── tool/__init__.py → ToolCommand (composite)
+</span><span id="line-10">        └── ToolCommand.register() discovers:
+</span><span id="line-11">            └── cache_simulator/__init__.py → CacheSimulatorCommand (composite)
+</span><span id="line-12">                └── CacheSimulatorCommand.register() discovers:
+</span><span id="line-13">                    ├── simulate_command.py     → SimulateCommand (leaf)
+</span><span id="line-14">                    ├── sweep_command.py        → SweepCommand (leaf)
+</span><span id="line-15">                    └── gen_dataset_command.py  → GenDatasetCommand (leaf)
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="directory-layout">
+<h2>Directory Layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#directory-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#directory-layout'"><span>#</span></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache/cli/commands/
+</span><span id="line-2">├── __init__.py            # Top-level discovery (scans this package)
+</span><span id="line-3">├── base.py                # BaseCommand &amp; CompositeCommand
+</span><span id="line-4">├── ping.py                # Level-1 leaf command
+</span><span id="line-5">├── server.py              # Level-1 leaf command
+</span><span id="line-6">├── quota/                 # Level-2 composite command
+</span><span id="line-7">│   ├── __init__.py        # QuotaCommand(CompositeCommand)
+</span><span id="line-8">│   ├── _helpers.py        # Utility (excluded from scan by _ prefix)
+</span><span id="line-9">│   ├── get_command.py     # Level-2 leaf: ``lmcache quota get``
+</span><span id="line-10">│   ├── set_command.py     # Level-2 leaf: ``lmcache quota set``
+</span><span id="line-11">│   └── ...
+</span><span id="line-12">└── tool/                  # Level-2 composite command
+</span><span id="line-13">    ├── __init__.py         # ToolCommand(CompositeCommand)
+</span><span id="line-14">    └── cache_simulator/    # Level-3 composite command
+</span><span id="line-15">        ├── __init__.py     # CacheSimulatorCommand(CompositeCommand)
+</span><span id="line-16">        ├── simulate_command.py   # Level-3 leaf: ``lmcache tool cache-simulator simulate``
+</span><span id="line-17">        └── sweep_command.py      # Level-3 leaf: ``lmcache tool cache-simulator sweep``
+</span></code></pre></div>
+</div>
+<section id="key-rules">
+<h3>Key Rules<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#key-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#key-rules'"><span>#</span></a></h3>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass <strong>must</strong> be defined in the
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> of its package.</p></li>
+<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are <strong>excluded</strong> from auto-discovery
+(use this for helpers, utilities, internal logic).</p></li>
+<li><p>Each leaf command file should contain exactly one concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
+<li><p>The scan is <strong>non-recursive</strong> — each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only scans
+its own package’s direct submodules.</p></li>
+</ul>
+</section>
+</section>
+<section id="level-1-adding-a-top-level-command">
+<h2>Level 1: Adding a Top-Level Command<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-1-adding-a-top-level-command" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-1-adding-a-top-level-command'"><span>#</span></a></h2>
+<p>A top-level command appears directly under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;command&gt;</span></code>.</p>
+<p><strong>Step 1</strong>: Create a new file under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/hello.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache hello`` — a simple greeting command."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">HelloCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Print a greeting message."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"hello"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Print a greeting message."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--name"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"World"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Who to greet."</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"greeting"</span><span class="p">,</span> <span class="s2">"Greeting"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Hello, </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">!"</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 2</strong>: Done! The command is automatically discovered. Test it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>hello<span class="w"> </span>--name<span class="w"> </span>LMCache
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This works because the top-level <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code>
+calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on its own package at import time. It
+uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to find all direct submodules (files and
+sub-packages), imports each one, and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The resulting list is stored in
+<code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> and registered with the argument parser in
+<code class="docutils literal notranslate"><span class="pre">main.py</span></code>. So adding a new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclass is all that is needed — no edits to any other file.</p>
+</div>
+</section>
+<section id="level-2-adding-a-subcommand-group">
+<h2>Level 2: Adding a Subcommand Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-group'"><span>#</span></a></h2>
+<p>A subcommand group appears as <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;group&gt;</span> <span class="pre">&lt;subcommand&gt;</span></code>.</p>
+<p><strong>Step 1</strong>: Create a package directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/
+</span></code></pre></div>
+</div>
+<p><strong>Step 2</strong>: Define the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup`` command group.</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="sd">Sub-subcommands are auto-discovered from modules in this package.</span>
+</span><span id="line-5"><span class="sd">"""</span>
+</span><span id="line-6">
+</span><span id="line-7"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeCommand</span>
+</span><span id="line-8">
+</span><span id="line-9">
+</span><span id="line-10"><span class="k">class</span><span class="w"> </span><span class="nc">MyGroupCommand</span><span class="p">(</span><span class="n">CompositeCommand</span><span class="p">):</span>
+</span><span id="line-11"><span class="w">    </span><span class="sd">"""Command group for my custom operations."""</span>
+</span><span id="line-12">
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-14">        <span class="k">return</span> <span class="s2">"mygroup"</span>
+</span><span id="line-15">
+</span><span id="line-16">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-17">        <span class="k">return</span> <span class="s2">"My custom command group."</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 3</strong>: Add leaf subcommands as separate files:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/foo_command.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup foo`` — do something."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">FooCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Execute the foo action."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"foo"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Execute the foo action."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--value"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Foo Result"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"result"</span><span class="p">,</span> <span class="s2">"Result"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 4</strong>: (Optional) Add helper modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> prefix:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/_utils.py</span>
+</span><span id="line-2"><span class="sd">"""Internal utilities for mygroup commands (not auto-discovered)."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="k">def</span><span class="w"> </span><span class="nf">compute_something</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="line-5">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">42</span>
+</span></code></pre></div>
+</div>
+<p><strong>Result</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>foo<span class="w"> </span>--value<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="level-2-adding-a-subcommand-to-an-existing-group">
+<h2>Level 2: Adding a Subcommand to an Existing Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-to-an-existing-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-to-an-existing-group'"><span>#</span></a></h2>
+<p>If a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> group already exists (e.g. <code class="docutils literal notranslate"><span class="pre">bench</span></code>, <code class="docutils literal notranslate"><span class="pre">quota</span></code>,
+<code class="docutils literal notranslate"><span class="pre">trace</span></code>), you can extend it by simply adding <strong>one new file</strong> — no other
+changes are required.</p>
+<p>For example, to add a new <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> subcommand under the
+existing <code class="docutils literal notranslate"><span class="pre">bench</span></code> group:</p>
+<p><strong>Step 1</strong>: Create a single file (or sub-package) in the existing group’s
+package directory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/bench/l2_adapter_bench/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache bench l2`` subpackage."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">L2AdapterBenchCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Benchmark an L2 adapter (store / lookup / load)."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"l2"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Benchmark an L2 adapter (store / lookup / load)."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.bench.l2_adapter_bench.command</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-20">            <span class="n">add_l2_arguments</span><span class="p">,</span>
+</span><span id="line-21">        <span class="p">)</span>
+</span><span id="line-22">        <span class="n">add_l2_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>
+</span><span id="line-23">
+</span><span id="line-24">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-25">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.bench.l2_adapter_bench.command</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-26">            <span class="n">run_l2_adapter_bench</span><span class="p">,</span>
+</span><span id="line-27">        <span class="p">)</span>
+</span><span id="line-28">        <span class="n">run_l2_adapter_bench</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 2</strong>: Done! The parent <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>)
+auto-discovers the new subcommand at startup. No registration code, no
+imports to add, no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> edits in the parent.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This works because <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> scans all direct
+submodules of its package each time the CLI starts. A new file (or
+sub-package) is automatically picked up as long as:</p>
+<ul class="simple">
+<li><p>It does <strong>not</strong> start with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></li>
+<li><p>It contains a concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
+</ul>
+</div>
+</section>
+<section id="level-n-arbitrary-nesting">
+<h2>Level N: Arbitrary Nesting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-n-arbitrary-nesting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-n-arbitrary-nesting'"><span>#</span></a></h2>
+<p>The framework supports <strong>unlimited nesting depth</strong>. Each level follows
+the same pattern: a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in a package’s <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>
+auto-discovers its children.</p>
+<p><strong>Example</strong>: Adding a 3rd level under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">mygroup</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/nested/
+</span></code></pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/nested/__init__.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup nested`` — a nested command group."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeCommand</span>
+</span><span id="line-5">
+</span><span id="line-6">
+</span><span id="line-7"><span class="k">class</span><span class="w"> </span><span class="nc">NestedCommand</span><span class="p">(</span><span class="n">CompositeCommand</span><span class="p">):</span>
+</span><span id="line-8"><span class="w">    </span><span class="sd">"""Nested subcommand group."""</span>
+</span><span id="line-9">
+</span><span id="line-10">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-11">        <span class="k">return</span> <span class="s2">"nested"</span>
+</span><span id="line-12">
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-14">        <span class="k">return</span> <span class="s2">"A nested command group under mygroup."</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/nested/bar_command.py</span>
+</span><span id="line-2"><span class="sd">"""``lmcache mygroup nested bar`` — a deeply nested command."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.cli.commands.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+</span><span id="line-7">
+</span><span id="line-8">
+</span><span id="line-9"><span class="k">class</span><span class="w"> </span><span class="nc">BarCommand</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+</span><span id="line-10"><span class="w">    </span><span class="sd">"""Execute the bar action at level 3."""</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-13">        <span class="k">return</span> <span class="s2">"bar"</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">help</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-16">        <span class="k">return</span> <span class="s2">"Execute the bar action."</span>
+</span><span id="line-17">
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">add_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-19">        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--msg"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"deep"</span><span class="p">)</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-22">        <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Bar Result"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-23">        <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"message"</span><span class="p">,</span> <span class="s2">"Message"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
+</span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p><strong>Result</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>nested<span class="w"> </span>bar<span class="w"> </span>--msg<span class="w"> </span><span class="s2">"hello from level 3"</span>
+</span></code></pre></div>
+</div>
+<p>You can continue nesting indefinitely by repeating this pattern.</p>
+</section>
+<section id="real-world-example">
+<h2>Real-World Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#real-world-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#real-world-example'"><span>#</span></a></h2>
+<p>The existing <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">tool</span> <span class="pre">cache-simulator</span> <span class="pre">simulate</span></code> command
+demonstrates 3-level nesting:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache tool cache-simulator simulate
+</span><span id="line-2">│       │    │               └── Level-3 leaf (SimulateCommand in simulate_command.py)
+</span><span id="line-3">│       │    └── Level-2 composite (CacheSimulatorCommand in cache_simulator/__init__.py)
+</span><span id="line-4">│       └── Level-1 composite (ToolCommand in tool/__init__.py)
+</span><span id="line-5">└── CLI entry point
+</span></code></pre></div>
+</div>
+</section>
+<section id="using-the-metrics-system">
+<h2>Using the Metrics System<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-metrics-system" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-metrics-system'"><span>#</span></a></h2>
+<p>The metrics system uses a <strong>handler + formatter</strong> architecture:</p>
+<ul class="simple">
+<li><p><strong>Metrics</strong> — the collector. Holds sections and entries.</p></li>
+<li><p><strong>Handler</strong> — the destination (stdout, file, etc.).</p></li>
+<li><p><strong>Formatter</strong> — the rendering (ASCII table, JSON, etc.).</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">BaseCommand.create_metrics()</span></code> sets up default handlers automatically, so
+command authors just build metrics and call <code class="docutils literal notranslate"><span class="pre">emit()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-2">    <span class="c1"># create_metrics() auto-registers:</span>
+</span><span id="line-3">    <span class="c1">#   - StreamHandler → stdout (formatter chosen by --format, default: terminal)</span>
+</span><span id="line-4">    <span class="c1">#   - FileHandler   → if --output is set (same format as --format)</span>
+</span><span id="line-5">    <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_metrics</span><span class="p">(</span><span class="s2">"Bench KV Cache Result"</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</span><span id="line-6">
+</span><span id="line-7">    <span class="c1"># Create named sections</span>
+</span><span id="line-8">    <span class="n">metrics</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">"ops"</span><span class="p">,</span> <span class="s2">"Operations (ops/s)"</span><span class="p">)</span>
+</span><span id="line-9">    <span class="n">metrics</span><span class="p">[</span><span class="s2">"ops"</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"store"</span><span class="p">,</span> <span class="s2">"Store"</span><span class="p">,</span> <span class="mf">41.3</span><span class="p">)</span>
+</span><span id="line-10">    <span class="n">metrics</span><span class="p">[</span><span class="s2">"ops"</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"retrieve"</span><span class="p">,</span> <span class="s2">"Retrieve"</span><span class="p">,</span> <span class="mf">127.3</span><span class="p">)</span>
+</span><span id="line-11">
+</span><span id="line-12">    <span class="c1"># Top-level metrics (no section header)</span>
+</span><span id="line-13">    <span class="n">metrics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"status"</span><span class="p">,</span> <span class="s2">"Status"</span><span class="p">,</span> <span class="s2">"OK"</span><span class="p">)</span>
+</span><span id="line-14">
+</span><span id="line-15">    <span class="c1"># Trigger all handlers</span>
+</span><span id="line-16">    <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--format</span></code> and <code class="docutils literal notranslate"><span class="pre">--output</span></code> flags are added automatically by
+<code class="docutils literal notranslate"><span class="pre">BaseCommand.register()</span></code> — subcommands do not need to add them manually.</p>
+</section>
+<section id="summary">
+<h2>Summary<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#summary'"><span>#</span></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 25.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Pattern</p></th>
+<th class="head"><p>How to add</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1 (top)</p></td>
+<td><p>Single <code class="docutils literal notranslate"><span class="pre">.py</span></code> file</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;name&gt;.py</span></code> with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
+subclass.</p></td>
+</tr>
+<tr class="row-odd"><td><p>2+</p></td>
+<td><p>Package directory</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;group&gt;/__init__.py</span></code> with a
+<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass, then add leaf commands as sibling
+<code class="docutils literal notranslate"><span class="pre">.py</span></code> files.</p></td>
+</tr>
+<tr class="row-even"><td><p>N (any)</p></td>
+<td><p>Nested package</p></td>
+<td><p>Same as level 2, but inside an existing composite command’s
+package. Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> scans only its own direct
+submodules.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ul class="simple">
+<li><p>Prefix helper/utility modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> to exclude them from
+auto-discovery.</p></li>
+<li><p>Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> must be defined in its package’s
+<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">name()</span></code> method determines the CLI token (e.g. <code class="docutils literal notranslate"><span class="pre">"foo"</span></code>
+becomes <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">...</span> <span class="pre">foo</span></code>).</p></li>
+</ul>
+</div>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="extending_lmcache/native_connectors.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        Adding Native Backends
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="extending_http_api.html">
+        Extending the HTTP API
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">Architecture Overview</a></li>
+<li><a :data-current="activeSection === '#auto-discovery-mechanism'" class="reference internal" href="#auto-discovery-mechanism">Auto-Discovery Mechanism</a><ul>
+<li><a :data-current="activeSection === '#top-level-command-discovery'" class="reference internal" href="#top-level-command-discovery">Top-Level Command Discovery</a></li>
+<li><a :data-current="activeSection === '#sub-command-discovery-compositecommand'" class="reference internal" href="#sub-command-discovery-compositecommand">Sub-Command Discovery (CompositeCommand)</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#directory-layout'" class="reference internal" href="#directory-layout">Directory Layout</a><ul>
+<li><a :data-current="activeSection === '#key-rules'" class="reference internal" href="#key-rules">Key Rules</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#level-1-adding-a-top-level-command'" class="reference internal" href="#level-1-adding-a-top-level-command">Level 1: Adding a Top-Level Command</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-group'" class="reference internal" href="#level-2-adding-a-subcommand-group">Level 2: Adding a Subcommand Group</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-to-an-existing-group'" class="reference internal" href="#level-2-adding-a-subcommand-to-an-existing-group">Level 2: Adding a Subcommand to an Existing Group</a></li>
+<li><a :data-current="activeSection === '#level-n-arbitrary-nesting'" class="reference internal" href="#level-n-arbitrary-nesting">Level N: Arbitrary Nesting</a></li>
+<li><a :data-current="activeSection === '#real-world-example'" class="reference internal" href="#real-world-example">Real-World Example</a></li>
+<li><a :data-current="activeSection === '#using-the-metrics-system'" class="reference internal" href="#using-the-metrics-system">Using the Metrics System</a></li>
+<li><a :data-current="activeSection === '#summary'" class="reference internal" href="#summary">Summary</a></li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=5929fcd5"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>
