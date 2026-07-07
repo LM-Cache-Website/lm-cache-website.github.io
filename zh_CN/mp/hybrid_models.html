@@ -157,7 +157,7 @@
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/dax.html">DAX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/mock.html">模拟</a></li>
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/fault_inject.html">故障注入</a></li>
-<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">插件（自定义 / 外部）</a></li>
 </ul>
 </li>
 <li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
@@ -287,7 +287,7 @@
 <ul class="simple">
 <li><p><a class="reference internal" href="#validated-hybrid-models" id="id2">验证过的混合模型</a></p></li>
 <li><p><a class="reference internal" href="#what-works" id="id3">已支持的内容</a></p></li>
-<li><p><a class="reference internal" href="#object-group-separation" id="id4">Object-group separation</a></p></li>
+<li><p><a class="reference internal" href="#object-group-separation" id="id4">对象组分离</a></p></li>
 <li><p><a class="reference internal" href="#mamba-linear-attention-hybrids" id="id5">Mamba / Linear-Attention 混合模型</a></p>
 <ul>
 <li><p><a class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n" id="id6">步骤 1 — 找到模型的统一块大小 <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
@@ -341,7 +341,7 @@
 <td><p><a class="reference internal" href="../recipes/glm5_2.html"><span class="doc">GLM 5.1/5.2</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>MiniMax-M3</p></td>
-<td><p>Sparse attention + lightning indexer (mixed KV formats in one group)</p></td>
+<td><p>稀疏注意力 + 闪电索引器（一个组中的混合 KV 格式）</p></td>
 <td><p><a class="reference internal" href="../recipes/minimax_m3.html"><span class="doc">MiniMax M3</span></a></p></td>
 </tr>
 </tbody>
@@ -389,14 +389,8 @@
 </div>
 </section>
 <section id="object-group-separation">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Object-group separation</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#object-group-separation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#object-group-separation'"><span>#</span></a></h2>
-<p>At KV-cache registration LMCache buckets a hybrid model's layers into <strong>object
-groups</strong> — the unit it stores and retrieves as one object. By default
-(<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>, on) each distinct cross-chunk attention window
-becomes its own object group: full-attention layers form one group, and each
-sliding-window size (mamba / GDN included) forms another. Pass
-<code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> to keep every layer in a single full-attention
-object group instead (the previous behavior).</p>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">对象组分离</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#object-group-separation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#object-group-separation'"><span>#</span></a></h2>
+<p>在 KV-cache 注册时，LMCache 将混合模型的层分组为 <strong>对象组</strong> —— 它作为一个对象存储和检索的单位。默认情况下（<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>，开启），每个不同的跨块注意力窗口会成为自己的对象组：全注意力层形成一个组，而每个滑动窗口大小（包括 mamba / GDN）形成另一个组。传递 <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> 可以将每一层保留在一个单一的全注意力对象组中（之前的行为）。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># default: one object group per attention window</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span>
 </span><span id="line-3">
@@ -404,11 +398,7 @@ object group instead (the previous behavior).</p>
 </span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--no-separate-object-groups
 </span></code></pre></div>
 </div>
-<p>The flag is transparent to correctness — prefix caching and KV reuse behave the
-same either way, and a non-hybrid model (a single attention behavior) always
-resolves to one object group regardless of the setting. Separation organizes
-storage by attention window so that each group's cross-chunk window is tracked
-independently.</p>
+<p>该标志对正确性是透明的——前缀缓存和 KV 重用在任何情况下的行为都是相同的，非混合模型（单一注意力行为）无论设置如何始终解析为一个对象组。分离通过注意力窗口组织存储，以便每个组的跨块窗口可以独立跟踪。</p>
 </section>
 <section id="mamba-linear-attention-hybrids">
 <h2><a class="toc-backref" href="#id5" role="doc-backlink">Mamba / Linear-Attention 混合模型</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mamba-linear-attention-hybrids" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mamba-linear-attention-hybrids'"><span>#</span></a></h2>
@@ -550,7 +540,7 @@ independently.</p>
 <ul>
 <li><a :data-current="activeSection === '#validated-hybrid-models'" class="reference internal" href="#validated-hybrid-models">验证过的混合模型</a></li>
 <li><a :data-current="activeSection === '#what-works'" class="reference internal" href="#what-works">已支持的内容</a></li>
-<li><a :data-current="activeSection === '#object-group-separation'" class="reference internal" href="#object-group-separation">Object-group separation</a></li>
+<li><a :data-current="activeSection === '#object-group-separation'" class="reference internal" href="#object-group-separation">对象组分离</a></li>
 <li><a :data-current="activeSection === '#mamba-linear-attention-hybrids'" class="reference internal" href="#mamba-linear-attention-hybrids">Mamba / Linear-Attention 混合模型</a><ul>
 <li><a :data-current="activeSection === '#step-1-find-the-model-s-unified-block-size-n'" class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n">步骤 1 — 找到模型的统一块大小 <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
 <li><a :data-current="activeSection === '#step-2-derive-the-three-required-flags-from-n'" class="reference internal" href="#step-2-derive-the-three-required-flags-from-n">步骤 2 — 从 <code class="docutils literal notranslate"><span class="pre">N</span></code> 派生三个所需的标志</a></li>

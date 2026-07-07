@@ -157,7 +157,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/dax.html">DAX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/mock.html">模拟</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/fault_inject.html">故障注入</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/plugin.html">插件（自定义 / 外部）</a></li>
 </ul>
 </li>
 <li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
@@ -281,45 +281,27 @@
 <div id="content" role="main">
 <section id="extending-the-cli">
 <h1>扩展 CLI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#extending-the-cli"><span>#</span></a></h1>
-<p>LMCache's CLI is built on a plugin-style architecture that supports
-<strong>N-level nested subcommands</strong> with zero-registration auto-discovery.
-This guide explains how to add commands at each level.</p>
+<p>LMCache 的 CLI 基于插件式架构构建，支持 <strong>N 级嵌套子命令</strong>，并具有零注册自动发现功能。本指南解释了如何在每个级别添加命令。</p>
 <section id="architecture-overview">
 <h2>架构概述<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-overview'"><span>#</span></a></h2>
-<p>The CLI framework is composed of two core classes in
-<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/base.py</span></code>:</p>
+<p>CLI 框架由两个核心类组成，位于 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/base.py</span></code>：</p>
 <ul class="simple">
-<li><p><strong>BaseCommand</strong> — Abstract base class for leaf commands (commands that
-perform actual work).</p></li>
-<li><p><strong>CompositeCommand</strong> — A <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass for commands that
-only group sub-subcommands. It auto-discovers child commands by
-scanning the package where it is defined.</p></li>
+<li><p><strong>BaseCommand</strong> — 叶命令的抽象基类（执行实际工作的命令）。</p></li>
+<li><p><strong>CompositeCommand</strong> — 一个 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类，用于仅将子子命令分组的命令。它通过扫描定义它的包自动发现子命令。</p></li>
 </ul>
-<p>The discovery mechanism uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to scan direct
-submodules of a package, then collects all concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
-subclasses found in those modules. This means:</p>
+<p>发现机制使用 <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> 扫描包的直接子模块，然后收集在这些模块中找到的所有具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。这意味着：</p>
 <ol class="arabic simple">
-<li><p>Each command is a separate <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or a sub-package with an
-<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>).</p></li>
-<li><p>No manual registration is needed — just create the file and it is
-picked up automatically.</p></li>
-<li><p>Utility/helper modules should be prefixed with <code class="docutils literal notranslate"><span class="pre">_</span></code> (e.g.
-<code class="docutils literal notranslate"><span class="pre">_helpers.py</span></code>) so they are excluded from the scan.</p></li>
+<li><p>每个命令都是一个单独的 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件（或带有 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> 的子包）。</p></li>
+<li><p>无需手动注册 — 只需创建文件，它会自动被识别。</p></li>
+<li><p>工具/辅助模块应以 <code class="docutils literal notranslate"><span class="pre">_</span></code> 开头（例如 <code class="docutils literal notranslate"><span class="pre">_helpers.py</span></code>），以便在扫描时将其排除。</p></li>
 </ol>
 </section>
 <section id="auto-discovery-mechanism">
-<h2>Auto-Discovery Mechanism<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-discovery-mechanism" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-discovery-mechanism'"><span>#</span></a></h2>
-<p>The CLI uses a unified <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> utility (defined in
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/utils/subclass_discovery.py</span></code>) to locate command classes at
-every level.  Understanding the two discovery entry points is key to
-extending the CLI.</p>
+<h2>自动发现机制<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-discovery-mechanism" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-discovery-mechanism'"><span>#</span></a></h2>
+<p>CLI 使用统一的 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> 工具（定义在 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/utils/subclass_discovery.py</span></code> 中）来定位每个级别的命令类。理解这两个发现入口是扩展 CLI 的关键。</p>
 <section id="top-level-command-discovery">
-<h3>Top-Level Command Discovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
-<p>When the CLI starts, <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> calls
-<code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on its own package (<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>).
-This scans all <strong>direct submodules</strong> — both <code class="docutils literal notranslate"><span class="pre">.py</span></code> files and
-sub-packages (via their <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>) — and collects every concrete
-<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.</p>
+<h3>顶级命令发现<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
+<p>当 CLI 启动时，<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> 在其自身的包（<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>）上调用 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code>。这会扫描所有 <strong>直接子模块</strong> — 包括 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件和子包（通过它们的 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>） — 并收集找到的每个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py</span>
 </span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.utils.subclass_discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_subclasses</span>
 </span><span id="line-3">
@@ -333,29 +315,18 @@ sub-packages (via their <code class="docutils literal notranslate"><span class="
 </span><span id="line-11"><span class="p">]</span>
 </span></code></pre></div>
 </div>
-<p>The resulting <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> list is then registered with the root
-<code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser in <code class="docutils literal notranslate"><span class="pre">main.py</span></code>.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
-sub-package) placed under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> is automatically
-available as a top-level command — no manual imports or registration
-needed.</p>
-<p><strong>Filtering rules for top-level discovery:</strong></p>
+<p>生成的 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 列表随后在 <code class="docutils literal notranslate"><span class="pre">main.py</span></code> 中注册到根 <code class="docutils literal notranslate"><span class="pre">argparse</span></code> 解析器。这意味着放置在 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> 下的任何新 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件（或子包）会自动作为顶级命令可用 — 无需手动导入或注册。</p>
+<p><strong>顶级发现的过滤规则：</strong></p>
 <ul class="simple">
-<li><p>The module named <code class="docutils literal notranslate"><span class="pre">base</span></code> is explicitly excluded (it defines the
-abstract base classes, not a command).</p></li>
-<li><p>Modules whose name starts with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded by the underlying
-<code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> convention (they are treated as private).</p></li>
-<li><p>Only <strong>concrete</strong> subclasses are collected — abstract classes are
-skipped.</p></li>
-<li><p>Only classes <strong>defined in</strong> the scanned module are collected (re-exports
-are ignored via <code class="docutils literal notranslate"><span class="pre">require_defined_in_module=True</span></code>).</p></li>
+<li><p>名为 <code class="docutils literal notranslate"><span class="pre">base</span></code> 的模块被明确排除（它定义了抽象基类，而不是一个命令）。</p></li>
+<li><p>以 <code class="docutils literal notranslate"><span class="pre">_</span></code> 开头的模块根据底层的 <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> 约定被排除（它们被视为私有）。</p></li>
+<li><p>仅收集 <strong>具体</strong> 子类 — 抽象类会被跳过。</p></li>
+<li><p>仅收集在扫描模块中**定义的**类（通过 <code class="docutils literal notranslate"><span class="pre">require_defined_in_module=True</span></code> 忽略重新导出）。</p></li>
 </ul>
 </section>
 <section id="sub-command-discovery-compositecommand">
-<h3>Sub-Command Discovery (CompositeCommand)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sub-command-discovery-compositecommand" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sub-command-discovery-compositecommand'"><span>#</span></a></h3>
-<p>When a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> registers itself with the parser, its
-<code class="docutils literal notranslate"><span class="pre">register()</span></code> method calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on the package
-where the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass is defined (i.e. its own
-<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>'s package).</p>
+<h3>子命令发现（CompositeCommand）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sub-command-discovery-compositecommand" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sub-command-discovery-compositecommand'"><span>#</span></a></h3>
+<p>当 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 向解析器注册时，它的 <code class="docutils literal notranslate"><span class="pre">register()</span></code> 方法会在定义 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 子类的包上调用 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()``（即它自己的</span> <span class="pre">``__init__.py</span></code> 所在的包）。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from CompositeCommand.register() in base.py</span>
 </span><span id="line-2"><span class="n">package</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span>   <span class="c1"># e.g. "lmcache.cli.commands.bench"</span>
 </span><span id="line-3">
@@ -371,21 +342,14 @@ where the <code class="docutils literal notranslate"><span class="pre">Composite
 </span><span id="line-13">    <span class="n">inst</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>  <span class="c1"># register as a nested subcommand</span>
 </span></code></pre></div>
 </div>
-<p><strong>Filtering rules for sub-command discovery:</strong></p>
+<p><strong>子命令发现的过滤规则：</strong></p>
 <ul class="simple">
-<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are excluded (use this prefix for helper
-files like <code class="docutils literal notranslate"><span class="pre">_utils.py</span></code>).</p></li>
-<li><p>The <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> class itself is skipped to avoid infinite
-recursion.</p></li>
-<li><p>Only concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclasses <strong>defined in</strong> the scanned
-module are collected.</p></li>
-<li><p>The scan is <strong>non-recursive</strong> (depth 1 only) — each
-<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only sees its own package's direct children.</p></li>
+<li><p>以 <code class="docutils literal notranslate"><span class="pre">_</span></code> 开头的模块会被排除（使用这个前缀来命名像 <code class="docutils literal notranslate"><span class="pre">_utils.py</span></code> 这样的辅助文件）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 类本身被跳过以避免无限递归。</p></li>
+<li><p>仅收集在扫描模块中**定义的**具体 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p></li>
+<li><p>扫描是 <strong>非递归</strong> 的（仅深度 1）——每个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 仅能看到其所在包的直接子项。</p></li>
 </ul>
-<p><strong>How nesting works:</strong> If a child is itself a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code>
-(defined in a sub-package's <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>), its own <code class="docutils literal notranslate"><span class="pre">register()</span></code>
-method will in turn scan <em>its</em> package for further children.  This
-creates the recursive nesting without any special configuration.</p>
+<p><strong>嵌套如何工作：</strong> 如果一个子命令本身是一个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand``（在子包的</span> <span class="pre">``__init__.py</span></code> 中定义），它自己的 <code class="docutils literal notranslate"><span class="pre">register()</span></code> 方法将反过来扫描 <em>它</em> 的包以查找更多子命令。这在没有任何特殊配置的情况下创建了递归嵌套。</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">CLI startup
 </span><span id="line-2">└── __init__.py discovers ALL top-level commands
 </span><span id="line-3">    ├── ping.py          → PingCommand (leaf)
@@ -406,7 +370,7 @@ creates the recursive nesting without any special configuration.</p>
 </section>
 </section>
 <section id="directory-layout">
-<h2>Directory Layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#directory-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#directory-layout'"><span>#</span></a></h2>
+<h2>目录结构<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#directory-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#directory-layout'"><span>#</span></a></h2>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache/cli/commands/
 </span><span id="line-2">├── __init__.py            # Top-level discovery (scans this package)
 </span><span id="line-3">├── base.py                # BaseCommand &amp; CompositeCommand
@@ -427,23 +391,19 @@ creates the recursive nesting without any special configuration.</p>
 </span></code></pre></div>
 </div>
 <section id="key-rules">
-<h3>Key Rules<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#key-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#key-rules'"><span>#</span></a></h3>
+<h3>关键规则<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#key-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#key-rules'"><span>#</span></a></h3>
 <ul class="simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass <strong>must</strong> be defined in the
-<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> of its package.</p></li>
-<li><p>Modules starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are <strong>excluded</strong> from auto-discovery
-(use this for helpers, utilities, internal logic).</p></li>
-<li><p>Each leaf command file should contain exactly one concrete
-<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
-<li><p>The scan is <strong>non-recursive</strong> — each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> only scans
-its own package's direct submodules.</p></li>
+<li><p>一个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 子类 <strong>必须</strong> 在其包的 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> 中定义。</p></li>
+<li><p>以 <code class="docutils literal notranslate"><span class="pre">_</span></code> 开头的模块会被 <strong>排除</strong> 在自动发现之外（用于帮助器、工具、内部逻辑）。</p></li>
+<li><p>每个叶命令文件应包含一个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p></li>
+<li><p>扫描是 <strong>非递归</strong> 的——每个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 仅扫描其自身包的直接子模块。</p></li>
 </ul>
 </section>
 </section>
 <section id="level-1-adding-a-top-level-command">
-<h2>Level 1: Adding a Top-Level Command<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-1-adding-a-top-level-command" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-1-adding-a-top-level-command'"><span>#</span></a></h2>
-<p>A top-level command appears directly under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;command&gt;</span></code>.</p>
-<p><strong>Step 1</strong>: Create a new file under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code>:</p>
+<h2>级别 1：添加顶级命令<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-1-adding-a-top-level-command" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-1-adding-a-top-level-command'"><span>#</span></a></h2>
+<p>一个顶级命令直接出现在 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;command&gt;</span></code> 之下。</p>
+<p><strong>步骤 1</strong>：在 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> 下创建一个新文件：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/hello.py</span>
 </span><span id="line-2"><span class="sd">"""``lmcache hello`` — a simple greeting command."""</span>
 </span><span id="line-3">
@@ -470,30 +430,23 @@ its own package's direct submodules.</p></li>
 </span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
-<p><strong>Step 2</strong>: Done! The command is automatically discovered. Test it:</p>
+<p><strong>步骤 2</strong>：完成！命令会自动被发现。测试一下：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>hello<span class="w"> </span>--name<span class="w"> </span>LMCache
 </span></code></pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>This works because the top-level <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code>
-calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on its own package at import time. It
-uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to find all direct submodules (files and
-sub-packages), imports each one, and collects every concrete
-<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The resulting list is stored in
-<code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> and registered with the argument parser in
-<code class="docutils literal notranslate"><span class="pre">main.py</span></code>. So adding a new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
-subclass is all that is needed — no edits to any other file.</p>
+<p>这之所以有效，是因为顶层的 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> 在导入时调用了 <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code>。它使用 <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> 查找所有直接子模块（文件和子包），导入每一个，并收集每个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。结果列表存储在 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 中，并在 <code class="docutils literal notranslate"><span class="pre">main.py</span></code> 中与参数解析器注册。因此，只需添加一个带有 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类的新 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件即可——不需要编辑其他任何文件。</p>
 </div>
 </section>
 <section id="level-2-adding-a-subcommand-group">
-<h2>Level 2: Adding a Subcommand Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-group'"><span>#</span></a></h2>
-<p>A subcommand group appears as <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;group&gt;</span> <span class="pre">&lt;subcommand&gt;</span></code>.</p>
-<p><strong>Step 1</strong>: Create a package directory:</p>
+<h2>级别 2：添加子命令组<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-group'"><span>#</span></a></h2>
+<p>子命令组的形式为 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">&lt;group&gt;</span> <span class="pre">&lt;subcommand&gt;</span></code>。</p>
+<p><strong>步骤 1</strong>：创建一个包目录：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/
 </span></code></pre></div>
 </div>
-<p><strong>Step 2</strong>: Define the <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>:</p>
+<p><strong>第 2 步</strong>：在 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> 中定义 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code>：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/__init__.py</span>
 </span><span id="line-2"><span class="sd">"""``lmcache mygroup`` command group.</span>
 </span><span id="line-3">
@@ -513,7 +466,7 @@ subclass is all that is needed — no edits to any other file.</p>
 </span><span id="line-17">        <span class="k">return</span> <span class="s2">"My custom command group."</span>
 </span></code></pre></div>
 </div>
-<p><strong>Step 3</strong>: Add leaf subcommands as separate files:</p>
+<p><strong>第 3 步</strong>：将叶子子命令作为单独的文件添加：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/foo_command.py</span>
 </span><span id="line-2"><span class="sd">"""``lmcache mygroup foo`` — do something."""</span>
 </span><span id="line-3">
@@ -540,7 +493,7 @@ subclass is all that is needed — no edits to any other file.</p>
 </span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
-<p><strong>Step 4</strong>: (Optional) Add helper modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> prefix:</p>
+<p><strong>步骤 4</strong>： （可选）添加以 <code class="docutils literal notranslate"><span class="pre">_</span></code> 前缀的辅助模块：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/mygroup/_utils.py</span>
 </span><span id="line-2"><span class="sd">"""Internal utilities for mygroup commands (not auto-discovered)."""</span>
 </span><span id="line-3">
@@ -548,20 +501,16 @@ subclass is all that is needed — no edits to any other file.</p>
 </span><span id="line-5">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">42</span>
 </span></code></pre></div>
 </div>
-<p><strong>Result</strong>:</p>
+<p><strong>结果</strong>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>foo<span class="w"> </span>--value<span class="w"> </span><span class="m">5</span>
 </span></code></pre></div>
 </div>
 </section>
 <section id="level-2-adding-a-subcommand-to-an-existing-group">
-<h2>Level 2: Adding a Subcommand to an Existing Group<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-to-an-existing-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-to-an-existing-group'"><span>#</span></a></h2>
-<p>If a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> group already exists (e.g. <code class="docutils literal notranslate"><span class="pre">bench</span></code>, <code class="docutils literal notranslate"><span class="pre">quota</span></code>,
-<code class="docutils literal notranslate"><span class="pre">trace</span></code>), you can extend it by simply adding <strong>one new file</strong> — no other
-changes are required.</p>
-<p>For example, to add a new <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> subcommand under the
-existing <code class="docutils literal notranslate"><span class="pre">bench</span></code> group:</p>
-<p><strong>Step 1</strong>: Create a single file (or sub-package) in the existing group's
-package directory:</p>
+<h2>级别 2：向现有组添加子命令<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-2-adding-a-subcommand-to-an-existing-group" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-2-adding-a-subcommand-to-an-existing-group'"><span>#</span></a></h2>
+<p>如果已经存在一个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 组（例如 <code class="docutils literal notranslate"><span class="pre">bench</span></code>、<code class="docutils literal notranslate"><span class="pre">quota</span></code>、<code class="docutils literal notranslate"><span class="pre">trace</span></code>），您可以通过简单地添加 <strong>一个新文件</strong> 来扩展它 — 不需要其他更改。</p>
+<p>例如，要在现有的 <code class="docutils literal notranslate"><span class="pre">bench</span></code> 组下添加一个新的 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> 子命令：</p>
+<p><strong>步骤 1</strong>：在现有组的包目录中创建一个单文件（或子包）：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># lmcache/cli/commands/bench/l2_adapter_bench/__init__.py</span>
 </span><span id="line-2"><span class="sd">"""``lmcache bench l2`` subpackage."""</span>
 </span><span id="line-3">
@@ -592,26 +541,20 @@ package directory:</p>
 </span><span id="line-28">        <span class="n">run_l2_adapter_bench</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
-<p><strong>Step 2</strong>: Done! The parent <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>)
-auto-discovers the new subcommand at startup. No registration code, no
-imports to add, no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> edits in the parent.</p>
+<p><strong>步骤 2</strong>：完成！父级 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>) 在启动时会自动发现新的子命令。无需注册代码，无需添加导入，无需在父级中编辑 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>。</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>This works because <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> scans all direct
-submodules of its package each time the CLI starts. A new file (or
-sub-package) is automatically picked up as long as:</p>
+<p>这工作是因为 <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> 每次 CLI 启动时都会扫描其包的所有直接子模块。只要满足以下条件，新文件（或子包）会被自动识别：</p>
 <ul class="simple">
-<li><p>It does <strong>not</strong> start with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></li>
-<li><p>It contains a concrete <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass.</p></li>
+<li><p>它**不**以``_``开头。</p></li>
+<li><p>它包含一个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p></li>
 </ul>
 </div>
 </section>
 <section id="level-n-arbitrary-nesting">
-<h2>Level N: Arbitrary Nesting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-n-arbitrary-nesting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-n-arbitrary-nesting'"><span>#</span></a></h2>
-<p>The framework supports <strong>unlimited nesting depth</strong>. Each level follows
-the same pattern: a <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> in a package's <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>
-auto-discovers its children.</p>
-<p><strong>Example</strong>: Adding a 3rd level under <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">mygroup</span></code>:</p>
+<h2>级别 N：任意嵌套<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#level-n-arbitrary-nesting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#level-n-arbitrary-nesting'"><span>#</span></a></h2>
+<p>该框架支持 <strong>无限嵌套深度</strong>。每个级别遵循相同的模式：包的 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 自动发现其子命令。</p>
+<p><strong>示例</strong>：在 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">mygroup</span></code> 下添加第 3 级：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">mkdir<span class="w"> </span>lmcache/cli/commands/mygroup/nested/
 </span></code></pre></div>
 </div>
@@ -657,16 +600,15 @@ auto-discovers its children.</p>
 </span><span id="line-24">        <span class="n">metrics</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
-<p><strong>Result</strong>:</p>
+<p><strong>结果</strong>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>mygroup<span class="w"> </span>nested<span class="w"> </span>bar<span class="w"> </span>--msg<span class="w"> </span><span class="s2">"hello from level 3"</span>
 </span></code></pre></div>
 </div>
-<p>You can continue nesting indefinitely by repeating this pattern.</p>
+<p>您可以通过重复此模式无限制地继续嵌套。</p>
 </section>
 <section id="real-world-example">
-<h2>Real-World Example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#real-world-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#real-world-example'"><span>#</span></a></h2>
-<p>The existing <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">tool</span> <span class="pre">cache-simulator</span> <span class="pre">simulate</span></code> command
-demonstrates 3-level nesting:</p>
+<h2>现实世界示例<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#real-world-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#real-world-example'"><span>#</span></a></h2>
+<p>现有的 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">tool</span> <span class="pre">cache-simulator</span> <span class="pre">simulate</span></code> 命令演示了 3 级嵌套：</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache tool cache-simulator simulate
 </span><span id="line-2">│       │    │               └── Level-3 leaf (SimulateCommand in simulate_command.py)
 </span><span id="line-3">│       │    └── Level-2 composite (CacheSimulatorCommand in cache_simulator/__init__.py)
@@ -705,7 +647,7 @@ demonstrates 3-level nesting:</p>
 <p><code class="docutils literal notranslate"><span class="pre">--format</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--output</span></code> 标志由 <code class="docutils literal notranslate"><span class="pre">BaseCommand.register()</span></code> 自动添加 — 子命令无需手动添加。</p>
 </section>
 <section id="summary">
-<h2>Summary<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#summary'"><span>#</span></a></h2>
+<h2>摘要<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#summary" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#summary'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 15.0%"/>
@@ -713,40 +655,32 @@ demonstrates 3-level nesting:</p>
 <col style="width: 60.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Level</p></th>
-<th class="head"><p>Pattern</p></th>
-<th class="head"><p>How to add</p></th>
+<tr class="row-odd"><th class="head"><p>级别</p></th>
+<th class="head"><p>模式</p></th>
+<th class="head"><p>如何添加</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>1 (top)</p></td>
-<td><p>Single <code class="docutils literal notranslate"><span class="pre">.py</span></code> file</p></td>
-<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;name&gt;.py</span></code> with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
-subclass.</p></td>
+<tr class="row-even"><td><p>1 (顶部)</p></td>
+<td><p>单个 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件</p></td>
+<td><p>创建 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;name&gt;.py</span></code>，并使用 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p></td>
 </tr>
 <tr class="row-odd"><td><p>2+</p></td>
-<td><p>Package directory</p></td>
-<td><p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;group&gt;/__init__.py</span></code> with a
-<code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> subclass, then add leaf commands as sibling
-<code class="docutils literal notranslate"><span class="pre">.py</span></code> files.</p></td>
+<td><p>包目录</p></td>
+<td><p>创建 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/&lt;group&gt;/__init__.py</span></code>，并使用 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 子类，然后将叶命令作为同级 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件添加。</p></td>
 </tr>
-<tr class="row-even"><td><p>N (any)</p></td>
-<td><p>Nested package</p></td>
-<td><p>Same as level 2, but inside an existing composite command's
-package. Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> scans only its own direct
-submodules.</p></td>
+<tr class="row-even"><td><p>N (任何)</p></td>
+<td><p>嵌套包</p></td>
+<td><p>与级别 2 相同，但在现有复合命令的包内。每个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 仅扫描其直接子模块。</p></td>
 </tr>
 </tbody>
 </table>
 <div class="admonition tip">
 <p class="admonition-title">小技巧</p>
 <ul class="simple">
-<li><p>Prefix helper/utility modules with <code class="docutils literal notranslate"><span class="pre">_</span></code> to exclude them from
-auto-discovery.</p></li>
-<li><p>Each <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> must be defined in its package's
-<code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>.</p></li>
-<li><p>The <code class="docutils literal notranslate"><span class="pre">name()</span></code> method determines the CLI token (e.g. <code class="docutils literal notranslate"><span class="pre">"foo"</span></code>
-becomes <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">...</span> <span class="pre">foo</span></code>).</p></li>
+<li><p>将帮助/工具模块前缀加上 <code class="docutils literal notranslate"><span class="pre">_</span></code> 以将其排除在自动发现之外。</p></li>
+<li><p>每个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 必须在其包的 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> 中定义。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name()</span></code> 方法确定 CLI 令牌（例如 <code class="docutils literal notranslate"><span class="pre">"foo"</span></code> 变为 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">...</span> <span class="pre">foo</span></code>）。</p></li>
 </ul>
 </div>
 </section>
@@ -772,22 +706,22 @@ becomes <code class="docutils literal notranslate"><span class="pre">lmcache</sp
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">架构概述</a></li>
-<li><a :data-current="activeSection === '#auto-discovery-mechanism'" class="reference internal" href="#auto-discovery-mechanism">Auto-Discovery Mechanism</a><ul>
-<li><a :data-current="activeSection === '#top-level-command-discovery'" class="reference internal" href="#top-level-command-discovery">Top-Level Command Discovery</a></li>
-<li><a :data-current="activeSection === '#sub-command-discovery-compositecommand'" class="reference internal" href="#sub-command-discovery-compositecommand">Sub-Command Discovery (CompositeCommand)</a></li>
+<li><a :data-current="activeSection === '#auto-discovery-mechanism'" class="reference internal" href="#auto-discovery-mechanism">自动发现机制</a><ul>
+<li><a :data-current="activeSection === '#top-level-command-discovery'" class="reference internal" href="#top-level-command-discovery">顶级命令发现</a></li>
+<li><a :data-current="activeSection === '#sub-command-discovery-compositecommand'" class="reference internal" href="#sub-command-discovery-compositecommand">子命令发现（CompositeCommand）</a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#directory-layout'" class="reference internal" href="#directory-layout">Directory Layout</a><ul>
-<li><a :data-current="activeSection === '#key-rules'" class="reference internal" href="#key-rules">Key Rules</a></li>
+<li><a :data-current="activeSection === '#directory-layout'" class="reference internal" href="#directory-layout">目录结构</a><ul>
+<li><a :data-current="activeSection === '#key-rules'" class="reference internal" href="#key-rules">关键规则</a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#level-1-adding-a-top-level-command'" class="reference internal" href="#level-1-adding-a-top-level-command">Level 1: Adding a Top-Level Command</a></li>
-<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-group'" class="reference internal" href="#level-2-adding-a-subcommand-group">Level 2: Adding a Subcommand Group</a></li>
-<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-to-an-existing-group'" class="reference internal" href="#level-2-adding-a-subcommand-to-an-existing-group">Level 2: Adding a Subcommand to an Existing Group</a></li>
-<li><a :data-current="activeSection === '#level-n-arbitrary-nesting'" class="reference internal" href="#level-n-arbitrary-nesting">Level N: Arbitrary Nesting</a></li>
-<li><a :data-current="activeSection === '#real-world-example'" class="reference internal" href="#real-world-example">Real-World Example</a></li>
+<li><a :data-current="activeSection === '#level-1-adding-a-top-level-command'" class="reference internal" href="#level-1-adding-a-top-level-command">级别 1：添加顶级命令</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-group'" class="reference internal" href="#level-2-adding-a-subcommand-group">级别 2：添加子命令组</a></li>
+<li><a :data-current="activeSection === '#level-2-adding-a-subcommand-to-an-existing-group'" class="reference internal" href="#level-2-adding-a-subcommand-to-an-existing-group">级别 2：向现有组添加子命令</a></li>
+<li><a :data-current="activeSection === '#level-n-arbitrary-nesting'" class="reference internal" href="#level-n-arbitrary-nesting">级别 N：任意嵌套</a></li>
+<li><a :data-current="activeSection === '#real-world-example'" class="reference internal" href="#real-world-example">现实世界示例</a></li>
 <li><a :data-current="activeSection === '#using-the-metrics-system'" class="reference internal" href="#using-the-metrics-system">使用指标系统</a></li>
-<li><a :data-current="activeSection === '#summary'" class="reference internal" href="#summary">Summary</a></li>
+<li><a :data-current="activeSection === '#summary'" class="reference internal" href="#summary">摘要</a></li>
 </ul>
 </div>
 </aside>

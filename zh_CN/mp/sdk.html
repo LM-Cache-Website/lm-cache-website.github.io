@@ -157,7 +157,7 @@
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/dax.html">DAX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/mock.html">模拟</a></li>
 <li class="toctree-l3"><a class="reference internal" href="l2_storage/fault_inject.html">故障注入</a></li>
-<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">插件（自定义 / 外部）</a></li>
 </ul>
 </li>
 <li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
@@ -291,9 +291,9 @@ decode-throughput gain. The full runnable notebook lives at
 <ul class="simple">
 <li><p><a class="reference internal" href="#why-kv-cache-sdk" id="id2">Why KV Cache SDK</a></p></li>
 <li><p><a class="reference internal" href="#how-it-works" id="id3">How it works</a></p></li>
-<li><p><a class="reference internal" href="#configuration" id="id4">Configuration</a></p></li>
-<li><p><a class="reference internal" href="#writing-a-custom-edit-function" id="id5">Writing a custom edit function</a></p></li>
-<li><p><a class="reference internal" href="#api-reference" id="id6">API reference</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id4">配置</a></p></li>
+<li><p><a class="reference internal" href="#writing-a-custom-edit-function" id="id5">编写自定义编辑函数</a></p></li>
+<li><p><a class="reference internal" href="#api-reference" id="id6">API 参考</a></p></li>
 </ul>
 </nav>
 <section id="why-kv-cache-sdk">
@@ -314,19 +314,14 @@ decoding continues.</p>
 <ul class="simple">
 <li><p><strong>prefill</strong> — run each prompt through vLLM once (<code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code>); vLLM
 computes the KV cache and stores it in LMCache.</p></li>
-<li><p><strong>modify</strong> — the SDK retrieves the cached KV to CPU, hands it to your edit
-function, and stores the result back.</p></li>
-<li><p><strong>decode</strong> — continue generation against the smaller, edited cache.</p></li>
+<li><p><strong>修改</strong> — SDK 将缓存的 KV 取回到 CPU，交给你的编辑函数，并将结果存储回去。</p></li>
+<li><p><strong>解码</strong> — 在更小的、编辑过的缓存上继续生成。</p></li>
 </ul>
-<p>The SDK runs on <strong>CPU</strong> and hands you KV tensors in <code class="docutils literal notranslate"><span class="pre">HND</span></code> order with shape
-<code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">L,</span> <span class="pre">T,</span> <span class="pre">D]</span></code> (K/V, layers, chunk-aligned tokens, <code class="docutils literal notranslate"><span class="pre">num_kv_heads</span> <span class="pre">*</span> <span class="pre">head_dim</span></code>).</p>
+<p>SDK 在 <strong>CPU</strong> 上运行，并以 <code class="docutils literal notranslate"><span class="pre">HND</span></code> 顺序提供形状为 <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">L,</span> <span class="pre">T,</span> <span class="pre">D]</span></code> 的 KV 张量（K/V、层、块对齐的标记、<code class="docutils literal notranslate"><span class="pre">num_kv_heads</span> <span class="pre">*</span> <span class="pre">head_dim</span></code>）。</p>
 </section>
 <section id="configuration">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
-<p>To start the LMCache server with shared-memory transfer enabled, pass
-<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> and disable lazy L1 allocation with <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code>. If
-shared memory is unavailable and these flags are not specified, the SDK falls
-back to pickle.</p>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>要启动启用共享内存传输的 LMCache 服务器，请传递 <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> 并使用 <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> 禁用懒惰的 L1 分配。如果共享内存不可用且未指定这些标志，SDK 将回退到 pickle。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">150</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
@@ -337,7 +332,7 @@ back to pickle.</p>
 </span><span id="line-8"><span class="w">    </span>--no-l1-use-lazy
 </span></code></pre></div>
 </div>
-<p>Then start vLLM with the LMCache MP connector.</p>
+<p>然后使用 LMCache MP 连接器启动 vLLM。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--enforce-eager<span class="w"> </span><span class="se">\</span>
@@ -351,11 +346,7 @@ back to pickle.</p>
 </span><span id="line-11"><span class="w">    </span>--return-tokens-as-token-ids
 </span></code></pre></div>
 </div>
-<p>The SDK keys the KV cache by token ids: <code class="docutils literal notranslate"><span class="pre">create_request</span></code> takes the prompt as
-token ids, and every <code class="docutils literal notranslate"><span class="pre">post_completion</span></code> must report a <code class="docutils literal notranslate"><span class="pre">token_id</span></code> for each
-generated token. The example gets these ids straight from vLLM by passing
-<code class="docutils literal notranslate"><span class="pre">--return-tokens-as-token-ids</span></code>. Otherwise, if vLLM returns only text, the
-<code class="docutils literal notranslate"><span class="pre">post_completion</span></code> must tokenize each generated token back into a token id.</p>
+<p>SDK通过令牌 ID 对 KV Cache 进行键控：<code class="docutils literal notranslate"><span class="pre">create_request</span></code> 将提示作为令牌 ID，且每个 <code class="docutils literal notranslate"><span class="pre">post_completion</span></code> 必须报告每个生成令牌的 <code class="docutils literal notranslate"><span class="pre">token_id</span></code>。该示例通过传递 <code class="docutils literal notranslate"><span class="pre">--return-tokens-as-token-ids</span></code> 直接从 vLLM 获取这些 ID。否则，如果 vLLM 仅返回文本，则 <code class="docutils literal notranslate"><span class="pre">post_completion</span></code> 必须将每个生成的令牌重新标记为令牌 ID。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">import</span><span class="w"> </span><span class="nn">lmcache.sdk.kvcache</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lmc_sdk</span>
 </span><span id="line-2">
 </span><span id="line-3"><span class="n">ctx</span> <span class="o">=</span> <span class="n">lmc_sdk</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span>
@@ -370,58 +361,51 @@ generated token. The example gets these ids straight from vLLM by passing
 </div>
 </section>
 <section id="writing-a-custom-edit-function">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Writing a custom edit function</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-edit-function" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-edit-function'"><span>#</span></a></h2>
-<p>An edit function takes the retrieved KV tensor and its token ids and returns the
-edited <code class="docutils literal notranslate"><span class="pre">(kv,</span> <span class="pre">tokens)</span></code>. <code class="docutils literal notranslate"><span class="pre">batch.modify(fn)</span></code> applies it to every stream.</p>
-<p><code class="docutils literal notranslate"><span class="pre">modify</span></code> operates only on the <strong>chunk-aligned</strong> prefix. A trailing partial
-chunk is tracked by the SDK and re-sent on the next <code class="docutils literal notranslate"><span class="pre">decode</span></code>, so
-<code class="docutils literal notranslate"><span class="pre">tokens</span></code> arrives already truncated to the cached length.</p>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">编写自定义编辑函数</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-edit-function" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-edit-function'"><span>#</span></a></h2>
+<p>编辑函数接受检索到的 KV 张量及其令牌 ID，并返回编辑后的 <code class="docutils literal notranslate"><span class="pre">(kv,</span> <span class="pre">tokens)</span></code>。 <code class="docutils literal notranslate"><span class="pre">batch.modify(fn)</span></code> 将其应用于每个流。</p>
+<p><code class="docutils literal notranslate"><span class="pre">modify</span></code> 仅在 <strong>块对齐</strong> 前缀上操作。尾部的部分块由 SDK 跟踪，并在下一个 <code class="docutils literal notranslate"><span class="pre">解码</span></code> 时重新发送，因此 <code class="docutils literal notranslate"><span class="pre">tokens</span></code> 已经被截断到缓存的长度。</p>
 </section>
 <section id="api-reference">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">API reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#api-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#api-reference'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">API 参考</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#api-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#api-reference'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 45.0%"/>
 <col style="width: 55.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Function / method</p></th>
-<th class="head"><p>Description</p></th>
+<tr class="row-odd"><th class="head"><p>函数 / 方法</p></th>
+<th class="head"><p>描述</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmc_sdk.connect(url,</span> <span class="pre">http_url,</span> <span class="pre">model_name,</span> <span class="pre">timeout=60.0)</span></code></p></td>
-<td><p>Create an SDK context and register the transfer context, pass it to
-every other call.</p></td>
+<td><p>创建一个 SDK 上下文并注册传输上下文，将其传递给每个其他调用。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmc_sdk.close(ctx)</span></code></p></td>
-<td><p>Close the context and release resources. Called when done with the SDK.</p></td>
+<td><p>关闭上下文并释放资源。在完成 SDK 的使用时调用。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmc_stream.create_request(ctx,</span> <span class="pre">post_completion,</span>
 <span class="pre">prompt_token_ids,</span> <span class="pre">cache_salt="")</span></code></p></td>
-<td><p>Create one request stream to add to a batch.</p></td>
+<td><p>创建一个请求流以添加到批处理中。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmc_batch.LMCacheBatchedStream()</span></code></p></td>
-<td><p>Create an empty batch.</p></td>
+<td><p>创建一个空批次。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch.add(stream)</span></code></p></td>
-<td><p>Register a stream to the batch.</p></td>
+<td><p>将流注册到批处理中。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">batch.prefill(sampling_params)</span></code></p></td>
-<td><p>Prefill every stream once (<code class="docutils literal notranslate"><span class="pre">max_tokens</span></code> forced to 1). Returns a
-<code class="docutils literal notranslate"><span class="pre">Metrics</span></code> report.</p></td>
+<td><p>一次 Prefill 每个流（<code class="docutils literal notranslate"><span class="pre">max_tokens</span></code> 强制为 1）。返回一个 <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> 报告。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch.modify(fn)</span></code></p></td>
-<td><p>Apply the edit function <code class="docutils literal notranslate"><span class="pre">fn</span></code> to every stream's cached KV. Returns a
-<code class="docutils literal notranslate"><span class="pre">Metrics</span></code> report.</p></td>
+<td><p>将编辑函数 <code class="docutils literal notranslate"><span class="pre">fn</span></code> 应用到每个流的缓存 KV。返回一个 <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> 报告。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">batch.decode(sampling_params)</span></code></p></td>
-<td><p>Decode every stream. Returns a <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> report.</p></td>
+<td><p>解码每个流。返回一个 <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> 报告。</p></td>
 </tr>
 </tbody>
 </table>
-<p><code class="docutils literal notranslate"><span class="pre">`Metrics</span></code> returns <code class="docutils literal notranslate"><span class="pre">input_tokens</span></code>, <code class="docutils literal notranslate"><span class="pre">input_tput</span></code> for prefill, <code class="docutils literal notranslate"><span class="pre">duration</span></code>
-for modify, and <code class="docutils literal notranslate"><span class="pre">output_tokens</span></code>, <code class="docutils literal notranslate"><span class="pre">output_tput</span></code> for decode.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`Metrics`</span></code> 返回 <code class="docutils literal notranslate"><span class="pre">input_tokens</span></code>、<code class="docutils literal notranslate"><span class="pre">input_tput</span></code> 用于 Prefill，<code class="docutils literal notranslate"><span class="pre">duration</span></code> 用于修改，以及 <code class="docutils literal notranslate"><span class="pre">output_tokens</span></code>、<code class="docutils literal notranslate"><span class="pre">output_tput</span></code> 用于解码。</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -446,9 +430,9 @@ for modify, and <code class="docutils literal notranslate"><span class="pre">out
 <ul>
 <li><a :data-current="activeSection === '#why-kv-cache-sdk'" class="reference internal" href="#why-kv-cache-sdk">Why KV Cache SDK</a></li>
 <li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
-<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
-<li><a :data-current="activeSection === '#writing-a-custom-edit-function'" class="reference internal" href="#writing-a-custom-edit-function">Writing a custom edit function</a></li>
-<li><a :data-current="activeSection === '#api-reference'" class="reference internal" href="#api-reference">API reference</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
+<li><a :data-current="activeSection === '#writing-a-custom-edit-function'" class="reference internal" href="#writing-a-custom-edit-function">编写自定义编辑函数</a></li>
+<li><a :data-current="activeSection === '#api-reference'" class="reference internal" href="#api-reference">API 参考</a></li>
 </ul>
 </div>
 </aside>
