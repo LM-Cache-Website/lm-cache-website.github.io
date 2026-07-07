@@ -313,6 +313,8 @@ the coordinator ties them together into one coordinated fleet.</p>
 <ul>
 <li><p><a class="reference internal" href="#post-cache-prefetches" id="id18"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></p></li>
 <li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id19"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-pins" id="id20"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-cache-pins" id="id21"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></p></li>
 </ul>
 </li>
 </ul>
@@ -329,9 +331,10 @@ the coordinator ties them together into one coordinated fleet.</p>
 </div>
 <p>The CLI accepts <code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, <code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>,
 <code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>, <code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>,
-<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-chunk-size</span></code>,
-<code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>; any flag overrides the
-matching environment variable below. See <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>, <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>;
+any flag overrides the matching environment variable below. See
+<a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
 Equivalently, the coordinator can still be launched as a module with
 <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code>.</p>
 </section>
@@ -382,17 +385,24 @@ fleet.</p></td>
 <td><p>Eviction fires when usage reaches this fraction of the quota
 (0.0 exclusive to 1.0).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_CHUNK_SIZE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
-<td><p>Tokens per chunk for the global CacheBlend directory. Must equal the
-LMCache chunk size the blend servers use.</p></td>
+<td><p>Tokens per KV chunk: the CacheBlend match unit and the unit used to
+resolve pin <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> to keys. Must equal the MP servers’
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_HASH_ALGORITHM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
+<td><p>Token hash algorithm for pin key resolution. Must equal the MP servers’
+<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>. <code class="docutils literal notranslate"><span class="pre">blake3</span></code> is self-contained; other algorithms
+require vLLM importable in the coordinator process.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Positions between CacheBlend match probes. <code class="docutils literal notranslate"><span class="pre">1</span></code> probes every offset
 for full recall.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p>Seconds the HTTP server keeps idle connections open before closing
 them. Must be greater than the MP servers’ heartbeat interval
@@ -400,7 +410,7 @@ them. Must be greater than the MP servers’ heartbeat interval
 connection and fail with <code class="docutils literal notranslate"><span class="pre">Server</span> <span class="pre">disconnected</span> <span class="pre">without</span> <span class="pre">sending</span> <span class="pre">a</span>
 <span class="pre">response</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
 startup that paginates an MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and
@@ -408,18 +418,18 @@ backfills usage + eviction trackers from existing L2 contents.
 Disable to start from empty trackers (handy for tests, or
 deployments that start the coordinator before any MP server).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Seconds between registry checks while waiting for the first
 MP server to register so startup resync can begin.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
 <td><p>Maximum seconds startup resync waits for an MP server before
 giving up. The coordinator keeps running with empty trackers
 until normal usage events fill them in.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> forwarded to the MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code>
 during resync. Larger values reduce RTT count; the server
@@ -492,7 +502,7 @@ heartbeat-interval value is rejected at startup.</p>
 budgets, usage accounting, and the usage-event ingest that drives fleet-wide
 eviction.</p></li>
 <li><p><strong>Cache control</strong> – the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
-named server (currently warm prefetch, with more to come).</p></li>
+named server (warm prefetch and pin/unpin, with more to come).</p></li>
 </ul>
 <p>Each endpoint is documented below. Success is <code class="docutils literal notranslate"><span class="pre">200</span></code> unless noted, and
 <code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> uses the <code class="docutils literal notranslate"><span class="pre">_default</span></code> sentinel for the empty salt. The wire
@@ -884,9 +894,9 @@ recorded at the original <code class="docutils literal notranslate"><span class=
 </section>
 <section id="cache-control">
 <h2><a class="toc-backref" href="#id17" role="doc-backlink">Cache control</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. Today it
-covers <strong>warm prefetch</strong>; further cache-control operations will be documented as
-endpoints here as they land.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. It covers
+<strong>warm prefetch</strong> and <strong>pin/unpin</strong>; further cache-control operations will be
+documented as endpoints here as they land.</p>
 <p><strong>Warm prefetch (pre-loading L1 from L2).</strong> Pre-warm one MP server’s L1 with the
 KV for a known prompt <strong>before</strong> the requests arrive, so the first request hits
 L1 instead of paying the L2 fetch inline – useful when you know a workload is
@@ -1028,6 +1038,106 @@ server.</p></li>
 </span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 12, "total_keys": 12}</span>
 </span></code></pre></div>
 </div>
+<p><strong>Pin/unpin (protecting cache from eviction).</strong> Pin a token sequence’s cache so
+it is not evicted from L2 until unpinned. The coordinator resolves the token
+sequence to its object keys <strong>locally</strong> (no MP-server round-trip) and records
+them in its L2 eviction plan (<code class="docutils literal notranslate"><span class="pre">POST</span></code>) or releases them (<code class="docutils literal notranslate"><span class="pre">DELETE</span></code>), excluding
+pinned keys from quota-based eviction. L2 pins are fleet-wide (per
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>), so no target instance is named.</p>
+<p>Local resolution requires the coordinator’s <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> and
+<code class="docutils literal notranslate"><span class="pre">hash_algorithm</span></code> (see <a class="reference internal" href="#configuration">Configuration</a>) to match the MP servers’ <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>
+/ <code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>; otherwise the resolved keys will not match what was
+stored and the pin protects nothing. It also requires the MP servers to be
+launched with <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> (the coordinator resolves keys in
+a single object group).</p>
+</section>
+<section id="post-cache-pins">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-pins'"><span>#</span></a></h3>
+<p>Pin a token sequence’s keys in the L2 eviction plan.</p>
+<p><strong>Request body:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 16.0%"/>
+<col style="width: 66.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Model whose rank fan-out to use when resolving keys.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
+<td><p>int</p></td>
+<td><p>World size (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>) selecting the per-rank fan-out.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<td><p>list[int]</p></td>
+<td><p>Prompt tokens whose complete chunks are pinned; must match what was
+stored. A sub-chunk sequence pins nothing (<code class="docutils literal notranslate"><span class="pre">affected</span></code> 0).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">""</span></code>). Per-tenant isolation salt.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"affected"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pinned"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">requested</span></code> is the number of whole chunks resolved; <code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
+of L2 keys pinned (chunks times the per-rank fan-out).</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: pinned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> exceeds the per-request cap, or <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> violates
+its invariants.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-5"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-6"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-7"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-9"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "pinned"}</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Requires L2 event reporting.</strong> The coordinator can only exclude keys from
+eviction for a salt it is tracking, which requires the MP servers started with
+<code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code> (see <a class="reference internal" href="#connecting-mp-servers">Connecting MP servers</a>).</p>
+</div>
+</section>
+<section id="delete-cache-pins">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-pins'"><span>#</span></a></h3>
+<p>Unpin a token sequence’s keys from the L2 eviction plan. Same request body as
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>. The response mirrors the pin (<code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
+of keys unpinned), with <code class="docutils literal notranslate"><span class="pre">status</span></code> <code class="docutils literal notranslate"><span class="pre">"unpinned"</span></code>. Pins are reference-counted: a
+chunk pinned <em>N</em> times needs <em>N</em> unpins before it can be evicted.</p>
+<p><strong>HTTP status codes:</strong> same as <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-5"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-6"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-7"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-9"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "unpinned"}</span>
+</span></code></pre></div>
+</div>
 </section>
 </section>
 </section>
@@ -1074,6 +1184,8 @@ server.</p></li>
 <li><a :data-current="activeSection === '#cache-control'" class="reference internal" href="#cache-control">Cache control</a><ul>
 <li><a :data-current="activeSection === '#post-cache-prefetches'" class="reference internal" href="#post-cache-prefetches"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></li>
 <li><a :data-current="activeSection === '#get-cache-prefetches-instance-id-request-id'" class="reference internal" href="#get-cache-prefetches-instance-id-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></li>
+<li><a :data-current="activeSection === '#post-cache-pins'" class="reference internal" href="#post-cache-pins"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></li>
+<li><a :data-current="activeSection === '#delete-cache-pins'" class="reference internal" href="#delete-cache-pins"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></li>
 </ul>
 </li>
 </ul>

@@ -310,6 +310,8 @@
 <ul>
 <li><p><a class="reference internal" href="#post-cache-prefetches" id="id19"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></p></li>
 <li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id20"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-pins" id="id21"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-cache-pins" id="id22"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></p></li>
 </ul>
 </li>
 </ul>
@@ -324,7 +326,14 @@
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: MP coordinator listening on http://0.0.0.0:9300
 </span></code></pre></div>
 </div>
-<p>CLI 接受 <code class="docutils literal notranslate"><span class="pre">--host</span></code>、<code class="docutils literal notranslate"><span class="pre">--port</span></code>、<code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>、<code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>、<code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>、<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>、<code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>、<code class="docutils literal notranslate"><span class="pre">--blend-chunk-size</span></code>、<code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>；任何标志都会覆盖下面匹配的环境变量。有关详细信息，请参见 <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a>。同样，协调器仍然可以通过 <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code> 作为模块启动。</p>
+<p>The CLI accepts <code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, <code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>, <code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>, <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>;
+any flag overrides the matching environment variable below. See
+<a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
+Equivalently, the coordinator can still be launched as a module with
+<code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">lmcache.v1.mp_coordinator</span></code>.</p>
 </section>
 <section id="configuration">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
@@ -370,31 +379,39 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
 <td><p>当使用量达到配额的该比例时触发逐出（取值范围为 (0.0, 1.0]，不含 0.0）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_CHUNK_SIZE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
-<td><p>全局 CacheBlend 目录每块的令牌数。必须等于混合服务器使用的 LMCache 块大小。</p></td>
+<td><p>Tokens per KV chunk: the CacheBlend match unit and the unit used to
+resolve pin <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> to keys. Must equal the MP servers'
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_HASH_ALGORITHM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
+<td><p>Token hash algorithm for pin key resolution. Must equal the MP servers'
+<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>. <code class="docutils literal notranslate"><span class="pre">blake3</span></code> is self-contained; other algorithms
+require vLLM importable in the coordinator process.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>在 CacheBlend 匹配探针之间的位置。<code class="docutils literal notranslate"><span class="pre">1</span></code> 在每个偏移量进行探测以实现完全回忆。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p>HTTP 服务器在关闭空闲连接之前保持打开的秒数。必须大于 MP 服务器的心跳间隔（默认 <code class="docutils literal notranslate"><span class="pre">5</span></code>），否则心跳请求可能会遇到关闭的连接并失败，出现 <code class="docutils literal notranslate"><span class="pre">服务器在未发送响应的情况下断开连接</span></code>。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td><p>当设置为 <code class="docutils literal notranslate"><span class="pre">True</span></code> 时，协调器在启动时会执行一次 L2 重新同步，分页 MP 服务器的 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> 并从现有的 L2 内容中填充使用情况和逐出跟踪器。禁用此选项可以从空跟踪器开始（适用于测试或在任何 MP 服务器之前启动协调器的部署）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>在等待第一个 MP 服务器注册以便启动重新同步可以开始时，注册检查之间的秒数。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
 <td><p>最大秒数启动重新同步等待 MP 服务器在放弃之前。协调器保持运行，使用空的跟踪器，直到正常使用事件填充它们。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> 在重新同步期间转发到 MP 服务器的 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code>。较大的值会减少 RTT 计数；服务器会限制在其自身的上限。</p></td>
 </tr>
@@ -448,7 +465,8 @@
 <ul class="simple">
 <li><p><strong>车队成员资格和健康</strong> -- 注册和存活 (<code class="docutils literal notranslate"><span class="pre">/instances</span></code>, <code class="docutils literal notranslate"><span class="pre">/healthz</span></code>)。</p></li>
 <li><p><strong>配额、使用情况和逐出</strong> -- <code class="docutils literal notranslate"><span class="pre">/quota</span></code> 组：每个租户的字节预算、使用情况核算，以及驱动全队逐出的使用事件摄取。</p></li>
-<li><p><strong>缓存控制</strong> -- <code class="docutils literal notranslate"><span class="pre">/cache</span></code> 组：分派给命名服务器的缓存操作（目前是热预取，未来会有更多功能）。</p></li>
+<li><p><strong>Cache control</strong> -- the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
+named server (warm prefetch and pin/unpin, with more to come).</p></li>
 </ul>
 <p>每个端点的文档如下。成功状态为 <code class="docutils literal notranslate"><span class="pre">200</span></code>，除非另有说明，<code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> 使用 <code class="docutils literal notranslate"><span class="pre">_default</span></code> 哨兵表示空盐。数据类型位于 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>。</p>
 </section>
@@ -777,7 +795,9 @@
 </section>
 <section id="cache-control">
 <h2><a class="toc-backref" href="#id18" role="doc-backlink">缓存控制</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">/cache</span></code> 组将缓存操作分派给命名的 MP 服务器。今天它涵盖 <strong>热预取</strong>；进一步的缓存控制操作将在此处作为端点记录。</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. It covers
+<strong>warm prefetch</strong> and <strong>pin/unpin</strong>; further cache-control operations will be
+documented as endpoints here as they land.</p>
 <p><strong>热预取（从 L2 预加载 L1）。</strong> 在请求到达之前，用已知提示的 KV 预热一个 MP 服务器的 L1，以便第一个请求命中 L1，而不是支付 L2 内联获取的费用——当您知道工作负载即将路由到节点（流量转移、热共享系统提示）时，这非常有用。</p>
 <p>您通过 <strong>token ids</strong> 描述内容——缓存使用的单位——而不是通过内部缓存键，您无法构造这些键（键是内容哈希加上每个排名的布局位图）。协调器将请求转发到指定的服务器，该服务器对令牌进行哈希，将它们扩展到节点的各个排名，从 L2 加载块到 L1，并 <strong>保留</strong> 它们，以便后续查找命中。提交返回一个 <code class="docutils literal notranslate"><span class="pre">request_id</span></code>；轮询状态端点直到 <code class="docutils literal notranslate"><span class="pre">completed</span></code>。预热不需要获取锁——轮询仅报告进度，并在加载完成后清除服务器端作业。</p>
 <section id="post-cache-prefetches">
@@ -900,6 +920,106 @@
 </span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 12, "total_keys": 12}</span>
 </span></code></pre></div>
 </div>
+<p><strong>Pin/unpin (protecting cache from eviction).</strong> Pin a token sequence's cache so
+it is not evicted from L2 until unpinned. The coordinator resolves the token
+sequence to its object keys <strong>locally</strong> (no MP-server round-trip) and records
+them in its L2 eviction plan (<code class="docutils literal notranslate"><span class="pre">POST</span></code>) or releases them (<code class="docutils literal notranslate"><span class="pre">DELETE</span></code>), excluding
+pinned keys from quota-based eviction. L2 pins are fleet-wide (per
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>), so no target instance is named.</p>
+<p>Local resolution requires the coordinator's <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> and
+<code class="docutils literal notranslate"><span class="pre">hash_algorithm</span></code> (see <a class="reference internal" href="#configuration">Configuration</a>) to match the MP servers' <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>
+/ <code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>; otherwise the resolved keys will not match what was
+stored and the pin protects nothing. It also requires the MP servers to be
+launched with <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> (the coordinator resolves keys in
+a single object group).</p>
+</section>
+<section id="post-cache-pins">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-pins'"><span>#</span></a></h3>
+<p>Pin a token sequence's keys in the L2 eviction plan.</p>
+<p><strong>请求体：</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%"/>
+<col style="width: 16.0%"/>
+<col style="width: 66.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<td><p>字符串</p></td>
+<td><p>Model whose rank fan-out to use when resolving keys.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
+<td><p>整数</p></td>
+<td><p>World size (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>) selecting the per-rank fan-out.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<td><p>列表[int]</p></td>
+<td><p>Prompt tokens whose complete chunks are pinned; must match what was
+stored. A sub-chunk sequence pins nothing (<code class="docutils literal notranslate"><span class="pre">affected</span></code> 0).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<td><p>字符串</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">""</span></code>). Per-tenant isolation salt.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"affected"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pinned"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">requested</span></code> is the number of whole chunks resolved; <code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
+of L2 keys pinned (chunks times the per-rank fan-out).</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: pinned.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> exceeds the per-request cap, or <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> violates
+its invariants.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: 请求体未通过字段级验证。</p></li>
+</ul>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-5"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-6"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-7"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-9"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "pinned"}</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><strong>Requires L2 event reporting.</strong> The coordinator can only exclude keys from
+eviction for a salt it is tracking, which requires the MP servers started with
+<code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code> (see <a class="reference internal" href="#connecting-mp-servers">Connecting MP servers</a>).</p>
+</div>
+</section>
+<section id="delete-cache-pins">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-pins'"><span>#</span></a></h3>
+<p>Unpin a token sequence's keys from the L2 eviction plan. Same request body as
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>. The response mirrors the pin (<code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
+of keys unpinned), with <code class="docutils literal notranslate"><span class="pre">status</span></code> <code class="docutils literal notranslate"><span class="pre">"unpinned"</span></code>. Pins are reference-counted: a
+chunk pinned <em>N</em> times needs <em>N</em> unpins before it can be evicted.</p>
+<p><strong>HTTP status codes:</strong> same as <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>.</p>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-5"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-6"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-7"><span class="s1">        "cache_salt": "user-a"</span>
+</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-9"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "unpinned"}</span>
+</span></code></pre></div>
+</div>
 </section>
 </section>
 </section>
@@ -946,6 +1066,8 @@
 <li><a :data-current="activeSection === '#cache-control'" class="reference internal" href="#cache-control">缓存控制</a><ul>
 <li><a :data-current="activeSection === '#post-cache-prefetches'" class="reference internal" href="#post-cache-prefetches"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></li>
 <li><a :data-current="activeSection === '#get-cache-prefetches-instance-id-request-id'" class="reference internal" href="#get-cache-prefetches-instance-id-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></li>
+<li><a :data-current="activeSection === '#post-cache-pins'" class="reference internal" href="#post-cache-pins"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></li>
+<li><a :data-current="activeSection === '#delete-cache-pins'" class="reference internal" href="#delete-cache-pins"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></li>
 </ul>
 </li>
 </ul>
