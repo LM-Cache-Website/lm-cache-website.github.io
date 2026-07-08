@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>使用不同的存储后端 | LMCache</title>
-<meta content="使用不同的存储后端 | LMCache" property="og:title"/>
-<meta content="使用不同的存储后端 | LMCache" name="twitter:title"/>
+<title>Azure Blob Storage Backend | LMCache</title>
+<meta content="Azure Blob Storage Backend | LMCache" property="og:title"/>
+<meta content="Azure Blob Storage Backend | LMCache" name="twitter:title"/>
 <link href="../../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -21,8 +21,8 @@
 <link href="../../_static/lmcache-logo.png" rel="icon"/>
 <link href="../../search.html" rel="search" title="搜索"/>
 <link href="../../genindex.html" rel="index" title="索引"/>
-<link href="azure.html" rel="next" title="Azure Blob Storage Backend"/>
-<link href="../../getting_started/quickstart/standalone_starter.html" rel="prev" title="独立启动器"/>
+<link href="cpu_ram.html" rel="next" title="CPU 内存"/>
+<link href="index.html" rel="prev" title="使用不同的存储后端"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -227,7 +227,7 @@
 <ul class="current">
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../legacy/index.html">旧版（进程内模式）<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2"><a class="reference internal" href="../../getting_started/quickstart/index.html">更多示例</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">使用不同的存储后端</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">使用不同的存储后端</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../async_loading.html">异步加载</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../caching_policies.html">使用不同的缓存策略</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../p2p_sharing.html">P2P KV 缓存共享</a></li>
@@ -276,58 +276,96 @@
 </svg>
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../../legacy/index.html">旧版（进程内模式）</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">使用不同的存储后端</span>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">使用不同的存储后端</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Azure Blob Storage Backend</span>
 </nav>
 <div id="content" role="main">
-<section id="using-different-storage-backends">
-<h1>使用不同的存储后端<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-different-storage-backends"><span>#</span></a></h1>
-<div class="admonition warning">
-<p class="admonition-title">警告</p>
-<p>本页面记录了 LMCache 的进程内模式（已弃用）的行为。请考虑使用 <a class="reference internal" href="../../mp/index.html"><span class="doc">LMCache MP 模式</span></a> 以获得更好的功能支持和性能。有关此页面的 MP 模式等效内容，请参见 <a class="reference internal" href="../../mp/l2_storage/index.html"><span class="doc">二级 KV 存储</span></a>。</p>
+<section id="azure-blob-storage-backend">
+<h1>Azure Blob Storage Backend<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#azure-blob-storage-backend"><span>#</span></a></h1>
+<p>LMCache can offload KV cache to Azure Blob Storage via an async-native
+connector (parity with the S3 backend, no NIXL dependency). The connector is
+selected by an <code class="docutils literal notranslate"><span class="pre">azure://</span></code> <code class="docutils literal notranslate"><span class="pre">remote_url</span></code>.</p>
+<section id="optional-packages">
+<h2>Optional Packages<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#optional-packages" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#optional-packages'"><span>#</span></a></h2>
+<p>The Azure SDKs are optional dependencies and are imported lazily, so install
+them only when you use this backend:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">pip<span class="w"> </span>install<span class="w"> </span>azure-storage-blob
+</span><span id="line-2"><span class="c1"># Only needed for the DefaultAzureCredential fallback (see Authentication):</span>
+</span><span id="line-3">pip<span class="w"> </span>install<span class="w"> </span>azure-identity
+</span></code></pre></div>
 </div>
-<p>LMCache 支持多种存储后端以卸载和共享 KV Cache 数据。</p>
-<section id="supported-backends">
-<h2>支持的后端<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#supported-backends" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#supported-backends'"><span>#</span></a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="azure.html">Azure Blob Storage Backend</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cpu_ram.html">CPU 内存</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_backend.html">自定义存储后端</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dax.html">设备-DAX (/dev/dax)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="eic.html">EIC</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fs.html">文件系统后端</a></li>
-<li class="toctree-l1"><a class="reference internal" href="gds.html">GDS 后端</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hfbucket.html">Hugging Face Buckets 后端</a></li>
-<li class="toctree-l1"><a class="reference internal" href="infinistore.html">InfiniStore</a></li>
-<li class="toctree-l1"><a class="reference internal" href="local_storage.html">本地存储</a></li>
-<li class="toctree-l1"><a class="reference internal" href="maru.html">Maru</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mock.html">模拟</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mooncake.html">Mooncake</a></li>
-<li class="toctree-l1"><a class="reference internal" href="nixl.html">Nixl</a></li>
-<li class="toctree-l1"><a class="reference internal" href="redis.html">Redis</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bigtable.html">谷歌云 Bigtable</a></li>
-<li class="toctree-l1"><a class="reference internal" href="resp.html">RESP (原生 Redis/Valkey)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="s3.html">S3 后端</a></li>
-<li class="toctree-l1"><a class="reference internal" href="sagemaker_hyperpod.html">SageMaker Hyperpod</a></li>
-<li class="toctree-l1"><a class="reference internal" href="valkey.html">Valkey</a></li>
-<li class="toctree-l1"><a class="reference internal" href="weka.html">Weka</a></li>
-<li class="toctree-l1"><a class="reference internal" href="3fs.html">3FS</a></li>
+</section>
+<section id="url-format">
+<h2>URL Format<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#url-format" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#url-format'"><span>#</span></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">azure://&lt;container_name&gt;
+</span></code></pre></div>
+</div>
+<p>The container name is the only value carried in the URL. The storage account
+and credentials are supplied via <code class="docutils literal notranslate"><span class="pre">extra_config</span></code>.</p>
+</section>
+<section id="example-configuration">
+<h2>Example Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-configuration'"><span>#</span></a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-3"><span class="nt">save_unfull_chunk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"azure://my-container"</span>
+</span><span id="line-5"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span><span id="line-6"><span class="nt">blocking_timeout_secs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+</span><span id="line-7"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">azure_account_url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://myaccount.blob.core.windows.net"</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">azure_account_key</span><span class="p">:</span><span class="w"> </span><span class="s">"your-account-key"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="configuration-parameters-in-extra-config">
+<h2>Configuration Parameters (in extra_config)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration-parameters-in-extra-config" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration-parameters-in-extra-config'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>azure_account_url</strong>: Storage account URL, e.g.
+<code class="docutils literal notranslate"><span class="pre">https://&lt;account&gt;.blob.core.windows.net</span></code>. Required unless
+<code class="docutils literal notranslate"><span class="pre">azure_connection_string</span></code> is provided.</p></li>
+<li><p><strong>azure_connection_string</strong>: Full Azure Storage connection string. When set,
+it is used on its own and the other fields are ignored.</p></li>
+<li><p><strong>azure_account_key</strong>: Storage account shared key (paired with
+<code class="docutils literal notranslate"><span class="pre">azure_account_url</span></code>).</p></li>
+<li><p><strong>azure_sas_token</strong>: Shared Access Signature token (paired with
+<code class="docutils literal notranslate"><span class="pre">azure_account_url</span></code>).</p></li>
 </ul>
-</div>
+</section>
+<section id="authentication">
+<h2>Authentication<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#authentication" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#authentication'"><span>#</span></a></h2>
+<p>Exactly one credential path is resolved, most-explicit-first:</p>
+<ol class="arabic simple">
+<li><p><strong>azure_connection_string</strong> — if set, it wins.</p></li>
+<li><p><strong>azure_account_url + azure_account_key</strong> — shared-key auth.</p></li>
+<li><p><strong>azure_account_url + azure_sas_token</strong> — SAS-token auth.</p></li>
+<li><p><strong>azure_account_url</strong> only — falls back to
+<code class="docutils literal notranslate"><span class="pre">DefaultAzureCredential</span></code> (managed identity, environment variables, Azure
+CLI login, etc.), which requires the <code class="docutils literal notranslate"><span class="pre">azure-identity</span></code> package.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">azure_account_url</span></code> is required for every path except the connection-string
+case.</p>
+</section>
+<section id="notes">
+<h2>Notes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p>Only full chunks are stored; set <code class="docutils literal notranslate"><span class="pre">save_unfull_chunk:</span> <span class="pre">False</span></code>.</p></li>
+<li><p>Keys are flattened into one blob per chunk (same flat layout as the S3
+backend).</p></li>
+</ul>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../../getting_started/quickstart/standalone_starter.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="index.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        独立启动器
+        使用不同的存储后端
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="azure.html">
-        Azure Blob Storage Backend
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="cpu_ram.html">
+        CPU 内存
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -336,7 +374,12 @@
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#supported-backends'" class="reference internal" href="#supported-backends">支持的后端</a></li>
+<li><a :data-current="activeSection === '#optional-packages'" class="reference internal" href="#optional-packages">Optional Packages</a></li>
+<li><a :data-current="activeSection === '#url-format'" class="reference internal" href="#url-format">URL Format</a></li>
+<li><a :data-current="activeSection === '#example-configuration'" class="reference internal" href="#example-configuration">Example Configuration</a></li>
+<li><a :data-current="activeSection === '#configuration-parameters-in-extra-config'" class="reference internal" href="#configuration-parameters-in-extra-config">Configuration Parameters (in extra_config)</a></li>
+<li><a :data-current="activeSection === '#authentication'" class="reference internal" href="#authentication">Authentication</a></li>
+<li><a :data-current="activeSection === '#notes'" class="reference internal" href="#notes">Notes</a></li>
 </ul>
 </div>
 </aside>
