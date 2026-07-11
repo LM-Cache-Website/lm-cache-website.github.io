@@ -281,13 +281,216 @@
 <div id="content" role="main">
 <section id="disaggregated-prefill">
 <span id="mp-disaggregated-prefill"></span><h1>Disaggregated Prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#disaggregated-prefill"><span>#</span></a></h1>
+<section id="overview">
+<h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>Disaggregated prefill (P/D) runs prefill and decode on separate vLLM instances:
+a <strong>prefill</strong> instance computes the prompt’s KV, hands it to a <strong>decode</strong>
+instance over NIXL, and the decoder generates tokens without recomputing the
+prompt. Prefill- and decode-heavy work then scale independently.</p>
+<p><strong>LMCache MP adds cross-request KV reuse on top.</strong> Each vLLM instance also
+offloads its KV to a co-located LMCache server, so a recurring prefix — on a
+later request, or after eviction from GPU HBM — is loaded from LMCache instead
+of recomputed. KV-source order on the prefill path: local GPU cache → LMCache →
+recompute.</p>
+<p>Both are composed with vLLM’s <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>, which runs two connectors per
+instance:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> — the prefill→decode KV handoff for the current
+request, over NIXL (UCX / RDMA).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> — offload/load to the instance’s LMCache
+server for cross-request reuse.</p></li>
+</ul>
+<p>A vLLM <strong>router</strong> in P/D mode sends each request to a prefill then a decode
+instance and threads the NIXL handshake between them.</p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
+<p>A minimal deployment is five processes:</p>
+<ul class="simple">
+<li><p><strong>Prefill vLLM (producer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_producer),</span>
+<span class="pre">LMCacheMPConnector]</span></code>; computes prompt KV, stores it to its LMCache server,
+and exposes it for the decoder to pull over NIXL.</p></li>
+<li><p><strong>Decode vLLM (consumer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_consumer),</span>
+<span class="pre">LMCacheMPConnector]</span></code>; pulls prompt KV from the producer and generates output.</p></li>
+<li><p><strong>Two LMCache servers</strong> — one <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> per vLLM instance (they must
+not share one).</p></li>
+<li><p><strong>Router</strong> — <code class="docutils literal notranslate"><span class="pre">vllm-router</span> <span class="pre">--vllm-pd-disaggregation</span></code> routes prefill then
+decode.</p></li>
+</ul>
+<p>To share reuse across the prefill and decode pools too, layer
+<a class="reference internal" href="p2p.html"><span class="doc">P2P KV cache sharing</span></a> on top (give both servers a coordinator and
+<code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code>).</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#requirements'"><span>#</span></a></h2>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><a class="reference external" href="https://github.com/vllm-project/vllm/pull/46865">vllm-project/vllm#46865</a> (the MultiConnector
+real-blocks fix) unblocks LMCache offload under <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>. Without
+it, offload silently never triggers.</p>
+</div>
+<ul class="simple">
+<li><p><strong>NIXL</strong> available in the vLLM environment (<code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code> extra, which
+pulls <code class="docutils literal notranslate"><span class="pre">nixl&gt;=1.3.0</span></code>).</p></li>
+</ul>
+</section>
+<section id="configuration">
+<h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>Each vLLM instance takes a <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> selecting <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>
+with two sub-connectors:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">kv_connector</span></code> = <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code></p></td>
+<td><p>Runs the <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config.connectors</span></code> side by side.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kv_role</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kv_producer</span></code> (prefill) or <code class="docutils literal notranslate"><span class="pre">kv_consumer</span></code> (decode), on both the
+top-level <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> and the nested <code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code></p></td>
+<td><p>The prefill→decode handoff. Set <code class="docutils literal notranslate"><span class="pre">kv_load_failure_policy</span></code> = <code class="docutils literal notranslate"><span class="pre">fail</span></code> so
+a failed transfer surfaces instead of silently recomputing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code></p></td>
+<td><p>Offload/load to the local LMCache server; use <code class="docutils literal notranslate"><span class="pre">kv_role</span></code> = <code class="docutils literal notranslate"><span class="pre">kv_both</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
+<td><p>Transport+host and ZMQ <code class="docutils literal notranslate"><span class="pre">--port</span></code> of the instance’s LMCache server
+(distinct per instance).</p></td>
+</tr>
+</tbody>
+</table>
+<p>The NIXL transfer is tuned via environment variables on the vLLM instances:
+<code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST</span></code> (host advertised for the handshake, reachable by
+the peer), <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> (<strong>must differ between instances on
+the same host</strong>; default <code class="docutils literal notranslate"><span class="pre">5600</span></code>), plus <code class="docutils literal notranslate"><span class="pre">UCX_NET_DEVICES=all</span></code> and
+<code class="docutils literal notranslate"><span class="pre">NCCL_CUMEM_ENABLE=1</span></code>. See <a class="reference internal" href="../cli/server.html"><span class="doc">lmcache server</span></a> for the full <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>
+flag list.</p>
+</section>
+<section id="running-a-deployment">
+<h2>Running a deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-a-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-a-deployment'"><span>#</span></a></h2>
+<p>The example below places the prefill pool, the decode pool, and the router on
+separate hosts. Replace <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;DECODE_IP&gt;</span></code> with routable
+addresses and <code class="docutils literal notranslate"><span class="pre">&lt;model&gt;</span></code> with the model path (identical on both instances).</p>
+<p><strong>Step 1 — prefill LMCache server</strong> (on the prefill host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>prefiller
+</span></code></pre></div>
+</div>
+<p><strong>Step 2 — prefill vLLM (producer)</strong> (on the prefill host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;PREFILL_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span>--tensor-parallel-size<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6555}}]}}'</span>
+</span></code></pre></div>
+</div>
+<p>The producer advertises its NIXL side channel on <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;:5600</span></code> and
+offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6555</span></code>.</p>
+<p><strong>Step 3 — decode LMCache server</strong> (on the decode host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8091</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>decoder
+</span></code></pre></div>
+</div>
+<p><strong>Step 4 — decode vLLM (consumer)</strong> (on the decode host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;DECODE_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5558</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8002</span><span class="w"> </span>--tensor-parallel-size<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6556}}]}}'</span>
+</span></code></pre></div>
+</div>
+<p>The consumer offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6556</span></code>; its side-channel
+port (<code class="docutils literal notranslate"><span class="pre">5558</span></code>) differs from the producer’s so the two can share a host.</p>
+<p><strong>Step 5 — router</strong> (on any host that can reach both vLLM instances):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm-router<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--policy<span class="w"> </span>round_robin<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--prefill<span class="w"> </span>http://&lt;PREFILL_IP&gt;:8001<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--decode<span class="w"> </span>http://&lt;DECODE_IP&gt;:8002<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
+</span></code></pre></div>
+</div>
+<p>Send requests to the router (<code class="docutils literal notranslate"><span class="pre">http://&lt;ROUTER_IP&gt;:30000/v1/...</span></code>); it handles
+the prefill→decode split transparently.</p>
+</section>
+<section id="running-on-a-single-node-testing-debugging">
+<h2>Running on a single node (testing &amp; debugging)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-on-a-single-node-testing-debugging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-on-a-single-node-testing-debugging'"><span>#</span></a></h2>
+<p>Same five processes over <code class="docutils literal notranslate"><span class="pre">localhost</span></code>, prefill on GPU 6 and decode on GPU 7.
+The instances must differ in <strong>every</strong> shared-host port: the LMCache <code class="docutils literal notranslate"><span class="pre">--port</span></code>
+and <code class="docutils literal notranslate"><span class="pre">--http-port</span></code>, the vLLM <code class="docutils literal notranslate"><span class="pre">--port</span></code>, and <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--instance-id<span class="w"> </span>prefiller
+</span><span id="line-3">
+</span><span id="line-4"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">6</span><span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span>--enforce-eager<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6555}}]}}'</span>
+</span><span id="line-8">
+</span><span id="line-9">lmcache<span class="w"> </span>server<span class="w"> </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8091</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--instance-id<span class="w"> </span>decoder
+</span><span id="line-11">
+</span><span id="line-12"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">7</span><span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5558</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-13"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-14">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8002</span><span class="w"> </span>--enforce-eager<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span><span class="se">\</span>
+</span><span id="line-15"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6556}}]}}'</span>
+</span><span id="line-16">
+</span><span id="line-17">vllm-router<span class="w"> </span>--policy<span class="w"> </span>round_robin<span class="w"> </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
+</span><span id="line-18"><span class="w">    </span>--prefill<span class="w"> </span>http://localhost:8001<span class="w"> </span>--decode<span class="w"> </span>http://localhost:8002<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
+</span></code></pre></div>
+</div>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span> <span class="pre">--otlp-endpoint</span> <span class="pre">http://localhost:4317</span></code> to each
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> to export traces/metrics to a local OpenTelemetry collector.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The multiprocess (MP) implementation of disaggregated prefill is
-<strong>coming soon</strong>.</p>
-<p>Until it lands, the in-process implementation (NIXL and shared-storage
-transports) is documented in the <a class="reference internal" href="../legacy/index.html"><span class="doc">Legacy section</span></a>: <a class="reference internal" href="../disaggregated_prefill/nixl/index.html"><span class="doc">Using NIXL</span></a>.</p>
+<p>On a single host, NIXL over <code class="docutils literal notranslate"><span class="pre">localhost</span></code> uses loopback/TCP, not RDMA, so
+latencies are not representative — single-node mode is for <strong>functional</strong>
+testing only.</p>
 </div>
+</section>
+<section id="verifying-it-is-working">
+<h2>Verifying it is working<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-it-is-working" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-it-is-working'"><span>#</span></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:30000/v1/completions<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"model":"&lt;model&gt;","prompt":"The capital of France is","max_tokens":16}'</span>
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>P/D routing</strong> — the response <code class="docutils literal notranslate"><span class="pre">id</span></code> is stamped with the workers, e.g.
+<code class="docutils literal notranslate"><span class="pre">cmpl-___prefill_addr_localhost:8001___decode_addr_localhost:8002_...</span></code>.</p></li>
+<li><p><strong>NIXL transfer</strong> — the decode vLLM logs <code class="docutils literal notranslate"><span class="pre">KV</span> <span class="pre">Transfer</span> <span class="pre">metrics:</span>
+<span class="pre">NixlConnector={'Num</span> <span class="pre">successful</span> <span class="pre">transfers':</span> <span class="pre">N,</span> <span class="pre">...}</span></code>.</p></li>
+<li><p><strong>LMCache offload</strong> — <code class="docutils literal notranslate"><span class="pre">storage_manager.l1_manager.total_object_count</span></code> in
+<code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://localhost:8090/status</span></code> grows (prompts must be at least
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> tokens to store anything).</p></li>
+<li><p><strong>LMCache hit rate</strong> — read vLLM’s <strong>“External prefix cache hit rate”</strong> log
+line (the fraction of prefill tokens served from LMCache), <em>not</em> the LMCache
+server <code class="docutils literal notranslate"><span class="pre">/status</span></code>. It stays <code class="docutils literal notranslate"><span class="pre">0</span></code> while the working set fits in GPU HBM and
+rises once reuse spills out of the GPU cache.</p></li>
+</ul>
+</section>
+<section id="limitations-and-tuning">
+<h2>Limitations and tuning<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations-and-tuning" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations-and-tuning'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>Keep cold KV transfers bounded under high concurrency.</strong> vLLM’s native NIXL
+P/D path is sensitive to many large <em>cold</em> transfers (full-prompt, nothing
+cached) in flight at once. Keep the decode instance’s GPU KV cache large
+enough to hold the working set so transfers stay small and cache-served, or
+reduce concurrency when per-request transfers are large.</p></li>
+</ul>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -306,7 +509,20 @@ transports) is documented in the <a class="reference internal" href="../legacy/i
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
+<li><a :data-current="activeSection === '#requirements'" class="reference internal" href="#requirements">Requirements</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#running-a-deployment'" class="reference internal" href="#running-a-deployment">Running a deployment</a></li>
+<li><a :data-current="activeSection === '#running-on-a-single-node-testing-debugging'" class="reference internal" href="#running-on-a-single-node-testing-debugging">Running on a single node (testing &amp; debugging)</a></li>
+<li><a :data-current="activeSection === '#verifying-it-is-working'" class="reference internal" href="#verifying-it-is-working">Verifying it is working</a></li>
+<li><a :data-current="activeSection === '#limitations-and-tuning'" class="reference internal" href="#limitations-and-tuning">Limitations and tuning</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
