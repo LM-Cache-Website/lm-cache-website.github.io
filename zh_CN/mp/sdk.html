@@ -281,39 +281,28 @@
 <div id="content" role="main">
 <section id="kv-cache-sdk">
 <h1>KV Cache SDK<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-cache-sdk"><span>#</span></a></h1>
-<p>The LMCache <strong>SDK</strong> lets you retrieve a request's KV cache from a LMCache
-server, transform it on the CPU, and store it back. This can be used for KV
-cache transformations, such as token dropping. In the example: we prefill a
-batch of long prompts, drop half of each request's KV chunks, and show the
-decode-throughput gain. The full runnable notebook lives at
-<a class="reference external" href="https://github.com/LMCache/LMCache/tree/dev/examples/token_dropping">examples/token_dropping/token_dropping.ipynb</a>.</p>
+<p>LMCache <strong>SDK</strong> 允许您从 LMCache 服务器检索请求的 KV 缓存，在 CPU 上进行转换，然后再存储回去。这可以用于 KV 缓存转换，例如丢弃令牌。在这个例子中：我们预填充一批长提示，丢弃每个请求的一半 KV 块，并展示解码吞吐量的提升。完整的可运行笔记本位于 <a class="reference external" href="https://github.com/LMCache/LMCache/tree/dev/examples/token_dropping">examples/token_dropping/token_dropping.ipynb</a>。</p>
 <nav class="contents local" id="id1">
 <ul class="simple">
-<li><p><a class="reference internal" href="#why-kv-cache-sdk" id="id2">Why KV Cache SDK</a></p></li>
-<li><p><a class="reference internal" href="#how-it-works" id="id3">How it works</a></p></li>
+<li><p><a class="reference internal" href="#why-kv-cache-sdk" id="id2">为什么选择 KV Cache SDK</a></p></li>
+<li><p><a class="reference internal" href="#how-it-works" id="id3">它是如何工作的</a></p></li>
 <li><p><a class="reference internal" href="#configuration" id="id4">配置</a></p></li>
 <li><p><a class="reference internal" href="#writing-a-custom-edit-function" id="id5">编写自定义编辑函数</a></p></li>
 <li><p><a class="reference internal" href="#api-reference" id="id6">API 参考</a></p></li>
 </ul>
 </nav>
 <section id="why-kv-cache-sdk">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Why KV Cache SDK</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-kv-cache-sdk" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-kv-cache-sdk'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">为什么选择 KV Cache SDK</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-kv-cache-sdk" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-kv-cache-sdk'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><strong>Improving Decode Throughput</strong> when shrinking KV cache using token dropping.
-Token dropping reduces the KV cache size, allowing more requests to fit in a
-batch, improving decode throughput.</p></li>
+<li><p><strong>通过丢弃令牌</strong> 来提高解码吞吐量。当使用丢弃令牌缩小 KV Cache 时，KV Cache 的大小减少，使得更多请求可以适应一个批次，从而提高解码吞吐量。</p></li>
 </ul>
-<p>The SDK gives you the hooks to retrieve a request's KV, supply your own
-function to edit the KV, and store the edited KV back. The SDK also provides a
-batched-stream API to prefill, modify, and store the cache back before
-decoding continues.</p>
+<p>SDK 提供了钩子来检索请求的 KV，允许您提供自己的函数来编辑 KV，并将编辑后的 KV 存储回去。SDK 还提供了一个批量流 API，以便在继续解码之前进行预填充、修改和存储缓存。</p>
 </section>
 <section id="how-it-works">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">How it works</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
-<p>A request flows through three phases on the batched-stream API:</p>
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">它是如何工作的</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
+<p>请求在批处理流 API 上经历三个阶段：</p>
 <ul class="simple">
-<li><p><strong>prefill</strong> — run each prompt through vLLM once (<code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code>); vLLM
-computes the KV cache and stores it in LMCache.</p></li>
+<li><p><strong>预取</strong> — 将每个提示通过 vLLM 运行一次（<code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code>）；vLLM 计算 KV Cache 并将其存储在 LMCache 中。</p></li>
 <li><p><strong>修改</strong> — SDK 将缓存的 KV 取回到 CPU，交给你的编辑函数，并将结果存储回去。</p></li>
 <li><p><strong>解码</strong> — 在更小的、编辑过的缓存上继续生成。</p></li>
 </ul>
@@ -428,8 +417,8 @@ computes the KV cache and stores it in LMCache.</p></li>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#why-kv-cache-sdk'" class="reference internal" href="#why-kv-cache-sdk">Why KV Cache SDK</a></li>
-<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
+<li><a :data-current="activeSection === '#why-kv-cache-sdk'" class="reference internal" href="#why-kv-cache-sdk">为什么选择 KV Cache SDK</a></li>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">它是如何工作的</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
 <li><a :data-current="activeSection === '#writing-a-custom-edit-function'" class="reference internal" href="#writing-a-custom-edit-function">编写自定义编辑函数</a></li>
 <li><a :data-current="activeSection === '#api-reference'" class="reference internal" href="#api-reference">API 参考</a></li>

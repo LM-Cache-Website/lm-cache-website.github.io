@@ -282,113 +282,81 @@
 <section id="disaggregated-prefill">
 <span id="mp-disaggregated-prefill"></span><h1>分离式预填充<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#disaggregated-prefill"><span>#</span></a></h1>
 <section id="overview">
-<h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
-<p>Disaggregated prefill (P/D) runs prefill and decode on separate vLLM instances:
-a <strong>prefill</strong> instance computes the prompt's KV, hands it to a <strong>decode</strong>
-instance over NIXL, and the decoder generates tokens without recomputing the
-prompt. Prefill- and decode-heavy work then scale independently.</p>
-<p><strong>LMCache MP adds cross-request KV reuse on top.</strong> Each vLLM instance also
-offloads its KV to a co-located LMCache server, so a recurring prefix — on a
-later request, or after eviction from GPU HBM — is loaded from LMCache instead
-of recomputed. KV-source order on the prefill path: local GPU cache → LMCache →
-recompute.</p>
-<p>Both are composed with vLLM's <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>, which runs two connectors per
-instance:</p>
+<h2>概述<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>分离式 Prefill (P/D) 在不同的 vLLM 实例上运行 Prefill 和解码：一个 <strong>Prefill</strong> 实例计算提示的 KV，将其通过 NIXL 交给一个 <strong>解码</strong> 实例，解码器生成令牌而无需重新计算提示。Prefill 和解码密集型工作可以独立扩展。</p>
+<p><strong>LMCache MP 在此基础上增加了跨请求的 KV 重用。</strong> 每个 vLLM 实例还将其 KV 卸载到一个共置的 LMCache 服务器，因此在后续请求中，或在从 GPU HBM 逐出后，重复的前缀将从 LMCache 加载，而不是重新计算。预取路径上的 KV 源顺序：本地 GPU 缓存 → LMCache → 重计算。</p>
+<p>两者都是通过 vLLM 的 <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> 组合而成，每个实例运行两个连接器：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> — the prefill→decode KV handoff for the current
-request, over NIXL (UCX / RDMA).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> — offload/load to the instance's LMCache
-server for cross-request reuse.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> — 当前请求的 Prefill→解码 KV 移交，通过 NIXL (UCX / RDMA)。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> — 卸载/加载到实例的 LMCache 服务器以实现跨请求重用。</p></li>
 </ul>
-<p>A vLLM <strong>router</strong> in P/D mode sends each request to a prefill then a decode
-instance and threads the NIXL handshake between them.</p>
+<p>在 P/D 模式下，vLLM <strong>路由器</strong> 将每个请求发送到一个 Prefill 实例，然后是一个解码实例，并在它们之间线程化 NIXL 握手。</p>
 </section>
 <section id="how-it-works">
-<h2>How it works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
-<p>A minimal deployment is five processes:</p>
+<h2>它是如何工作的<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
+<p>最小部署需要五个进程：</p>
 <ul class="simple">
-<li><p><strong>Prefill vLLM (producer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_producer),</span>
-<span class="pre">LMCacheMPConnector]</span></code>; computes prompt KV, stores it to its LMCache server,
-and exposes it for the decoder to pull over NIXL.</p></li>
-<li><p><strong>Decode vLLM (consumer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_consumer),</span>
-<span class="pre">LMCacheMPConnector]</span></code>; pulls prompt KV from the producer and generates output.</p></li>
-<li><p><strong>Two LMCache servers</strong> — one <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> per vLLM instance (they must
-not share one).</p></li>
-<li><p><strong>Router</strong> — <code class="docutils literal notranslate"><span class="pre">vllm-router</span> <span class="pre">--vllm-pd-disaggregation</span></code> routes prefill then
-decode.</p></li>
+<li><p><strong>Prefill vLLM (生产者)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_producer),</span> <span class="pre">LMCacheMPConnector]</span></code>; 计算提示 KV，将其存储到 LMCache 服务器，并为解码器提供拉取功能。</p></li>
+<li><p><strong>解码 vLLM (消费者)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_consumer),</span> <span class="pre">LMCacheMPConnector]</span></code>; 从生产者拉取提示 KV 并生成输出。</p></li>
+<li><p><strong>两个 LMCache 服务器</strong> — 每个 vLLM 实例一个 <a href="#id1"><span class="problematic" id="id2">``</span></a>lmcache server``（它们不能共享一个）。</p></li>
+<li><p><strong>路由器</strong> — <code class="docutils literal notranslate"><span class="pre">vllm-router</span> <span class="pre">--vllm-pd-disaggregation</span></code> 路由 Prefill 然后解码。</p></li>
 </ul>
-<p>To share reuse across the prefill and decode pools too, layer
-<a class="reference internal" href="p2p.html"><span class="doc">P2P KV cache sharing</span></a> on top (give both servers a coordinator and
-<code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code>).</p>
+<p>为了在 Prefill 和解码池之间共享重用，在顶部逐层 <span class="xref std std-doc">P2P KV Cache 共享 &lt;p2p&gt;`（给两个服务器一个协调器和 `</span>--p2p-advertise-url``）。</p>
 </section>
 <section id="requirements">
-<h2>Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#requirements'"><span>#</span></a></h2>
+<h2>要求<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#requirements'"><span>#</span></a></h2>
 <div class="admonition important">
 <p class="admonition-title">重要</p>
-<p><a class="reference external" href="https://github.com/vllm-project/vllm/pull/46865">vllm-project/vllm#46865</a> (the MultiConnector
-real-blocks fix) unblocks LMCache offload under <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>. Without
-it, offload silently never triggers.</p>
+<p><a class="reference external" href="https://github.com/vllm-project/vllm/pull/46865">vllm-project/vllm#46865</a> （MultiConnector 实际块修复）解锁了在 <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> 下的 LMCache 卸载。没有它，卸载将静默地永远不会触发。</p>
 </div>
 <ul class="simple">
-<li><p><strong>NIXL</strong> available in the vLLM environment (<code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code> extra, which
-pulls <code class="docutils literal notranslate"><span class="pre">nixl&gt;=1.3.0</span></code>).</p></li>
+<li><p><strong>NIXL</strong> 在 vLLM 环境中可用（<code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code> 附加项，拉取 <code class="docutils literal notranslate"><span class="pre">nixl&gt;=1.3.0</span></code>）。</p></li>
 </ul>
 </section>
 <section id="configuration">
-<h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
-<p>Each vLLM instance takes a <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> selecting <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>
-with two sub-connectors:</p>
+<h2>配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>每个 vLLM 实例都需要一个 <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code>，选择 <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>，并包含两个子连接器：</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 40.0%"/>
 <col style="width: 60.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Key</p></th>
-<th class="head"><p>Description</p></th>
+<tr class="row-odd"><th class="head"><p>键</p></th>
+<th class="head"><p>描述</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">kv_connector</span></code> = <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code></p></td>
-<td><p>Runs the <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config.connectors</span></code> side by side.</p></td>
+<td><p>并行运行 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config.connectors</span></code>。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kv_role</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">kv_producer</span></code> (prefill) or <code class="docutils literal notranslate"><span class="pre">kv_consumer</span></code> (decode), on both the
-top-level <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> and the nested <code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kv_producer``（Prefill）或</span> <span class="pre">``kv_consumer``（解码），在顶层</span> <span class="pre">``MultiConnector</span></code> 和嵌套的 <code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> 上均适用。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code></p></td>
-<td><p>The prefill→decode handoff. Set <code class="docutils literal notranslate"><span class="pre">kv_load_failure_policy</span></code> = <code class="docutils literal notranslate"><span class="pre">fail</span></code> so
-a failed transfer surfaces instead of silently recomputing.</p></td>
+<td><p>Prefill→解码交接。将 <code class="docutils literal notranslate"><span class="pre">kv_load_failure_policy</span></code> 设置为 <code class="docutils literal notranslate"><span class="pre">fail</span></code>，以便在传输失败时显式显示，而不是静默重计算。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code></p></td>
-<td><p>Offload/load to the local LMCache server; use <code class="docutils literal notranslate"><span class="pre">kv_role</span></code> = <code class="docutils literal notranslate"><span class="pre">kv_both</span></code>.</p></td>
+<td><p>卸载/加载到本地 LMCache 服务器；使用 <code class="docutils literal notranslate"><span class="pre">kv_role</span></code> = <code class="docutils literal notranslate"><span class="pre">kv_both</span></code>。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
-<td><p>Transport+host and ZMQ <code class="docutils literal notranslate"><span class="pre">--port</span></code> of the instance's LMCache server
-(distinct per instance).</p></td>
+<td><p>实例的 LMCache 服务器的传输主机和 ZMQ <a href="#id1"><span class="problematic" id="id2">``</span></a>--port``（每个实例不同）。</p></td>
 </tr>
 </tbody>
 </table>
-<p>The NIXL transfer is tuned via environment variables on the vLLM instances:
-<code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST</span></code> (host advertised for the handshake, reachable by
-the peer), <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> (<strong>must differ between instances on
-the same host</strong>; default <code class="docutils literal notranslate"><span class="pre">5600</span></code>), plus <code class="docutils literal notranslate"><span class="pre">UCX_NET_DEVICES=all</span></code> and
-<code class="docutils literal notranslate"><span class="pre">NCCL_CUMEM_ENABLE=1</span></code>. See <a class="reference internal" href="../cli/server.html"><span class="doc">lmcache server</span></a> for the full <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>
-flag list.</p>
+<p>NIXL 传输通过 vLLM 实例上的环境变量进行调整：<code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST``（用于握手的主机，由对等方可达），``VLLM_NIXL_SIDE_CHANNEL_PORT``（**在同一主机上的实例之间必须不同**；默认值为</span> <span class="pre">``5600</span></code>），以及 <code class="docutils literal notranslate"><span class="pre">UCX_NET_DEVICES=all</span></code> 和 <code class="docutils literal notranslate"><span class="pre">NCCL_CUMEM_ENABLE=1</span></code>。有关完整的 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> 标志列表，请参见 <a class="reference internal" href="../cli/server.html"><span class="doc">lmcache server</span></a>。</p>
 </section>
 <section id="running-a-deployment">
-<h2>Running a deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-a-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-a-deployment'"><span>#</span></a></h2>
-<p>The example below places the prefill pool, the decode pool, and the router on
-separate hosts. Replace <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;DECODE_IP&gt;</span></code> with routable
-addresses and <code class="docutils literal notranslate"><span class="pre">&lt;model&gt;</span></code> with the model path (identical on both instances).</p>
-<p><strong>Step 1 — prefill LMCache server</strong> (on the prefill host):</p>
+<h2>运行部署<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-a-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-a-deployment'"><span>#</span></a></h2>
+<p>下面的示例将 Prefill 池、解码池和路由器放置在不同的主机上。将 <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;DECODE_IP&gt;</span></code> 替换为可路由地址，并将 <code class="docutils literal notranslate"><span class="pre">&lt;model&gt;</span></code> 替换为模型路径（在两个实例上相同）。</p>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>步骤 1 — Prefill LMCache 服务器**（在 Prefill 主机上）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>prefiller
 </span></code></pre></div>
 </div>
-<p><strong>Step 2 — prefill vLLM (producer)</strong> (on the prefill host):</p>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>步骤 2 — Prefill vLLM（生产者）**（在 Prefill 主机上）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;PREFILL_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5600</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
@@ -396,16 +364,15 @@ addresses and <code class="docutils literal notranslate"><span class="pre">&lt;m
 </span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6555}}]}}'</span>
 </span></code></pre></div>
 </div>
-<p>The producer advertises its NIXL side channel on <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;:5600</span></code> and
-offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6555</span></code>.</p>
-<p><strong>Step 3 — decode LMCache server</strong> (on the decode host):</p>
+<p>生产者在 <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;:5600</span></code> 上宣传其 NIXL 边通道，并将任务卸载到端口 <code class="docutils literal notranslate"><span class="pre">6555</span></code> 的 LMCache 服务器上。</p>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>步骤 3 — 解码 LMCache 服务器**（在解码主机上）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8091</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>decoder
 </span></code></pre></div>
 </div>
-<p><strong>Step 4 — decode vLLM (consumer)</strong> (on the decode host):</p>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>步骤 4 — 解码 vLLM（消费者）**（在解码主机上）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;DECODE_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5558</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
@@ -413,9 +380,8 @@ offloads to the LMCache server on port <code class="docutils literal notranslate
 </span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6556}}]}}'</span>
 </span></code></pre></div>
 </div>
-<p>The consumer offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6556</span></code>; its side-channel
-port (<code class="docutils literal notranslate"><span class="pre">5558</span></code>) differs from the producer's so the two can share a host.</p>
-<p><strong>Step 5 — router</strong> (on any host that can reach both vLLM instances):</p>
+<p>消费者将任务卸载到端口 <code class="docutils literal notranslate"><span class="pre">6556</span></code> 的 LMCache 服务器；其侧信道端口 (<code class="docutils literal notranslate"><span class="pre">5558</span></code>) 与生产者的不同，以便两者可以共享一个主机。</p>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>步骤 5 — 路由器**（在任何可以访问两个 vLLM 实例的主机上）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm-router<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--policy<span class="w"> </span>round_robin<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
@@ -424,14 +390,11 @@ port (<code class="docutils literal notranslate"><span class="pre">5558</span></
 </span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
 </span></code></pre></div>
 </div>
-<p>Send requests to the router (<code class="docutils literal notranslate"><span class="pre">http://&lt;ROUTER_IP&gt;:30000/v1/...</span></code>); it handles
-the prefill→decode split transparently.</p>
+<p>将请求发送到路由器（<code class="docutils literal notranslate"><span class="pre">http://&lt;ROUTER_IP&gt;:30000/v1/...</span></code>）；它透明地处理 Prefill→解码的分离。</p>
 </section>
 <section id="running-on-a-single-node-testing-debugging">
-<h2>Running on a single node (testing &amp; debugging)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-on-a-single-node-testing-debugging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-on-a-single-node-testing-debugging'"><span>#</span></a></h2>
-<p>Same five processes over <code class="docutils literal notranslate"><span class="pre">localhost</span></code>, prefill on GPU 6 and decode on GPU 7.
-The instances must differ in <strong>every</strong> shared-host port: the LMCache <code class="docutils literal notranslate"><span class="pre">--port</span></code>
-and <code class="docutils literal notranslate"><span class="pre">--http-port</span></code>, the vLLM <code class="docutils literal notranslate"><span class="pre">--port</span></code>, and <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code>.</p>
+<h2>在单个节点上运行（测试和调试）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-on-a-single-node-testing-debugging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-on-a-single-node-testing-debugging'"><span>#</span></a></h2>
+<p>在 <code class="docutils literal notranslate"><span class="pre">localhost</span></code> 上运行相同的五个进程，GPU 6 上进行 Prefill，GPU 7 上进行解码。实例必须在 <strong>每个</strong> 共享主机端口上有所不同：LMCache 的 <code class="docutils literal notranslate"><span class="pre">--port</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--http-port</span></code>，vLLM 的 <code class="docutils literal notranslate"><span class="pre">--port</span></code>，以及 <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code>。</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--instance-id<span class="w"> </span>prefiller
 </span><span id="line-3">
@@ -452,43 +415,29 @@ and <code class="docutils literal notranslate"><span class="pre">--http-port</sp
 </span><span id="line-18"><span class="w">    </span>--prefill<span class="w"> </span>http://localhost:8001<span class="w"> </span>--decode<span class="w"> </span>http://localhost:8002<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
 </span></code></pre></div>
 </div>
-<p>Add <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span> <span class="pre">--otlp-endpoint</span> <span class="pre">http://localhost:4317</span></code> to each
-<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> to export traces/metrics to a local OpenTelemetry collector.</p>
+<p>将 <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span> <span class="pre">--otlp-endpoint</span> <span class="pre">http://localhost:4317</span></code> 添加到每个 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> 以将跟踪/指标导出到本地 OpenTelemetry 收集器。</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>On a single host, NIXL over <code class="docutils literal notranslate"><span class="pre">localhost</span></code> uses loopback/TCP, not RDMA, so
-latencies are not representative — single-node mode is for <strong>functional</strong>
-testing only.</p>
+<p>在单个主机上，NIXL 通过 <code class="docutils literal notranslate"><span class="pre">localhost</span></code> 使用回环/TCP，而不是 RDMA，因此延迟并不具有代表性——单节点模式仅用于 <strong>功能</strong> 测试。</p>
 </div>
 </section>
 <section id="verifying-it-is-working">
-<h2>Verifying it is working<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-it-is-working" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-it-is-working'"><span>#</span></a></h2>
+<h2>验证其是否正常工作<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-it-is-working" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-it-is-working'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:30000/v1/completions<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"model":"&lt;model&gt;","prompt":"The capital of France is","max_tokens":16}'</span>
 </span></code></pre></div>
 </div>
 <ul class="simple">
-<li><p><strong>P/D routing</strong> — the response <code class="docutils literal notranslate"><span class="pre">id</span></code> is stamped with the workers, e.g.
-<code class="docutils literal notranslate"><span class="pre">cmpl-___prefill_addr_localhost:8001___decode_addr_localhost:8002_...</span></code>.</p></li>
-<li><p><strong>NIXL transfer</strong> — the decode vLLM logs <code class="docutils literal notranslate"><span class="pre">KV</span> <span class="pre">Transfer</span> <span class="pre">metrics:</span>
-<span class="pre">NixlConnector={'Num</span> <span class="pre">successful</span> <span class="pre">transfers':</span> <span class="pre">N,</span> <span class="pre">...}</span></code>.</p></li>
-<li><p><strong>LMCache offload</strong> — <code class="docutils literal notranslate"><span class="pre">storage_manager.l1_manager.total_object_count</span></code> in
-<code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://localhost:8090/status</span></code> grows (prompts must be at least
-<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> tokens to store anything).</p></li>
-<li><p><strong>LMCache hit rate</strong> — read vLLM's <strong>"External prefix cache hit rate"</strong> log
-line (the fraction of prefill tokens served from LMCache), <em>not</em> the LMCache
-server <code class="docutils literal notranslate"><span class="pre">/status</span></code>. It stays <code class="docutils literal notranslate"><span class="pre">0</span></code> while the working set fits in GPU HBM and
-rises once reuse spills out of the GPU cache.</p></li>
+<li><p><strong>P/D 路由</strong> — 响应 <code class="docutils literal notranslate"><span class="pre">id</span></code> 被标记为工作节点，例如 <code class="docutils literal notranslate"><span class="pre">cmpl-___prefill_addr_localhost:8001___decode_addr_localhost:8002_...</span></code>。</p></li>
+<li><p><strong>NIXL 传输</strong> — 解码 vLLM 日志 <code class="docutils literal notranslate"><span class="pre">KV</span> <span class="pre">Transfer</span> <span class="pre">metrics:</span> <span class="pre">NixlConnector={'Num</span> <span class="pre">successful</span> <span class="pre">transfers':</span> <span class="pre">N,</span> <span class="pre">...}</span></code>.</p></li>
+<li><p><strong>LMCache 卸载</strong> — <code class="docutils literal notranslate"><span class="pre">storage_manager.l1_manager.total_object_count</span></code> 在 <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://localhost:8090/status</span></code> 中增长（提示必须至少为 <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> 个标记才能存储任何内容）。</p></li>
+<li><p><strong>LMCache 命中率</strong> — 阅读 vLLM 的 <strong>“外部前缀缓存命中率”</strong> 日志行（从 LMCache 提供的 Prefill 令牌的比例），<em>而不是</em> LMCache 服务器 <code class="docutils literal notranslate"><span class="pre">/status</span></code>。当工作集适合显存时，它保持为 <code class="docutils literal notranslate"><span class="pre">0</span></code>，一旦重用溢出显存缓存，它就会上升。</p></li>
 </ul>
 </section>
 <section id="limitations-and-tuning">
-<h2>Limitations and tuning<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations-and-tuning" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations-and-tuning'"><span>#</span></a></h2>
+<h2>限制与调优<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations-and-tuning" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations-and-tuning'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><strong>Keep cold KV transfers bounded under high concurrency.</strong> vLLM's native NIXL
-P/D path is sensitive to many large <em>cold</em> transfers (full-prompt, nothing
-cached) in flight at once. Keep the decode instance's GPU KV cache large
-enough to hold the working set so transfers stay small and cache-served, or
-reduce concurrency when per-request transfers are large.</p></li>
+<li><p><strong>在高并发下保持冷 KV 传输的边界。</strong> vLLM 的原生 NIXL P/D 路径对同时进行的许多大型 <em>冷</em> 传输（完整提示，未缓存）非常敏感。保持解码实例的 GPU KV Cache 足够大，以容纳工作集，从而使传输保持较小并由缓存服务，或者在每个请求的传输较大时减少并发。</p></li>
 </ul>
 </section>
 </section>
@@ -512,14 +461,14 @@ reduce concurrency when per-request transfers are large.</p></li>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
-<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
-<li><a :data-current="activeSection === '#requirements'" class="reference internal" href="#requirements">Requirements</a></li>
-<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
-<li><a :data-current="activeSection === '#running-a-deployment'" class="reference internal" href="#running-a-deployment">Running a deployment</a></li>
-<li><a :data-current="activeSection === '#running-on-a-single-node-testing-debugging'" class="reference internal" href="#running-on-a-single-node-testing-debugging">Running on a single node (testing &amp; debugging)</a></li>
-<li><a :data-current="activeSection === '#verifying-it-is-working'" class="reference internal" href="#verifying-it-is-working">Verifying it is working</a></li>
-<li><a :data-current="activeSection === '#limitations-and-tuning'" class="reference internal" href="#limitations-and-tuning">Limitations and tuning</a></li>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">概述</a></li>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">它是如何工作的</a></li>
+<li><a :data-current="activeSection === '#requirements'" class="reference internal" href="#requirements">要求</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
+<li><a :data-current="activeSection === '#running-a-deployment'" class="reference internal" href="#running-a-deployment">运行部署</a></li>
+<li><a :data-current="activeSection === '#running-on-a-single-node-testing-debugging'" class="reference internal" href="#running-on-a-single-node-testing-debugging">在单个节点上运行（测试和调试）</a></li>
+<li><a :data-current="activeSection === '#verifying-it-is-working'" class="reference internal" href="#verifying-it-is-working">验证其是否正常工作</a></li>
+<li><a :data-current="activeSection === '#limitations-and-tuning'" class="reference internal" href="#limitations-and-tuning">限制与调优</a></li>
 </ul>
 </div>
 </aside>

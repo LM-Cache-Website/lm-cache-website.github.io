@@ -294,7 +294,7 @@
 <li><p><a class="reference internal" href="#id2" id="id11">前提条件</a></p></li>
 <li><p><a class="reference internal" href="#opting-a-vllm-pod-in" id="id12">为 vLLM Pod 启用注入</a></p></li>
 <li><p><a class="reference internal" href="#verifying-injection" id="id13">验证注入</a></p></li>
-<li><p><a class="reference internal" href="#using-the-latest-or-a-pinned-lmcache" id="id14">Using the Latest (or a Pinned) lmcache</a></p></li>
+<li><p><a class="reference internal" href="#using-the-latest-or-a-pinned-lmcache" id="id14">使用最新的（或固定的）LMCache</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#verifying-the-deployment" id="id15">验证部署</a></p></li>
@@ -551,28 +551,16 @@
 <p>使用 <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> 时，webhook / 证书问题也会使 pod 静默未被修改 -- 确认操作员 pod 处于 <code class="docutils literal notranslate"><span class="pre">Running</span></code> 状态，并且 <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> 存在。</p>
 </section>
 <section id="using-the-latest-or-a-pinned-lmcache">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Using the Latest (or a Pinned) lmcache</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-latest-or-a-pinned-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-latest-or-a-pinned-lmcache'"><span>#</span></a></h3>
-<p>By default a vLLM pod runs whatever <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> is baked into its image.  To run
-a <strong>different</strong> lmcache build instead -- e.g. ship the latest lmcache onto an
-older, stable vLLM image, or keep the vLLM client on the exact build its
-<code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> server runs -- set <code class="docutils literal notranslate"><span class="pre">spec.injection.payloadImage</span></code> on the
-engine.  The webhook then additionally stages that image's <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> tree into
-each opted-in pod: an <code class="docutils literal notranslate"><span class="pre">emptyDir</span></code> + an init container that copies the tree in, a
-read-only mount, and <code class="docutils literal notranslate"><span class="pre">PYTHONPATH=/lmcache-payload</span></code> so vLLM imports the staged
-<code class="docutils literal notranslate"><span class="pre">lmcache</span></code> instead of the baked-in one.  No vLLM image rebuild.</p>
-<p><strong>1. Build the payload image.</strong> It ships the unpacked <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> tree under
-<code class="docutils literal notranslate"><span class="pre">/payload</span></code> and copies it to <code class="docutils literal notranslate"><span class="pre">$SHARED_DIR</span></code> on start.  <code class="docutils literal notranslate"><span class="pre">docker/Dockerfile.payload</span></code>
-builds it by extracting an ABI-matched <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> from an lmcache image (the
-<code class="docutils literal notranslate"><span class="pre">SOURCE_IMAGE</span></code> build-arg selects the version):</p>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">使用最新的（或固定的）LMCache</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#using-the-latest-or-a-pinned-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#using-the-latest-or-a-pinned-lmcache'"><span>#</span></a></h3>
+<p>默认情况下，vLLM pod 运行其镜像中内置的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>。要运行 <strong>不同</strong> 的 lmcache 构建，例如将最新的 lmcache 部署到较旧的稳定 vLLM 镜像上，或保持 vLLM 客户端与其 <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> 服务器运行的确切构建相同，请在引擎上设置 <code class="docutils literal notranslate"><span class="pre">spec.injection.payloadImage</span></code>。然后，网络钩子会将该镜像的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 树额外分阶段到每个选择加入的 pod 中：一个 <code class="docutils literal notranslate"><span class="pre">emptyDir</span></code> + 一个初始化容器将树复制进去，一个只读挂载，以及 <code class="docutils literal notranslate"><span class="pre">PYTHONPATH=/lmcache-payload</span></code>，以便 vLLM 导入分阶段的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 而不是内置的版本。无需重建 vLLM 镜像。</p>
+<p><strong>1. 构建负载镜像。</strong> 它在启动时将解压缩的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 树放在 <code class="docutils literal notranslate"><span class="pre">/payload</span></code> 下，并将其复制到 <code class="docutils literal notranslate"><span class="pre">$SHARED_DIR</span></code>。 <code class="docutils literal notranslate"><span class="pre">docker/Dockerfile.payload</span></code> 通过从 lmcache 镜像中提取与 ABI 匹配的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 来构建它（<code class="docutils literal notranslate"><span class="pre">SOURCE_IMAGE</span></code> 构建参数选择版本）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/Dockerfile.payload<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>--build-arg<span class="w"> </span><span class="nv">SOURCE_IMAGE</span><span class="o">=</span>lmcache/vllm-openai:latest-nightly<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-t<span class="w"> </span>&lt;registry&gt;/lmcache-payload:latest<span class="w"> </span>.
 </span><span id="line-4">docker<span class="w"> </span>push<span class="w"> </span>&lt;registry&gt;/lmcache-payload:latest
 </span></code></pre></div>
 </div>
-<p><strong>2. Point the engine at it.</strong> <code class="docutils literal notranslate"><span class="pre">payloadImage.repository</span></code> has no valid default
-(the inherited image default is not a payload), so set it explicitly; leaving
-<code class="docutils literal notranslate"><span class="pre">injection</span></code> unset keeps connection-only wiring.</p>
+<p><strong>2. 指向引擎。</strong> <code class="docutils literal notranslate"><span class="pre">payloadImage.repository</span></code> 没有有效的默认值（继承的镜像默认值不是有效负载），因此需要明确设置；保持 <code class="docutils literal notranslate"><span class="pre">injection</span></code> 未设置将仅保留连接线。</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -589,20 +577,12 @@ builds it by extracting an ABI-matched <code class="docutils literal notranslate
 </span><span id="line-14"><span class="w">    </span><span class="c1">#   - name: my-registry-secret</span>
 </span></code></pre></div>
 </div>
-<p>Opted-in pods bound to this engine (label + annotation as above) need no
-changes -- the webhook stages the payload automatically.  Ready-to-apply
-samples: <code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcacheengine_injection.yaml</span></code> and
-<code class="docutils literal notranslate"><span class="pre">config/samples/vllm_lmcache_injection_deployment.yaml</span></code>.</p>
+<p>绑定到此引擎的选择性 Pod（如上所述的标签 + 注释）无需更改——Webhook 会自动处理有效负载。可应用的示例：<code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcacheengine_injection.yaml</span></code> 和 <code class="docutils literal notranslate"><span class="pre">config/samples/vllm_lmcache_injection_deployment.yaml</span></code>。</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>The payload's <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> must be <strong>ABI-compatible</strong> (same Python minor
-version and a compatible torch) with the vLLM image that imports it -- it
-ships compiled extensions.  If they differ, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">lmcache</span></code> fails with an
-<code class="docutils literal notranslate"><span class="pre">undefined</span> <span class="pre">symbol</span></code> error in the vLLM pod.  Building the payload from an
-lmcache image close to your vLLM image keeps them compatible.</p>
+<p>有效负载的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 必须与导入它的 vLLM 镜像 <a href="#id1"><span class="problematic" id="id2">**</span></a>ABI 兼容**（相同的 Python 次版本和兼容的 torch）——它包含编译的扩展。如果它们不一致，<code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">lmcache</span></code> 在 vLLM pod 中会因 <code class="docutils literal notranslate"><span class="pre">undefined</span> <span class="pre">symbol</span></code> 错误而失败。从与您的 vLLM 镜像接近的 lmcache 镜像构建有效负载可以保持它们的兼容性。</p>
 </div>
-<p><strong>3. Verify the swap</strong> on a running pod -- contrast the normal import with one
-that ignores the injected <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>:</p>
+<p><strong>3. 验证正在运行的 pod 上的交换</strong> -- 将正常导入与忽略注入的 <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> 的导入进行对比：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">POD</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-lmcache-versioned<span class="w"> </span>-o<span class="w"> </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
 </span><span id="line-2">
 </span><span id="line-3"><span class="c1"># imports the STAGED build (from /lmcache-payload):</span>
@@ -614,8 +594,7 @@ that ignores the injected <code class="docutils literal notranslate"><span class
 </span><span id="line-9"><span class="w">  </span><span class="s2">"import lmcache; print(lmcache.__version__, lmcache.__file__)"</span>
 </span></code></pre></div>
 </div>
-<p>Two different sources for the same module confirms the swap.  If nothing was
-staged, check <code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-skip-reason</span></code> on the pod.</p>
+<p>两个不同来源的相同模块确认了交换。如果没有任何内容被预先准备，请检查 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-skip-reason</span></code> 在 pod 上的内容。</p>
 </section>
 </section>
 <section id="verifying-the-deployment">
@@ -1730,7 +1709,7 @@ staged, check <code class="docutils literal notranslate"><span class="pre">lmcac
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">前提条件</a></li>
 <li><a :data-current="activeSection === '#opting-a-vllm-pod-in'" class="reference internal" href="#opting-a-vllm-pod-in">为 vLLM Pod 启用注入</a></li>
 <li><a :data-current="activeSection === '#verifying-injection'" class="reference internal" href="#verifying-injection">验证注入</a></li>
-<li><a :data-current="activeSection === '#using-the-latest-or-a-pinned-lmcache'" class="reference internal" href="#using-the-latest-or-a-pinned-lmcache">Using the Latest (or a Pinned) lmcache</a></li>
+<li><a :data-current="activeSection === '#using-the-latest-or-a-pinned-lmcache'" class="reference internal" href="#using-the-latest-or-a-pinned-lmcache">使用最新的（或固定的）LMCache</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#verifying-the-deployment'" class="reference internal" href="#verifying-the-deployment">验证部署</a></li>

@@ -286,47 +286,27 @@
 <p>聚合数据的一个经过清洗的子集可能会公开发布，以惠及社区（例如，查看每日使用报告 <a class="reference external" href="https://github.com/Hanchenli/OSS_Growth_Toolkit/tree/main/usage_tracker/report">here</a>）。</p>
 <section id="what-data-is-collected">
 <h2>收集了哪些数据？<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-data-is-collected" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-data-is-collected'"><span>#</span></a></h2>
-<p>Usage stats are implemented in the <code class="docutils literal notranslate"><span class="pre">lmcache/usage_telemetry/</span></code> package. The
-one-shot messages sent at startup depend on how LMCache runs.</p>
-<p>When LMCache runs <strong>inside the serving engine</strong> (the single-process
-integrations for vLLM, SGLang, and TensorRT-LLM), engine startup sends:</p>
+<p>使用统计信息在 <code class="docutils literal notranslate"><span class="pre">lmcache/usage_telemetry/</span></code> 包中实现。启动时发送的一次性消息取决于 LMCache 的运行方式。</p>
+<p>当 LMCache <a href="#id1"><span class="problematic" id="id2">**</span></a>在服务引擎内部**（vLLM、SGLang 和 TensorRT-LLM 的单进程集成）运行时，引擎启动会发送：</p>
 <ul class="simple">
 <li><p><strong>EnvMessage</strong> 捕获环境细节，例如云提供商、CPU 信息、总内存、架构、GPU 数量/类型和执行源。</p></li>
 <li><p><strong>EngineMessage</strong> 记录引擎配置和元数据，包括缓存设置（块大小、本地设备、缓存限制）、远程后端参数、混合设置、模型名称、全局大小，以及 KV Cache 的数据类型/形状。</p></li>
 <li><p><strong>MetadataMessage</strong> 报告执行元数据：运行开始的时间戳和总持续时间（以秒为单位）。</p></li>
 </ul>
-<p>When LMCache runs as a <strong>standalone multiprocess (MP) cache server</strong>
-(<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>), server startup sends:</p>
+<p>当 LMCache 作为 <strong>独立的多进程 (MP) 缓存服务器</strong> (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>) 运行时，服务器启动会发送：</p>
 <ul>
-<li><p><strong>EnvMessage</strong>
-Same environment snapshot as above, taken on the cache-server host.</p></li>
-<li><p><strong>MPServerMessage</strong>
-Records the server configuration: LMCache version, chunk size, hash
-algorithm, engine type, transfer mode, worker pool sizes, whether P2P is
-enabled, L1 size and medium (DRAM / GDS / DRAM+DevDAX), eviction policy,
-the configured L2 adapter and serde types, and the L2 store/prefetch
-policies.</p>
-<p>The MP server's <code class="docutils literal notranslate"><span class="pre">--instance-id</span></code> is <strong>never</strong> sent: it can be
-operator-chosen and therefore identifying. Model names are not known at
-server startup (vLLM instances register later) and are not part of this
-message.</p>
+<li><p><strong>EnvMessage</strong> 与上述相同的环境快照，取自缓存服务器主机。</p></li>
+<li><p><strong>MPServerMessage</strong> 记录服务器配置：LMCache 版本、块大小、哈希算法、引擎类型、传输模式、工作池大小、是否启用 P2P、L1 大小和介质（DRAM / GDS / DRAM+DevDAX）、逐出策略、配置的 L2 适配器和序列化类型，以及 L2 存储/预取策略。</p>
+<p>MP 服务器的 <code class="docutils literal notranslate"><span class="pre">--instance-id</span></code> <strong>永远</strong> 不会被发送：它可以由操作员选择，因此可能具有识别性。模型名称在服务器启动时是未知的（vLLM 实例稍后注册），并且不属于此消息的一部分。</p>
 </li>
 </ul>
-<p>In addition to the one-shot messages above, a continuous reporter periodically
-sends interval counters (<strong>ContinuousContextMessage</strong>: tokens stored/hit and
-stored KV bytes in the interval) and a cache-lifespan histogram
-(<strong>CacheLifespanMessage</strong>). The flush interval is controlled by
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_INTERVAL</span></code> (seconds, default 600).</p>
-<p>Every payload carries four common fields:</p>
+<p>除了上述一次性消息外，连续报告器会定期发送区间计数器（<strong>ContinuousContextMessage</strong>：在该区间内存储的令牌/命中和存储的 KV 字节）以及缓存生命周期直方图（<strong>CacheLifespanMessage</strong>）。刷新间隔由 <code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_INTERVAL</span></code> 控制（秒，默认 600）。</p>
+<p>每个有效负载都携带四个公共字段：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">session_id</span></code> -- a random UUID minted once per process, joining the
-one-shot context with the continuous messages of the same run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">machine_id</span></code> -- a random UUID persisted at
-<code class="docutils literal notranslate"><span class="pre">~/.config/lmcache/machine_id</span></code>, grouping sessions from the same machine.
-It is never derived from hardware identifiers (MAC address, hostname).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">schema_version</span></code> -- the version of the message schema.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">deployment_mode</span></code> -- <code class="docutils literal notranslate"><span class="pre">single_process</span></code> (LMCache inside the serving
-engine) or <code class="docutils literal notranslate"><span class="pre">mp_server</span></code> (standalone MP cache server).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">session_id</span></code> -- 每个进程生成一次的随机 UUID，将一次性上下文与同一运行的连续消息连接起来。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">machine_id</span></code> -- 一个随机的 UUID，持久化在 <code class="docutils literal notranslate"><span class="pre">~/.config/lmcache/machine_id</span></code>，用于将来自同一台机器的会话分组。它从不派生自硬件标识符（MAC 地址、主机名）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">schema_version</span></code> -- 消息模式的版本。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment_mode</span></code> -- <a href="#id1"><span class="problematic" id="id2">``</span></a>single_process``（服务引擎内部的 LMCache）或 <a href="#id3"><span class="problematic" id="id4">``</span></a>mp_server``（独立的 MP 缓存服务器）。</p></li>
 </ul>
 <p>这些消息被序列化为 JSON 并通过 POST 发送到 LMCache 使用服务器。</p>
 <section id="example-json-payload">
@@ -358,8 +338,7 @@ engine) or <code class="docutils literal notranslate"><span class="pre">mp_serve
 </section>
 <section id="configuration-opt-out">
 <h2>配置与选择退出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration-opt-out" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration-opt-out'"><span>#</span></a></h2>
-<p>By default, usage tracking is <strong>enabled</strong>. Any one of the following opt-outs
-disables all usage stats collection:</p>
+<p>默认情况下，使用情况跟踪是 <strong>启用</strong> 的。以下任一选择退出将禁用所有使用情况统计收集：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache-specific opt-out</span>
 </span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_TRACK_USAGE</span><span class="o">=</span><span class="nb">false</span>
 </span><span id="line-3">
@@ -367,11 +346,9 @@ disables all usage stats collection:</p>
 </span><span id="line-5"><span class="nb">export</span><span class="w"> </span><span class="nv">DO_NOT_TRACK</span><span class="o">=</span><span class="m">1</span>
 </span></code></pre></div>
 </div>
-<p>When tracking is disabled, <code class="docutils literal notranslate"><span class="pre">InitializeUsageContext</span></code> will return <code class="docutils literal notranslate"><span class="pre">None</span></code> and
-no data will be sent or logged, and no state files (such as <code class="docutils literal notranslate"><span class="pre">machine_id</span></code>)
-will be created.</p>
+<p>当跟踪被禁用时，<code class="docutils literal notranslate"><span class="pre">InitializeUsageContext</span></code> 将返回 <code class="docutils literal notranslate"><span class="pre">None</span></code>，并且不会发送或记录任何数据，也不会创建任何状态文件（例如 <code class="docutils literal notranslate"><span class="pre">machine_id</span></code>）。</p>
 <section id="reference">
-<h3>Reference<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#reference'"><span>#</span></a></h3>
+<h3>参考<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#reference'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 34.0%"/>
@@ -379,33 +356,31 @@ will be created.</p>
 <col style="width: 52.0%"/>
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Environment variable / file</p></th>
-<th class="head"><p>Default</p></th>
-<th class="head"><p>Effect</p></th>
+<tr class="row-odd"><th class="head"><p>环境变量 / 文件</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>效果</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_TRACK_USAGE</span></code></p></td>
-<td><p>unset</p></td>
-<td><p>Set to <code class="docutils literal notranslate"><span class="pre">false</span></code> to disable all usage stats collection.</p></td>
+<td><p>未设置</p></td>
+<td><p>设置为 <code class="docutils literal notranslate"><span class="pre">false</span></code> 以禁用所有使用统计数据收集。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DO_NOT_TRACK</span></code></p></td>
-<td><p>unset</p></td>
-<td><p>Set to <code class="docutils literal notranslate"><span class="pre">1</span></code>/<code class="docutils literal notranslate"><span class="pre">true</span></code>/<code class="docutils literal notranslate"><span class="pre">yes</span></code> to disable collection (cross-tool
-convention).</p></td>
+<td><p>未设置</p></td>
+<td><p>设置为 <code class="docutils literal notranslate"><span class="pre">1</span></code>/<code class="docutils literal notranslate"><span class="pre">true</span></code>/<code class="docutils literal notranslate"><span class="pre">yes</span></code> 以禁用收集（跨工具约定）。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_URL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">http://stats.lmcache.ai:8080</span></code></p></td>
-<td><p>Override the stats server endpoint (e.g. for a private sink).</p></td>
+<td><p>覆盖统计服务器端点（例如，用于私有接收端）。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">600</span></code></p></td>
-<td><p>Seconds between continuous-message flushes.</p></td>
+<td><p>连续消息刷新之间的秒数。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">~/.config/lmcache/machine_id</span></code></p></td>
-<td><p>created on first send</p></td>
-<td><p>Holds the random anonymous machine UUID. Delete it to rotate the
-identifier.</p></td>
+<td><p>首次发送时创建</p></td>
+<td><p>保存随机的匿名机器 UUID。删除它以旋转标识符。</p></td>
 </tr>
 </tbody>
 </table>
@@ -452,7 +427,7 @@ identifier.</p></td>
 </li>
 <li><a :data-current="activeSection === '#previewing-collected-data'" class="reference internal" href="#previewing-collected-data">预览收集的数据</a></li>
 <li><a :data-current="activeSection === '#configuration-opt-out'" class="reference internal" href="#configuration-opt-out">配置与选择退出</a><ul>
-<li><a :data-current="activeSection === '#reference'" class="reference internal" href="#reference">Reference</a></li>
+<li><a :data-current="activeSection === '#reference'" class="reference internal" href="#reference">参考</a></li>
 <li><a :data-current="activeSection === '#local-logging'" class="reference internal" href="#local-logging">本地日志记录</a></li>
 </ul>
 </li>
