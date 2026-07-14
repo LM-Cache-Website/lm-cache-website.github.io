@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>谷歌云 Bigtable | LMCache</title>
-<meta content="谷歌云 Bigtable | LMCache" property="og:title"/>
-<meta content="谷歌云 Bigtable | LMCache" name="twitter:title"/>
+<title>Google Cloud Bigtable Remote Cache | LMCache</title>
+<meta content="Google Cloud Bigtable Remote Cache | LMCache" property="og:title"/>
+<meta content="Google Cloud Bigtable Remote Cache | LMCache" name="twitter:title"/>
 <link href="../../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -147,6 +147,7 @@
 </ul>
 </li>
 <li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../mp/l2_storage/remote_and_distributed.html">远程与分布式<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/bigtable.html">Bigtable</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/s3.html">S3</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
@@ -277,136 +278,218 @@
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../../legacy/index.html">旧版（进程内模式）</a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">使用不同的存储后端</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">谷歌云 Bigtable</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Google Cloud Bigtable Remote Cache</span>
 </nav>
 <div id="content" role="main">
-<section id="google-cloud-bigtable">
-<h1>谷歌云 Bigtable<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#google-cloud-bigtable"><span>#</span></a></h1>
+<section id="google-cloud-bigtable-remote-cache">
+<h1>Google Cloud Bigtable Remote Cache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#google-cloud-bigtable-remote-cache"><span>#</span></a></h1>
 <div class="admonition warning">
 <p class="admonition-title">警告</p>
 <p>本页记录了 LMCache 的进程内模式（已弃用）的行为。请考虑使用 <a class="reference internal" href="../../mp/index.html"><span class="doc">LMCache MP 模式</span></a> 以获得更好的功能支持和性能。有关此页面的 MP 模式等效内容，请参见 <a class="reference internal" href="../../mp/l2_storage/index.html"><span class="doc">二级 KV 存储</span></a>。</p>
 </div>
-<section id="overview">
-<span id="bigtable-overview"></span><h2>概述<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
-<p>Google Cloud Bigtable 是一个 PB 级别的完全托管的 NoSQL 数据库。将 Cloud Bigtable 作为 LMCache 内置的远程存储连接器集成，可以桥接高成本的易失性内存层（Redis）和低成本、高延迟的归档对象存储（S3）。</p>
-<p>有关更多信息，请参阅 <a class="reference external" href="https://cloud.google.com/bigtable/docs/overview">Cloud Bigtable 概述</a> 和 <a class="reference external" href="https://cloud.google.com/bigtable/pricing">Cloud Bigtable 定价</a>。</p>
-</section>
-<section id="architecture-payload-limits">
-<h2>架构与负载限制<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-payload-limits" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-payload-limits'"><span>#</span></a></h2>
+<section id="overview-why-choose-bigtable">
+<span id="bigtable-overview"></span><h2>Overview: Why Choose Bigtable?<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview-why-choose-bigtable" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview-why-choose-bigtable'"><span>#</span></a></h2>
+<p>Cloud Bigtable is ideal for LLM serving workloads that require massive scale without sacrificing performance. It offers:</p>
 <ul class="simple">
-<li><p><strong>块大小优化</strong>：将 LMCache 的逻辑 <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> 设置为 <strong>256 个 token</strong>。这将对有效负载进行分组，以最小化顺序 Point-Read gRPC 调用，防止 Python 事件循环 (GIL) 瓶颈。</p></li>
-<li><p><strong>MutateRow 限制</strong>：对单个 <code class="docutils literal notranslate"><span class="pre">MutateRow</span></code> gRPC 请求强制执行严格的 <strong>90.0 MB 请求限制</strong>。</p></li>
-<li><p><strong>存储层行限制</strong>：<strong>SSD 层</strong>的上限为<strong>每个单元/行 100 MiB</strong>。<strong>企业增强内存层</strong>的限制为<strong>每行 1.0 MiB</strong>。</p></li>
-<li><p><strong>TTLCache 保护</strong>: 嵌入一个线程安全的 <code class="docutils literal notranslate"><span class="pre">TTLCache</span></code>（默认 TTL 为 10 秒），以保护 Bigtable 节点免受并发预取查找峰值的影响。</p></li>
+<li><p><strong>Massive Scalability</strong>: Seamlessly scales to handle petabytes of KV cache data with consistent, single-digit millisecond latency.</p></li>
+<li><p><strong>Enterprise Reliability</strong>: Fully managed with built-in replication, zero-downtime scaling, and robust IAM security.</p></li>
+<li><p><strong>Flexible Storage Tiers</strong>: Choose the right balance of cost and performance for your deployment:
+- <strong>SSD Tier (Recommended)</strong>: Optimized for low-latency, high-throughput caching. Recommended for primary L2 cache setups where retrieval speed is critical.
+- <strong>HDD Tier</strong>: Best for cost-effective, massive-scale archival storage where capacity is the priority over sub-millisecond latency.</p></li>
 </ul>
+<p>---</p>
 </section>
-<section id="infrastructure-setup">
-<h2>基础设施设置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#infrastructure-setup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#infrastructure-setup'"><span>#</span></a></h2>
-<p><strong>1. 启用 GCP API</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<section id="quickstart-lossless-raw-storage">
+<h2>Quickstart: Lossless Raw Storage<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quickstart-lossless-raw-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quickstart-lossless-raw-storage'"><span>#</span></a></h2>
+<p>This tutorial walks you through setting up LMCache with a persistent Cloud Bigtable SSD tier using raw FP16 values (lossless storage).</p>
+<p><strong>Step 1: Enable GCP Bigtable APIs</strong></p>
+<p>Run the following command to enable the necessary Google Cloud services:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">gcloud<span class="w"> </span>services<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>bigtable.googleapis.com<span class="w"> </span>bigtableadmin.googleapis.com<span class="w"> </span>--project<span class="o">=</span>your-gcp-project-id
 </span></code></pre></div>
 </div>
-<p>gcloud services enable bigtable.googleapis.com bigtableadmin.googleapis.com --project=your-gcp-project-id</p>
-<p><strong>2. 配置 Bigtable 实例</strong></p>
-<p>请参阅 <a class="reference external" href="https://cloud.google.com/sdk/gcloud/reference/beta/bigtable">gcloud beta bigtable Reference</a> 以获取更多参数详细信息。</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<p><strong>Step 2: Provision a Bigtable Instance</strong></p>
+<p>Create a single-node Bigtable SSD instance in your preferred zone:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">gcloud<span class="w"> </span>beta<span class="w"> </span>bigtable<span class="w"> </span>instances<span class="w"> </span>create<span class="w"> </span>lmcache-bt-instance<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--display-name<span class="o">=</span><span class="s2">"LMCache SSD Instance"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--edition<span class="o">=</span>ENTERPRISE<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--cluster-storage-type<span class="o">=</span>ssd<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--cluster-config<span class="o">=</span><span class="nv">id</span><span class="o">=</span>lmcache-cluster,zone<span class="o">=</span>us-central1-a,nodes<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--project<span class="o">=</span>your-gcp-project-id
 </span></code></pre></div>
 </div>
-<dl class="simple">
-<dt>gcloud beta bigtable instances create your-bigtable-instance-id \</dt><dd><p>--display-name="LMCache SSD 实例" \ --edition=ENTERPRISE \ --cluster-storage-type=ssd \ --cluster-config=id=your-cluster-id,zone=us-central1-a,nodes=1 \ --project=your-gcp-project-id</p>
-</dd>
-</dl>
-<p><strong>3. 创建数据库表和列族</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<p><strong>Step 3: Create the Database Table</strong></p>
+<p>Create a table and provision a column family named <code class="docutils literal notranslate"><span class="pre">cf</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">gcloud<span class="w"> </span>bigtable<span class="w"> </span>instances<span class="w"> </span>tables<span class="w"> </span>create<span class="w"> </span>lmcache-kv-table<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--instance<span class="o">=</span>lmcache-bt-instance<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--column-families<span class="o">=</span>cf<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--project<span class="o">=</span>your-gcp-project-id
 </span></code></pre></div>
 </div>
-<dl class="simple">
-<dt>gcloud bigtable instances tables create lmcache-benchmark-v1 \</dt><dd><p>--instance=your-bigtable-instance-id \ --column-families=cf \ --project=your-gcp-project-id</p>
-</dd>
-</dl>
-<p><strong>4. 安装 LMCache 和 Bigtable SDK</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<p><strong>Step 4: Install LMCache and Bigtable SDK</strong></p>
+<p>Install LMCache and the Google Cloud Bigtable client library on your serving machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">NO_NATIVE_EXT</span><span class="o">=</span><span class="m">1</span>
+</span><span id="line-2">pip<span class="w"> </span>install<span class="w"> </span>--no-cache-dir<span class="w"> </span>lmcache<span class="w"> </span>google-cloud-bigtable<span class="w"> </span>cachetools
 </span></code></pre></div>
 </div>
-<p>export NO_NATIVE_EXT=1
-pip install --no-cache-dir lmcache google-cloud-bigtable</p>
+<p><strong>Step 5: Configure LMCache</strong></p>
+<p>Create a configuration YAML file (e.g., <code class="docutils literal notranslate"><span class="pre">lmcache_config.yaml</span></code>) with the following setup:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Setup lossless, sharded Bigtable cache</span>
+</span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-3"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-4"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+</span><span id="line-5"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"bigtable://your-gcp-project-id/lmcache-bt-instance"</span>
+</span><span id="line-6"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"naive"</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">  </span><span class="nt">bigtable_project_id</span><span class="p">:</span><span class="w"> </span><span class="s">"your-gcp-project-id"</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">bigtable_instance_id</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-bt-instance"</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">bigtable_table_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-kv-table"</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">bigtable_family_name</span><span class="p">:</span><span class="w"> </span><span class="s">"cf"</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">bigtable_layer_group_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">  </span><span class="c1"># Splits KV chunks across columns to stay under cell size limits</span>
+</span></code></pre></div>
+</div>
+<p><strong>Step 6: Start serving with vLLM</strong></p>
+<p>Launch your vLLM engine pointing to the LMCache configuration:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span>lmcache_config.yaml<span class="w"> </span>vllm<span class="w"> </span>serve<span class="w"> </span>facebook/opt-6.7b
+</span></code></pre></div>
+</div>
+<p>---</p>
 </section>
-<section id="configuration">
-<h2>配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
-<p><strong>示例 A：标准 Bigtable SSD 集成（仅限 L2）</strong></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<section id="advanced-configuration-tutorials">
+<h2>Advanced Configuration Tutorials<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#advanced-configuration-tutorials" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#advanced-configuration-tutorials'"><span>#</span></a></h2>
+<section id="tutorial-1-serving-massive-models-quantized-compression">
+<h3>Tutorial 1: Serving Massive Models (Quantized Compression)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tutorial-1-serving-massive-models-quantized-compression" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tutorial-1-serving-massive-models-quantized-compression'"><span>#</span></a></h3>
+<p>If you are serving extremely large models (e.g., Llama-3.1-405B or long-context 70B models) where raw KV cache chunks exceed 240 MB, you should enable LMCache's native <strong>CacheGen</strong> compression to quantize payloads before storing them in Bigtable.</p>
+<p>Create an <code class="docutils literal notranslate"><span class="pre">lmcache_config_compressed.yaml</span></code> file:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+</span><span id="line-4"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"bigtable://your-gcp-project-id/lmcache-bt-instance"</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Enable CacheGen quantization compression</span>
+</span><span id="line-7"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"cachegen"</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-10"><span class="w">  </span><span class="nt">bigtable_project_id</span><span class="p">:</span><span class="w"> </span><span class="s">"your-gcp-project-id"</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">bigtable_instance_id</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-bt-instance"</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">bigtable_table_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-kv-table"</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">bigtable_family_name</span><span class="p">:</span><span class="w"> </span><span class="s">"cf"</span>
+</span><span id="line-14"><span class="w">  </span><span class="nt">bigtable_layer_group_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">  </span><span class="c1"># Disable sharding (CacheGen output fits easily in a single cell)</span>
 </span></code></pre></div>
 </div>
-<p>chunk_size: 256</p>
-<p>local_cpu: true
-max_local_cpu_size: 10.0
-remote_url: "bigtable://your-gcp-project-id/your-bigtable-instance-id"</p>
-<p>remote_serde: "naive"</p>
-<dl class="simple">
-<dt>额外配置：</dt><dd><p>bigtable_project_id: "你的 GCP 项目 ID" bigtable_instance_id: "你的 Bigtable 实例 ID" bigtable_table_name: "lmcache-benchmark-v1"</p>
-</dd>
-</dl>
-<div class="admonition note">
-<p class="admonition-title">备注</p>
-<p>或者，您可以设置环境变量 <code class="docutils literal notranslate"><span class="pre">BT_PROJECT_ID</span></code>、<code class="docutils literal notranslate"><span class="pre">BT_INSTANCE_ID</span></code> 和 <code class="docutils literal notranslate"><span class="pre">BT_TABLE_NAME</span></code>，而不是使用 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code>。</p>
-</div>
-<p><strong>示例 B：3 层多连接器混合（本地 CPU -&gt; Redis L2 -&gt; Bigtable SSD L3）</strong></p>
-<p>在热缓存回路中部署 Redis，同时将长尾持久存储卸载到 Bigtable SSD，使用 LMCache 的动态有序字典路由。</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
-</span></code></pre></div>
-</div>
-<p>chunk_size: 256
-local_cpu: true
-max_local_cpu_size: 15.0</p>
-<dl>
-<dt>远程存储插件：</dt><dd><ul class="simple">
-<li><p>redis</p></li>
-<li><p>bigtable</p></li>
-</ul>
-</dd>
-<dt>额外配置：</dt><dd><p>remote_storage_plugin.redis.redis_url: "redis://your-redis-host:6379"</p>
-<p>remote_storage_plugin.bigtable.bigtable_project_id: "your-gcp-project-id" remote_storage_plugin.bigtable.bigtable_instance_id: "your-bigtable-instance-id" remote_storage_plugin.bigtable.bigtable_table_name: "lmcache-benchmark-v1" remote_storage_plugin.bigtable.bigtable_family_name: "cf" remote_storage_plugin.bigtable.bigtable_column_name: "data"</p>
-<p>remote_storage_plugin.bigtable.credentials_path: "/etc/gcp/key.json"</p>
-<p>remote_storage_plugin.bigtable.bigtable_max_chunk_size_mb: 90.0
-remote_storage_plugin.bigtable.exists_cache_ttl_seconds: 10.0
-remote_storage_plugin.bigtable.exists_cache_size: 10000</p>
-<p>remote_storage_plugin.bigtable.bigtable_write_timeout_ms: 10000.0
-remote_storage_plugin.bigtable.bigtable_read_timeout_ms: 5000.0</p>
-</dd>
-</dl>
-</section>
-<section id="authentication">
-<h2>身份验证<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#authentication" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#authentication'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><strong>应用默认凭据 (ADC)</strong>：如果 <code class="docutils literal notranslate"><span class="pre">credentials_path</span></code> 被省略或为 <code class="docutils literal notranslate"><span class="pre">null</span></code>，连接器将原生调用 ADC。支持通过 <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">auth</span> <span class="pre">application-default</span> <span class="pre">login</span></code> 进行本地开发或 GKE 工作负载身份联合。</p></li>
-<li><p><strong>显式密钥</strong>：将包含挂载的 GCP 服务账户 JSON 密钥的绝对文件系统路径传递给 <code class="docutils literal notranslate"><span class="pre">credentials_path</span></code>。</p></li>
+<li><p><strong>Benefit</strong>: Compresses the KV cache footprint by <strong>10x to 20x</strong> (reducing a 128MB payload to ~8MB), drastically lowering Bigtable network transfer latency and storage costs.</p></li>
 </ul>
 </section>
-<section id="verification">
-<h2>验证<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verification" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verification'"><span>#</span></a></h2>
-<p>确保您已安装所需的依赖项：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
+<section id="tutorial-2-3-tier-hybrid-storage-local-cpu-redis-bigtable-ssd">
+<h3>Tutorial 2: 3-Tier Hybrid Storage (Local CPU -&gt; Redis -&gt; Bigtable SSD)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tutorial-2-3-tier-hybrid-storage-local-cpu-redis-bigtable-ssd" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#tutorial-2-3-tier-hybrid-storage-local-cpu-redis-bigtable-ssd'"><span>#</span></a></h3>
+<p>For low-latency hot caching, you can place a Redis instance in front of Bigtable. Hot requests are served from Redis, while long-tail persistent caches are offloaded to Bigtable.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15.0</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Define the caching pipeline order</span>
+</span><span id="line-6"><span class="nt">remote_storage_plugins</span><span class="p">:</span>
+</span><span id="line-7"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"redis"</span>
+</span><span id="line-8"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"bigtable"</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-11"><span class="w">  </span><span class="c1"># Redis L2 Configuration</span>
+</span><span id="line-12"><span class="w">  </span><span class="nt">remote_storage_plugin.redis.redis_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://your-redis-host:6379"</span>
+</span><span id="line-13">
+</span><span id="line-14"><span class="w">  </span><span class="c1"># Bigtable L3 Configuration</span>
+</span><span id="line-15"><span class="w">  </span><span class="nt">remote_storage_plugin.bigtable.bigtable_project_id</span><span class="p">:</span><span class="w"> </span><span class="s">"your-gcp-project-id"</span>
+</span><span id="line-16"><span class="w">  </span><span class="nt">remote_storage_plugin.bigtable.bigtable_instance_id</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-bt-instance"</span>
+</span><span id="line-17"><span class="w">  </span><span class="nt">remote_storage_plugin.bigtable.bigtable_table_name</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-kv-table"</span>
+</span><span id="line-18"><span class="w">  </span><span class="nt">remote_storage_plugin.bigtable.bigtable_family_name</span><span class="p">:</span><span class="w"> </span><span class="s">"cf"</span>
+</span><span id="line-19"><span class="w">  </span><span class="nt">remote_storage_plugin.bigtable.bigtable_layer_group_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </span></code></pre></div>
 </div>
-<p>pip install cachetools google-cloud-bigtable</p>
-<p>运行单元测试：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">
-</span></code></pre></div>
-</div>
-<p>pytest tests/v1/storage_backend/test_bigtable_connector.py</p>
+<p>---</p>
 </section>
-<section id="troubleshooting-large-payload-warnings">
-<h2>处理大负载警告<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#troubleshooting-large-payload-warnings" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#troubleshooting-large-payload-warnings'"><span>#</span></a></h2>
-<p>如果您在日志中看到警告，指示块大小超过限制并被跳过（例如 <code class="docutils literal notranslate"><span class="pre">Bigtable</span> <span class="pre">chunk</span> <span class="pre">size</span> <span class="pre">...</span> <span class="pre">MB</span> <span class="pre">exceeds</span> <span class="pre">threshold</span> <span class="pre">...</span> <span class="pre">MB.</span> <span class="pre">Skipping</span> <span class="pre">write</span> <span class="pre">to</span> <span class="pre">prevent</span> <span class="pre">hard</span> <span class="pre">failures</span></code>），请选择以下方法之一：</p>
-<ol class="arabic">
-<li><p><strong>减少 LMCache 块大小（推荐）</strong>：序列化块大小取决于 LMCache 的逻辑 <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code>（每块的令牌数量）和模型形状。您可以在配置文件中将 <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code>（例如，从 <code class="docutils literal notranslate"><span class="pre">256</span></code> 减少到 <code class="docutils literal notranslate"><span class="pre">128</span></code>）来缩小单个块的有效负载。</p></li>
-<li><p><strong>增加最大块大小</strong>：如果您的 Bigtable 实例使用 SSD 存储层（支持每个单元/行最多 100 MB），您可以在配置中将允许的最大写入阈值提高到 <code class="docutils literal notranslate"><span class="pre">99.0</span></code> MB，使用 <code class="docutils literal notranslate"><span class="pre">bigtable_max_chunk_size_mb</span></code> 配置键（或 <code class="docutils literal notranslate"><span class="pre">BT_MAX_CHUNK_SIZE_MB</span></code> 环境变量）。</p>
-<div class="admonition warning">
-<p class="admonition-title">警告</p>
-<p>请勿将 <code class="docutils literal notranslate"><span class="pre">bigtable_max_chunk_size_mb</span></code> 设置得高于 <code class="docutils literal notranslate"><span class="pre">100.0</span></code> MB。虽然 Cloud Bigtable 支持单行高达 <code class="docutils literal notranslate"><span class="pre">256.0</span></code> MB，但单个单元格值（LMCache 用于存储块负载的值）有一个硬限制为 <code class="docutils literal notranslate"><span class="pre">100.0</span></code> MB。超过此限制将触发硬 gRPC 异常。</p>
-</div>
-</li>
-</ol>
+</section>
+<section id="configuration-reference">
+<h2>Configuration Reference<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration-reference'"><span>#</span></a></h2>
+<p>Configure the following options inside the <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> dictionary in your configuration file:</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Bigtable Configuration Parameters</span><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id1"><span>#</span></a></caption>
+<colgroup>
+<col style="width: 25.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_project_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>None</p></td>
+<td><p>Your Google Cloud Project ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_instance_id</span></code></p></td>
+<td><p>string</p></td>
+<td><p>None</p></td>
+<td><p>Your Cloud Bigtable Instance ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_table_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>None</p></td>
+<td><p>Bigtable table name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_family_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cf</span></code></p></td>
+<td><p>Bigtable column family name.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_layer_group_size</span></code></p></td>
+<td><p>integer</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>Number of layers per column group. Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> to disable Layer-Group Sharding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_max_chunk_size_mb</span></code></p></td>
+<td><p>float</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">90.0</span></code></p></td>
+<td><p>The maximum allowed write limit when sharding is disabled. Writes exceeding this are safely skipped.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">credentials_path</span></code></p></td>
+<td><p>string</p></td>
+<td><p>None</p></td>
+<td><p>Absolute path to a GCP Service Account JSON key file. If omitted, LMCache defaults to Application Default Credentials (ADC).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">exists_cache_ttl_seconds</span></code></p></td>
+<td><p>float</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10.0</span></code></p></td>
+<td><p>TTL for shielding lookups on Bigtable nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_write_timeout_ms</span></code></p></td>
+<td><p>float</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10000.0</span></code></p></td>
+<td><p>Maximum timeout for database writes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bigtable_read_timeout_ms</span></code></p></td>
+<td><p>float</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5000.0</span></code></p></td>
+<td><p>Maximum timeout for database reads.</p></td>
+</tr>
+</tbody>
+</table>
+<p>---</p>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#troubleshooting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#troubleshooting'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>Authentication Failures</strong>: If <code class="docutils literal notranslate"><span class="pre">credentials_path</span></code> is omitted, ensure your environment is authenticated via <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">auth</span> <span class="pre">application-default</span> <span class="pre">login</span></code> or configured with GKE Workload Identity Federation.</p></li>
+<li><p><strong>Writes are skipped / "Bigtable chunk size exceeds threshold"</strong>:
+*   If using uncompressed storage (<code class="docutils literal notranslate"><span class="pre">remote_serde:</span> <span class="pre">"naive"</span></code>), verify that <code class="docutils literal notranslate"><span class="pre">bigtable_layer_group_size</span></code> is set to <code class="docutils literal notranslate"><span class="pre">10</span></code> to enable Layer-Group Sharding (allows writes up to 240MB).
+*   Alternatively, enable compression by setting <code class="docutils literal notranslate"><span class="pre">remote_serde:</span> <span class="pre">"cachegen"</span></code> and set <code class="docutils literal notranslate"><span class="pre">bigtable_layer_group_size:</span> <span class="pre">0</span></code>.</p></li>
+<li><p><strong>Redundant RPC Warnings</strong>: If you see a warning about <code class="docutils literal notranslate"><span class="pre">use_layerwise</span></code> running with sharding, disable it by setting <code class="docutils literal notranslate"><span class="pre">use_layerwise:</span> <span class="pre">false</span></code> in your YAML configuration. Layer-Group Sharding optimizes reads into a single network roundtrip, whereas <code class="docutils literal notranslate"><span class="pre">use_layerwise:</span> <span class="pre">true</span></code> forces 32+ sequential network calls.</p></li>
+</ul>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -429,13 +512,15 @@ remote_storage_plugin.bigtable.bigtable_read_timeout_ms: 5000.0</p>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">概述</a></li>
-<li><a :data-current="activeSection === '#architecture-payload-limits'" class="reference internal" href="#architecture-payload-limits">架构与负载限制</a></li>
-<li><a :data-current="activeSection === '#infrastructure-setup'" class="reference internal" href="#infrastructure-setup">基础设施设置</a></li>
-<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">配置</a></li>
-<li><a :data-current="activeSection === '#authentication'" class="reference internal" href="#authentication">身份验证</a></li>
-<li><a :data-current="activeSection === '#verification'" class="reference internal" href="#verification">验证</a></li>
-<li><a :data-current="activeSection === '#troubleshooting-large-payload-warnings'" class="reference internal" href="#troubleshooting-large-payload-warnings">处理大负载警告</a></li>
+<li><a :data-current="activeSection === '#overview-why-choose-bigtable'" class="reference internal" href="#overview-why-choose-bigtable">Overview: Why Choose Bigtable?</a></li>
+<li><a :data-current="activeSection === '#quickstart-lossless-raw-storage'" class="reference internal" href="#quickstart-lossless-raw-storage">Quickstart: Lossless Raw Storage</a></li>
+<li><a :data-current="activeSection === '#advanced-configuration-tutorials'" class="reference internal" href="#advanced-configuration-tutorials">Advanced Configuration Tutorials</a><ul>
+<li><a :data-current="activeSection === '#tutorial-1-serving-massive-models-quantized-compression'" class="reference internal" href="#tutorial-1-serving-massive-models-quantized-compression">Tutorial 1: Serving Massive Models (Quantized Compression)</a></li>
+<li><a :data-current="activeSection === '#tutorial-2-3-tier-hybrid-storage-local-cpu-redis-bigtable-ssd'" class="reference internal" href="#tutorial-2-3-tier-hybrid-storage-local-cpu-redis-bigtable-ssd">Tutorial 2: 3-Tier Hybrid Storage (Local CPU -&gt; Redis -&gt; Bigtable SSD)</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#configuration-reference'" class="reference internal" href="#configuration-reference">Configuration Reference</a></li>
+<li><a :data-current="activeSection === '#troubleshooting'" class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 </ul>
 </div>
 </aside>
