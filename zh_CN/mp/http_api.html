@@ -414,7 +414,9 @@
 </tr>
 <tr class="row-odd"><td><p>DELETE</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/cache/objects</span></code></p></td>
-<td><p>删除调用者提供的对象键列表（主体：<code class="docutils literal notranslate"><span class="pre">tier</span></code>，<code class="docutils literal notranslate"><span class="pre">adapter</span></code>，<code class="docutils literal notranslate"><span class="pre">keys</span></code>）。</p></td>
+<td><p>Delete a caller-supplied list of object keys from L1, L2, or both (body:
+<code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">tier</span></code>, <code class="docutils literal notranslate"><span class="pre">force</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter</span></code>). <code class="docutils literal notranslate"><span class="pre">force</span></code> deletes L1 keys
+even if locked.</p></td>
 </tr>
 <tr class="row-even"><td><p>POST</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/cache/prefetches</span></code></p></td>
@@ -888,12 +890,23 @@
 <p>另一对 — <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code> 和 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{request_id}</span></code> — 允许操作员（或协调者）**预热**节点的 L1 以便在流量到来之前从 L2 加载，并轮询加载直到完成；它们在本节末尾有文档说明。协调者提供了一个基于 <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> 的变体 — 参见 <a class="reference internal" href="coordinator.html"><span class="doc">多服务器协调</span></a>。</p>
 <p>两个对象端点都接受一个可选的 <code class="docutils literal notranslate"><span class="pre">adapter</span></code> 选择器 — 在 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> 上的查询参数（<code class="docutils literal notranslate"><span class="pre">?adapter=&lt;type_name&gt;</span></code>）和在 <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> 上的主体字段。省略它将针对 <a href="#id1"><span class="problematic" id="id2">**</span></a>主要**（首次配置的）适配器。当多个适配器共享同一个 <code class="docutils literal notranslate"><span class="pre">type_name</span></code> 时，第一个匹配的适配器将生效。使用 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> 来了解有效的选择器。</p>
 <p>这两个接口旨在用于操作员/管理员工作流程（“清除该用户的键”，“显示当前驻留的内容”，“在重命名后收集孤儿”）。它们**不**在推理数据路径上。</p>
-<p>L1 被故意不触及。从 L2 删除的键可能仍会从 L1 返回，直到 L1 逐出控制器自然过期；需要 L1+L2 清除的调用者应该自行分层 L1 失效或等待自然 L1 逐出。</p>
+<p><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> deletes from L1, L2, or both, selected by its <code class="docutils literal notranslate"><span class="pre">tier</span></code>
+field (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> lists L2 only.</p>
 <p>协调器的逐出循环自动使用 <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects``（参见</span> <span class="pre">:doc:`coordinator`</span> <span class="pre">—</span> <span class="pre">“L2</span> <span class="pre">使用跟踪和逐出”）；``GET</span> <span class="pre">/cache/objects</span></code> 端点也支持协调器的启动重新同步。手动使用 <code class="docutils literal notranslate"><span class="pre">curl</span></code> 保留给临时操作员操作和调试。</p>
 <section id="delete-cache-objects">
 <h3><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-objects" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-objects'"><span>#</span></a></h3>
-<p>从一个层/适配器中删除调用者提供的键列表。幂等：适配器中缺失的键会被静默跳过；当前被进行中的存储/加载任务锁定的键会被跳过，以确保删除操作不会破坏正在进行的传输。阻塞适配器调用在事件循环之外运行。</p>
-<p>每个键成功删除时会在适配器的监听器上触发 <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> — 当协调器已连接时（参见 <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>），删除操作会以 <code class="docutils literal notranslate"><span class="pre">\"type\":</span> <span class="pre">\"delete\"</span></code> 事件的形式出现在协调器的 <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code> 中。协调器的逐出和使用跟踪器通过该事件流了解删除情况，而不是通过此调用的响应。</p>
+<p>Delete a caller-supplied list of keys from L1, L2, or both (<code class="docutils literal notranslate"><span class="pre">tier</span></code>).
+Idempotent: absent keys are skipped silently. L2 deletes skip keys locked by
+in-flight store/load tasks so an active transfer is never corrupted; L1 deletes
+skip read/write-locked keys unless <code class="docutils literal notranslate"><span class="pre">force</span></code> is set. Blocking adapter I/O is run
+off the event loop. When the tier includes L2 the primary (or selected) L2
+adapter must be configured, else <code class="docutils literal notranslate"><span class="pre">503</span></code>; a pure <code class="docutils literal notranslate"><span class="pre">l1</span></code> delete needs no adapter.</p>
+<p>Per-key successful L2 deletions fire <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> on the
+adapter's listeners — when the coordinator is wired (see
+<code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>), the deletions show up at the
+coordinator's <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code> as <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"delete"</span></code> events. The
+coordinator's eviction + usage trackers learn about the deletion from
+that event flow, not from the response of this call.</p>
 <p><strong>请求主体：</strong></p>
 <table class="docutils align-default">
 <colgroup>
@@ -914,11 +927,18 @@
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
 <td><p>字符串</p></td>
-<td><p>可选（默认 <code class="docutils literal notranslate"><span class="pre">l2</span></code>）。唯一支持的值。</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). One of <code class="docutils literal notranslate"><span class="pre">l1</span></code> / <code class="docutils literal notranslate"><span class="pre">l2</span></code> / <code class="docutils literal notranslate"><span class="pre">all</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">force</span></code></p></td>
+<td><p>布尔值</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">false</span></code>). When <code class="docutils literal notranslate"><span class="pre">true</span></code>, delete an L1 key even if it
+is read/write-locked (no effect on L2).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
 <td><p>字符串</p></td>
-<td><p>可选（默认值：主适配器，首次配置的适配器）。目标适配器的 <code class="docutils literal notranslate"><span class="pre">type_name``（参见</span> <span class="pre">``GET</span> <span class="pre">/config/adapters</span></code>）。</p></td>
+<td><p>Optional (default: primary, first-configured adapter). The <code class="docutils literal notranslate"><span class="pre">type_name</span></code>
+of the target L2 adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>); ignored when
+<code class="docutils literal notranslate"><span class="pre">tier</span></code> is <code class="docutils literal notranslate"><span class="pre">l1</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -935,30 +955,36 @@
 <p><code class="docutils literal notranslate"><span class="pre">object_group_id``（默认</span> <span class="pre">``0</span></code>）和 <code class="docutils literal notranslate"><span class="pre">cache_salt``（默认</span> <span class="pre">``""</span></code>）是为了与旧的 wire 负载向后兼容而可选的。</p>
 <p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"adapter"</span><span class="p">:</span><span class="w"> </span><span class="s2">"S3L2Adapter"</span><span class="p">,</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"deleted"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"skipped"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 </span><span id="line-4"><span class="w">  </span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 </span><span id="line-5"><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p>在适配器级别失败时，响应仍然是 <code class="docutils literal notranslate"><span class="pre">200</span></code>，并且 <code class="docutils literal notranslate"><span class="pre">ok=false</span></code>，同时 <code class="docutils literal notranslate"><span class="pre">error</span></code> 字段包含原因。</p>
+<p><code class="docutils literal notranslate"><span class="pre">deleted</span></code> is the total keys removed across the requested tiers (L1 removals
+plus the L2 batch size); <code class="docutils literal notranslate"><span class="pre">skipped</span></code> is the L1 keys refused because they were
+locked (non-force only). On an L2 adapter failure the response is still <code class="docutils literal notranslate"><span class="pre">200</span></code>
+with <code class="docutils literal notranslate"><span class="pre">ok=false</span></code> and an <code class="docutils literal notranslate"><span class="pre">error</span></code> field carrying the reason.</p>
 <p><strong>HTTP 状态码:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: 请求已到达适配器（检查 <code class="docutils literal notranslate"><span class="pre">ok</span></code> 以获取结果）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: request processed (check <code class="docutils literal notranslate"><span class="pre">ok</span></code> for the L2 adapter outcome).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: 批量超出限制，或者一个键负载违反了 <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> 不变式（错误的十六进制，<code class="docutils literal notranslate"><span class="pre">model_name</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">@</span></code>，禁止的 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 字符）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: <a href="#id1"><span class="problematic" id="id2">``</span></a>adapter``（主体）与任何已配置的适配器不匹配。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: Pydantic 级别的主体形状失败（缺少 <code class="docutils literal notranslate"><span class="pre">keys</span></code>，字段类型错误）。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化，或未配置 L2 适配器。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized, or no L2 adapters configured (only when
+<code class="docutils literal notranslate"><span class="pre">tier</span></code> includes L2).</p></li>
 </ul>
-<p><strong>示例：</strong></p>
+<p><strong>Example:</strong> delete from both tiers.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:8080/cache/objects<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-4"><span class="s1">        "keys": [</span>
-</span><span id="line-5"><span class="s1">          {"chunk_hash_hex": "aa", "model_name": "m",</span>
-</span><span id="line-6"><span class="s1">           "kv_rank": 0, "object_group_id": 0, "cache_salt": "user-a"}</span>
-</span><span id="line-7"><span class="s1">        ]</span>
-</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-4"><span class="s1">        "tier": "all",</span>
+</span><span id="line-5"><span class="s1">        "keys": [</span>
+</span><span id="line-6"><span class="s1">          {"chunk_hash_hex": "aa", "model_name": "m",</span>
+</span><span id="line-7"><span class="s1">           "kv_rank": 0, "object_group_id": 0, "cache_salt": "user-a"}</span>
+</span><span id="line-8"><span class="s1">        ]</span>
+</span><span id="line-9"><span class="s1">    }'</span>
+</span><span id="line-10"><span class="c1"># -&gt; {"deleted": 2, "skipped": 0, "ok": true}</span>
 </span></code></pre></div>
 </div>
 </section>

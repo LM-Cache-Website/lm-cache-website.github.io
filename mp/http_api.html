@@ -449,8 +449,9 @@ prefetch jobs) for inspection and debugging.</p></td>
 </tr>
 <tr class="row-odd"><td><p>DELETE</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/cache/objects</span></code></p></td>
-<td><p>Delete a caller-supplied list of object keys (body: <code class="docutils literal notranslate"><span class="pre">tier</span></code>,
-<code class="docutils literal notranslate"><span class="pre">adapter</span></code>, <code class="docutils literal notranslate"><span class="pre">keys</span></code>).</p></td>
+<td><p>Delete a caller-supplied list of object keys from L1, L2, or both (body:
+<code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">tier</span></code>, <code class="docutils literal notranslate"><span class="pre">force</span></code>, <code class="docutils literal notranslate"><span class="pre">adapter</span></code>). <code class="docutils literal notranslate"><span class="pre">force</span></code> deletes L1 keys
+even if locked.</p></td>
 </tr>
 <tr class="row-even"><td><p>POST</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/cache/prefetches</span></code></p></td>
@@ -995,10 +996,8 @@ selectors.</p>
 <p>Both are intended for operator / admin workflows (“purge this
 user’s keys”, “show me what’s resident”, “garbage-collect orphans
 after a rename”). They are <strong>not</strong> on the inference data path.</p>
-<p>L1 is intentionally not touched. Keys deleted from L2 may still return
-from L1 until the L1 eviction controller expires them naturally;
-callers that need an L1+L2 purge should layer their own L1
-invalidation or wait for natural L1 eviction.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> deletes from L1, L2, or both, selected by its <code class="docutils literal notranslate"><span class="pre">tier</span></code>
+field (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> lists L2 only.</p>
 <p>The coordinator’s eviction loop uses <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> automatically (see
 <a class="reference internal" href="coordinator.html"><span class="doc">Multi-Server Coordination</span></a> — “L2 usage tracking and eviction”); the
 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> endpoint also powers the coordinator’s startup
@@ -1006,12 +1005,13 @@ resync. Manual <code class="docutils literal notranslate"><span class="pre">curl
 actions and debugging.</p>
 <section id="delete-cache-objects">
 <h3><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-objects" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-objects'"><span>#</span></a></h3>
-<p>Delete a caller-supplied list of keys from one tier/adapter.
-Idempotent: keys absent from the adapter are skipped silently; keys
-currently locked by in-flight store/load tasks are skipped so the
-delete never corrupts an active transfer. The blocking adapter call is
-run off the event loop.</p>
-<p>Per-key successful deletions fire <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> on the
+<p>Delete a caller-supplied list of keys from L1, L2, or both (<code class="docutils literal notranslate"><span class="pre">tier</span></code>).
+Idempotent: absent keys are skipped silently. L2 deletes skip keys locked by
+in-flight store/load tasks so an active transfer is never corrupted; L1 deletes
+skip read/write-locked keys unless <code class="docutils literal notranslate"><span class="pre">force</span></code> is set. Blocking adapter I/O is run
+off the event loop. When the tier includes L2 the primary (or selected) L2
+adapter must be configured, else <code class="docutils literal notranslate"><span class="pre">503</span></code>; a pure <code class="docutils literal notranslate"><span class="pre">l1</span></code> delete needs no adapter.</p>
+<p>Per-key successful L2 deletions fire <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> on the
 adapter’s listeners — when the coordinator is wired (see
 <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code>), the deletions show up at the
 coordinator’s <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code> as <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"delete"</span></code> events. The
@@ -1038,12 +1038,18 @@ capped at <code class="docutils literal notranslate"><span class="pre">10000</sp
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
 <td><p>string</p></td>
-<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). The only supported value.</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). One of <code class="docutils literal notranslate"><span class="pre">l1</span></code> / <code class="docutils literal notranslate"><span class="pre">l2</span></code> / <code class="docutils literal notranslate"><span class="pre">all</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">force</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">false</span></code>). When <code class="docutils literal notranslate"><span class="pre">true</span></code>, delete an L1 key even if it
+is read/write-locked (no effect on L2).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code></p></td>
 <td><p>string</p></td>
-<td><p>Optional (default: primary, first-configured adapter). The
-<code class="docutils literal notranslate"><span class="pre">type_name</span></code> of the target adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>).</p></td>
+<td><p>Optional (default: primary, first-configured adapter). The <code class="docutils literal notranslate"><span class="pre">type_name</span></code>
+of the target L2 adapter (see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code>); ignored when
+<code class="docutils literal notranslate"><span class="pre">tier</span></code> is <code class="docutils literal notranslate"><span class="pre">l1</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1061,34 +1067,39 @@ capped at <code class="docutils literal notranslate"><span class="pre">10000</sp
 are optional for backward compatibility with older wire payloads.</p>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"adapter"</span><span class="p">:</span><span class="w"> </span><span class="s2">"S3L2Adapter"</span><span class="p">,</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"deleted"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"skipped"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 </span><span id="line-4"><span class="w">  </span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 </span><span id="line-5"><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p>On adapter-level failure the response is still <code class="docutils literal notranslate"><span class="pre">200</span></code> with
-<code class="docutils literal notranslate"><span class="pre">ok=false</span></code> and an <code class="docutils literal notranslate"><span class="pre">error</span></code> field carrying the reason.</p>
+<p><code class="docutils literal notranslate"><span class="pre">deleted</span></code> is the total keys removed across the requested tiers (L1 removals
+plus the L2 batch size); <code class="docutils literal notranslate"><span class="pre">skipped</span></code> is the L1 keys refused because they were
+locked (non-force only). On an L2 adapter failure the response is still <code class="docutils literal notranslate"><span class="pre">200</span></code>
+with <code class="docutils literal notranslate"><span class="pre">ok=false</span></code> and an <code class="docutils literal notranslate"><span class="pre">error</span></code> field carrying the reason.</p>
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: request reached the adapter (check <code class="docutils literal notranslate"><span class="pre">ok</span></code> for outcome).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: request processed (check <code class="docutils literal notranslate"><span class="pre">ok</span></code> for the L2 adapter outcome).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: batch exceeds the limit, or a key payload violates an
 <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> invariant (bad hex, <code class="docutils literal notranslate"><span class="pre">@</span></code> in <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, forbidden
 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> character).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: <code class="docutils literal notranslate"><span class="pre">adapter</span></code> (body) does not match any configured adapter.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: Pydantic-level body-shape failure (missing <code class="docutils literal notranslate"><span class="pre">keys</span></code>,
 wrong field types).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized, or no L2 adapters configured.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized, or no L2 adapters configured (only when
+<code class="docutils literal notranslate"><span class="pre">tier</span></code> includes L2).</p></li>
 </ul>
-<p><strong>Example:</strong></p>
+<p><strong>Example:</strong> delete from both tiers.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:8080/cache/objects<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-4"><span class="s1">        "keys": [</span>
-</span><span id="line-5"><span class="s1">          {"chunk_hash_hex": "aa", "model_name": "m",</span>
-</span><span id="line-6"><span class="s1">           "kv_rank": 0, "object_group_id": 0, "cache_salt": "user-a"}</span>
-</span><span id="line-7"><span class="s1">        ]</span>
-</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-4"><span class="s1">        "tier": "all",</span>
+</span><span id="line-5"><span class="s1">        "keys": [</span>
+</span><span id="line-6"><span class="s1">          {"chunk_hash_hex": "aa", "model_name": "m",</span>
+</span><span id="line-7"><span class="s1">           "kv_rank": 0, "object_group_id": 0, "cache_salt": "user-a"}</span>
+</span><span id="line-8"><span class="s1">        ]</span>
+</span><span id="line-9"><span class="s1">    }'</span>
+</span><span id="line-10"><span class="c1"># -&gt; {"deleted": 2, "skipped": 0, "ok": true}</span>
 </span></code></pre></div>
 </div>
 </section>

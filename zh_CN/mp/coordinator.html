@@ -312,6 +312,7 @@
 <li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id21"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
 <li><p><a class="reference internal" href="#post-cache-pins" id="id22"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></p></li>
 <li><p><a class="reference internal" href="#delete-cache-pins" id="id23"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-delete" id="id24"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
 </ul>
 </li>
 </ul>
@@ -454,7 +455,8 @@
 <ul class="simple">
 <li><p><strong>车队成员资格和健康</strong> -- 注册和存活 (<code class="docutils literal notranslate"><span class="pre">/instances</span></code>, <code class="docutils literal notranslate"><span class="pre">/healthz</span></code>)。</p></li>
 <li><p><strong>配额、使用情况和逐出</strong> -- <code class="docutils literal notranslate"><span class="pre">/quota</span></code> 组：每个租户的字节预算、使用情况核算，以及驱动全队逐出的使用事件摄取。</p></li>
-<li><p><strong>缓存控制</strong> -- <code class="docutils literal notranslate"><span class="pre">/cache</span></code> 组：分派到命名服务器的缓存操作（热预取和固定/取消固定，更多功能即将推出）。</p></li>
+<li><p><strong>Cache control</strong> -- the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
+named server (warm prefetch, pin/unpin, and delete, with more to come).</p></li>
 </ul>
 <p>每个端点的文档如下。成功状态为 <code class="docutils literal notranslate"><span class="pre">200</span></code>，除非另有说明，<code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> 使用 <code class="docutils literal notranslate"><span class="pre">_default</span></code> 哨兵表示空盐。数据类型位于 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>。</p>
 </section>
@@ -840,7 +842,9 @@
 </section>
 <section id="cache-control">
 <h2><a class="toc-backref" href="#id19" role="doc-backlink">缓存控制</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">/cache</span></code> 组将缓存操作分派到命名的 MP 服务器。它涵盖 <strong>热预取</strong> 和 <strong>固定/解固定</strong>；进一步的缓存控制操作将在此处作为端点进行文档记录。</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. It covers
+<strong>warm prefetch</strong>, <strong>pin/unpin</strong>, and <strong>delete</strong>; further cache-control
+operations will be documented as endpoints here as they land.</p>
 <p><strong>热预取（从 L2 预加载 L1）。</strong> 在请求到达之前，用已知提示的 KV 预热一个 MP 服务器的 L1，以便第一个请求命中 L1，而不是支付 L2 内联获取的费用——当您知道工作负载即将路由到节点（流量转移、热共享系统提示）时，这非常有用。</p>
 <p>您通过 <strong>token ids</strong> 描述内容——缓存使用的单位——而不是通过内部缓存键，您无法构造这些键（键是内容哈希加上每个排名的布局位图）。协调器将请求转发到指定的服务器，该服务器对令牌进行哈希，将它们扩展到节点的各个排名，从 L2 加载块到 L1，并 <strong>保留</strong> 它们，以便后续查找命中。提交返回一个 <code class="docutils literal notranslate"><span class="pre">request_id</span></code>；轮询状态端点直到 <code class="docutils literal notranslate"><span class="pre">completed</span></code>。预热不需要获取锁——轮询仅报告进度，并在加载完成后清除服务器端作业。</p>
 <section id="post-cache-prefetches">
@@ -1045,6 +1049,56 @@
 </span><span id="line-9"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "unpinned"}</span>
 </span></code></pre></div>
 </div>
+<p><strong>Delete (removing cache by token sequence).</strong> Delete a token sequence's cache
+on one named server, addressed by token ids. The coordinator resolves the tokens
+to object keys locally (like pin) and issues a single key-addressed
+<code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code> to the named server, which removes them from the
+requested tier(s). The <code class="docutils literal notranslate"><span class="pre">tier</span></code> field selects the tier(s): <code class="docutils literal notranslate"><span class="pre">l1</span></code> deletes only
+the named server's L1, <code class="docutils literal notranslate"><span class="pre">l2</span></code> only L2, <code class="docutils literal notranslate"><span class="pre">all</span></code> both. When the tier includes L2,
+the coordinator first drops any key it is protecting with an L2 pin from the
+delete set unless <code class="docutils literal notranslate"><span class="pre">force</span></code> is set — so a pinned key is retained in every tier
+the delete would have touched; <code class="docutils literal notranslate"><span class="pre">force</span></code> deletes them and drops those pins.</p>
+</section>
+<section id="post-cache-delete">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-delete" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-delete'"><span>#</span></a></h3>
+<p>Delete a token sequence on one named server.</p>
+<p><strong>Request body:</strong> (<code class="docutils literal notranslate"><span class="pre">model_name</span></code>,
+<code class="docutils literal notranslate"><span class="pre">world_size</span></code>, <code class="docutils literal notranslate"><span class="pre">token_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>) plus <code class="docutils literal notranslate"><span class="pre">tier</span></code> (<code class="docutils literal notranslate"><span class="pre">l1</span></code> / <code class="docutils literal notranslate"><span class="pre">l2</span></code> /
+<code class="docutils literal notranslate"><span class="pre">all</span></code>) and <code class="docutils literal notranslate"><span class="pre">force</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">false</span></code>). When <code class="docutils literal notranslate"><span class="pre">force</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>,
+locked keys are deleted anyway (L1 read/write locks on the node and the
+coordinator's L2 pin set).</p>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"affected"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"skipped"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deleted"</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">requested</span></code> is the number of whole chunks resolved. <code class="docutils literal notranslate"><span class="pre">affected</span></code> and
+<code class="docutils literal notranslate"><span class="pre">skipped</span></code> are <strong>totals across the tiers acted on</strong>: <code class="docutils literal notranslate"><span class="pre">affected</span></code> counts L1 keys
+removed by the node plus L2 keys removed by the coordinator, and <code class="docutils literal notranslate"><span class="pre">skipped</span></code>
+counts L1 keys the node refused plus L2 keys held back for an L2 pin (non-force
+only). A chunk resident in both tiers (<code class="docutils literal notranslate"><span class="pre">tier=all</span></code>) contributes to both counts,
+so <code class="docutils literal notranslate"><span class="pre">affected</span></code> may be up to <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">x</span> <span class="pre">requested</span> <span class="pre">x</span> <span class="pre">world_size</span></code>. A sub-chunk
+sequence returns <code class="docutils literal notranslate"><span class="pre">status</span></code> <code class="docutils literal notranslate"><span class="pre">"noop"</span></code>.</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: deleted (or a <code class="docutils literal notranslate"><span class="pre">noop</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: no server is registered under <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">502</span></code>: the target server was unreachable or rejected the delete.</p></li>
+</ul>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/cache/delete<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
+</span><span id="line-5"><span class="s1">        "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-6"><span class="s1">        "world_size": 1,</span>
+</span><span id="line-7"><span class="s1">        "token_ids": [101, 102, 103, "..."],</span>
+</span><span id="line-8"><span class="s1">        "cache_salt": "user-a",</span>
+</span><span id="line-9"><span class="s1">        "tier": "all",</span>
+</span><span id="line-10"><span class="s1">        "force": false</span>
+</span><span id="line-11"><span class="s1">    }'</span>
+</span><span id="line-12"><span class="c1"># -&gt; {"instance_id": "server-1", "requested": 12, "affected": 24, "skipped": 0, "status": "deleted"}</span>
+</span></code></pre></div>
+</div>
 </section>
 </section>
 </section>
@@ -1094,6 +1148,7 @@
 <li><a :data-current="activeSection === '#get-cache-prefetches-instance-id-request-id'" class="reference internal" href="#get-cache-prefetches-instance-id-request-id"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></li>
 <li><a :data-current="activeSection === '#post-cache-pins'" class="reference internal" href="#post-cache-pins"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></li>
 <li><a :data-current="activeSection === '#delete-cache-pins'" class="reference internal" href="#delete-cache-pins"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></li>
+<li><a :data-current="activeSection === '#post-cache-delete'" class="reference internal" href="#post-cache-delete"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></li>
 </ul>
 </li>
 </ul>
