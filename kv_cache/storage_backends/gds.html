@@ -305,6 +305,8 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </span><span id="line-7"><span class="c1"># Disabling CPU RAM offload is sometimes recommended as the</span>
 </span><span id="line-8"><span class="c1"># CPU can get in the way of GPUDirect operations</span>
 </span><span id="line-9"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_LOCAL_CPU</span><span class="o">=</span>False
+</span><span id="line-10"><span class="c1"># Disk I/O Threads (default: 4, set to 0 to disable)</span>
+</span><span id="line-11"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{"disk_io_threads": 8}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>2. Configuration File</strong>:</p>
@@ -318,7 +320,33 @@ NVIDIA cuFile and AMD hipFile for GPU-direct storage.</p>
 </span><span id="line-6"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/gds/cache"</span>
 </span><span id="line-7"><span class="c1"># GDS Buffer Size in MiB</span>
 </span><span id="line-8"><span class="nt">gds_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
+</span><span id="line-9"><span class="c1"># Disk I/O Threads (default: 4, set to 0 to disable)</span>
+</span><span id="line-10"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">disk_io_threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
+</div>
+</section>
+<section id="disk-i-o-thread-pool">
+<h2>Disk I/O Thread Pool<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#disk-i-o-thread-pool" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#disk-i-o-thread-pool'"><span>#</span></a></h2>
+<p>The backend uses a thread pool for parallel disk I/O. The thread pool is
+always enabled regardless of whether GDS APIs or POSIX fallback is used,
+so both code paths benefit from concurrent reads and writes.</p>
+<p>The number of worker threads is controlled by <code class="docutils literal notranslate"><span class="pre">extra_config.disk_io_threads</span></code>
+(default: 4). Increase this on fast NVMe drives for higher parallelism. Set
+to <code class="docutils literal notranslate"><span class="pre">0</span></code> to disable the thread pool entirely.</p>
+<p><strong>Environment variable:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_EXTRA_CONFIG</span><span class="o">=</span><span class="s1">'{"disk_io_threads": 8}'</span>
+</span></code></pre></div>
+</div>
+<p><strong>YAML config:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">disk_io_threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The deprecated <code class="docutils literal notranslate"><span class="pre">gds_io_threads</span></code> key is no longer supported. Use
+<code class="docutils literal notranslate"><span class="pre">disk_io_threads</span></code> instead.</p>
 </div>
 </section>
 <section id="multi-path-multi-device-support">
@@ -451,6 +479,8 @@ vendor-specific instructions will be added here in the future).</p>
 </span><span id="line-2"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-3"><span class="nt">gds_path</span><span class="p">:</span><span class="w"> </span><span class="s">"/mnt/gds/cache"</span>
 </span><span id="line-4"><span class="nt">gds_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8192</span>
+</span><span id="line-5"><span class="nt">extra_config</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">disk_io_threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 </div>
 <p>If you don’t want to use a config file, uncomment the first three environment variables
@@ -459,12 +489,13 @@ and then comment out the <code class="docutils literal notranslate"><span class=
 </span><span id="line-2"><span class="c1"># LMCACHE_CHUNK_SIZE=256 \</span>
 </span><span id="line-3"><span class="c1"># LMCACHE_GDS_PATH="/mnt/gds/cache" \</span>
 </span><span id="line-4"><span class="c1"># LMCACHE_GDS_BUFFER_SIZE=8192 \</span>
-</span><span id="line-5"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"gds-backend.yaml"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
-</span><span id="line-8"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-9"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-10"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
+</span><span id="line-5"><span class="c1"># LMCACHE_EXTRA_CONFIG='{"disk_io_threads": 8}' \</span>
+</span><span id="line-6"><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="s2">"gds-backend.yaml"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7">vllm<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--max-model-len<span class="w"> </span><span class="m">65536</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -512,6 +543,7 @@ backends are <code class="docutils literal notranslate"><span class="pre">cufile
 <ul>
 <li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
 <li><a :data-current="activeSection === '#ways-to-configure-lmcache-gds-backend'" class="reference internal" href="#ways-to-configure-lmcache-gds-backend">Ways to configure LMCache GDS Backend</a></li>
+<li><a :data-current="activeSection === '#disk-i-o-thread-pool'" class="reference internal" href="#disk-i-o-thread-pool">Disk I/O Thread Pool</a></li>
 <li><a :data-current="activeSection === '#multi-path-multi-device-support'" class="reference internal" href="#multi-path-multi-device-support">Multi-Path (Multi-Device) Support</a></li>
 <li><a :data-current="activeSection === '#gds-buffer-size-explanation'" class="reference internal" href="#gds-buffer-size-explanation">GDS Buffer Size Explanation</a></li>
 <li><a :data-current="activeSection === '#using-amd-hipfile'" class="reference internal" href="#using-amd-hipfile">Using AMD hipFile</a></li>
