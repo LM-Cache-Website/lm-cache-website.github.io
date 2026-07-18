@@ -1157,6 +1157,38 @@ layer count registered with the server.</p>
 <p>See <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code> in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code>
 for the authoritative parsing rules and validation errors.</p>
 </section>
+<section id="profiling-the-server">
+<h3>Profiling the server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-the-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-the-server'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> is a ZMQ client: the store path it exercises
+(hashing, allocation, gather, D2H) runs inside the <strong>server</strong> process, not
+this benchmark. <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> therefore attaches the profiler to a
+server pid you supply, records for the duration of the load, and renders a
+flame graph of the server, not of the client.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">200</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">0</span>.02<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>gil<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--profile-server-pid<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">'lmcache server'</span><span class="k">)</span><span class="s2">"</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> takes the same six values documented under
+<a class="reference internal" href="tool.html#lmcache-flamegraph-modes"><span class="std std-ref">lmcache tool flamegraph</span></a> (or several
+comma-separated to drive the load once per mode, one SVG each). Because the
+target is a separate, already-running server (not a process this benchmark
+spawns), it profiles by <em>attaching</em>, so the same attach-mode caveats
+documented for
+<a class="reference internal" href="tool.html"><span class="doc">lmcache tool flamegraph</span></a> apply here: what each mode
+shows, the <code class="docutils literal notranslate"><span class="pre">PYTHONPERFSUPPORT=1</span></code> requirement for naming Python frames in
+the perf/bcc modes, the container privileges each mode needs, and the fact
+that recording a live process is never free.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The one thing unique to <code class="docutils literal notranslate"><span class="pre">bench</span> <span class="pre">server</span></code>: it records <em>while</em> it drives
+load, so the recording overhead lands on the very throughput/latency
+this benchmark reports. Keep the profiled run short and read those
+numbers as indicative, not a clean baseline.</p>
+</div>
+</section>
 <section id="id3">
 <h3>Output<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>After the run completes (or is interrupted with <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code>), a structured
@@ -1462,19 +1494,23 @@ itself and renders an SVG. Default <code class="docutils literal notranslate"><s
 behavior unchanged. See
 <a class="reference internal" href="#lmcache-bench-l2-profiling"><span class="std std-ref">Profiling / flame charts</span></a>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span> <span class="pre">{on-cpu,off-cpu}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span> <span class="pre">{on-cpu,off-cpu,wakeup,offwake,wall,gil}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">on-cpu</span></code></p></td>
 <td><p>Flame-graph mode for <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code>. <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> shows
 where CPU time goes; <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> shows time blocked on I/O /
-locks (best for I/O-bound adapters).</p></td>
+locks (best for I/O-bound adapters); <code class="docutils literal notranslate"><span class="pre">offwake</span></code> adds the waker
+stack to each blocked stack; <code class="docutils literal notranslate"><span class="pre">wakeup</span></code> shows the stacks doing
+the waking. <code class="docutils literal notranslate"><span class="pre">wall</span></code> and <code class="docutils literal notranslate"><span class="pre">gil</span></code> (<code class="docutils literal notranslate"><span class="pre">py-spy</span></code>) split the chart
+per thread: wall-clock time, and time holding the interpreter
+lock.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span> <span class="pre">PATH</span></code></p></td>
 <td><p><em>(auto)</em></p></td>
 <td><p>SVG output path. Default:
 <code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span> <span class="pre">DIR</span></code></p></td>
-<td><p><em>($FLAMEGRAPH_DIR or ~/FlameGraph)</em></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-scripts-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p><em>(~/FlameGraph)</em></p></td>
 <td><p>Directory with the FlameGraph scripts (<code class="docutils literal notranslate"><span class="pre">flamegraph.pl</span></code>,
 <code class="docutils literal notranslate"><span class="pre">stackcollapse-perf.pl</span></code>).</p></td>
 </tr>
@@ -1592,8 +1628,11 @@ loaded data can be compared against the original store pattern.</p>
 </section>
 <section id="profiling-flame-charts">
 <span id="lmcache-bench-l2-profiling"></span><h3>Profiling / flame charts<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-flame-charts" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-flame-charts'"><span>#</span></a></h3>
-<p>When <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> is passed, the benchmark profiles the L2
-adapter’s performance and renders a flame graph of the measured phases:</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> is passed, the benchmark profiles <strong>its own
+process</strong> (the L2 adapter driven by this microbenchmark’s synthetic load)
+and renders a flame graph of the measured phases (to profile a separate
+server or a real process instead, use
+<a class="reference internal" href="tool.html"><span class="doc">lmcache tool flamegraph</span></a>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">300</span><span class="w"> </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>on-cpu
@@ -1601,37 +1640,24 @@ adapter’s performance and renders a flame graph of the measured phases:</p>
 </span><span id="line-5"><span class="c1">#   [Profile] wrote /tmp/lmcache_bench_flames/FSL2Adapter.oncpu.svg</span>
 </span></code></pre></div>
 </div>
-<p>The recorder samples every thread of the process (including native
-worker threads). Two modes are available via <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code>:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> values, cost of recording, and tool / sysctl
+requirements are documented under
+<a class="reference internal" href="tool.html#lmcache-flamegraph-modes"><span class="std std-ref">lmcache tool flamegraph</span></a> (or pass several
+comma-separated to profile one benchmark run per mode, one SVG each). What is
+specific to <code class="docutils literal notranslate"><span class="pre">bench</span> <span class="pre">l2</span></code>:</p>
 <ul class="simple">
-<li><p><strong>on-cpu</strong> (default) – <code class="docutils literal notranslate"><span class="pre">perf</span> <span class="pre">record</span></code>; where CPU cycles go
-(serialization, copies, hashing).</p></li>
-<li><p><strong>off-cpu</strong> – <code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code> (bcc); time spent blocked
-(waiting on I/O, locks, eventfds). Often the more informative view
-for I/O-bound adapters such as <code class="docutils literal notranslate"><span class="pre">fs</span></code> and <code class="docutils literal notranslate"><span class="pre">s3</span></code>.</p></li>
+<li><p>It <strong>self-profiles</strong>, so on CPython 3.12+ it activates the perf trampolines
+itself and adapter functions resolve as <code class="docutils literal notranslate"><span class="pre">py::&lt;qualname&gt;</span></code> in the
+<code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> / <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> charts with no <code class="docutils literal notranslate"><span class="pre">PYTHONPERFSUPPORT</span></code> needed (an
+attached server cannot). Trampolines cost a few percent, so treat a
+profiled run’s timings as indicative.</p></li>
+<li><p>The recorder runs as a child of the benchmark, so <code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code> need
+<code class="docutils literal notranslate"><span class="pre">kernel.yama.ptrace_scope</span></code> at <code class="docutils literal notranslate"><span class="pre">0</span></code> (not the attach-mode permissions).</p></li>
+<li><p>Recording covers only the measured work, so use a large <code class="docutils literal notranslate"><span class="pre">--rounds</span></code>; too
+short a run captures no samples.</p></li>
 </ul>
-<p>Recording covers only the measured store/lookup/load work, so make the
-run long enough to collect samples (a few seconds is plenty – use a
-large <code class="docutils literal notranslate"><span class="pre">--rounds</span></code>). The SVG is written to <code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code>
-(default <code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>).</p>
-<p><strong>Requirements.</strong> Rendering needs Brendan Gregg’s
-<a class="reference external" href="https://github.com/brendangregg/FlameGraph">FlameGraph</a> scripts
-(<code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span></code> or <code class="docutils literal notranslate"><span class="pre">FLAMEGRAPH_DIR</span></code>, default <code class="docutils literal notranslate"><span class="pre">~/FlameGraph</span></code>;
-auto-cloned to a temp directory when absent). <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> needs <code class="docutils literal notranslate"><span class="pre">perf</span></code>
-(and <code class="docutils literal notranslate"><span class="pre">kernel.perf_event_paranoid</span></code> low enough to profile non-root, or
-run as root); <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> needs <code class="docutils literal notranslate"><span class="pre">bcc</span></code> (<code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code>) and
-<code class="docutils literal notranslate"><span class="pre">sudo</span></code>. The required tools are checked up front: when <code class="docutils literal notranslate"><span class="pre">--flamegraph</span>
-<span class="pre">on</span></code> is requested but a tool is missing, the benchmark exits with a
-non-zero status and an actionable message naming the missing tool
-instead of running unprofiled. The default <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">off</span></code> skips
-all of this and leaves benchmark behavior unchanged.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>When comparing a change, profile each variant with the same
-<code class="docutils literal notranslate"><span class="pre">--rounds</span></code> and <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> and distinct
-<code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code> paths (e.g. <code class="docutils literal notranslate"><span class="pre">baseline.svg</span></code> vs
-<code class="docutils literal notranslate"><span class="pre">after.svg</span></code>) so the two flame graphs are directly comparable.</p>
-</div>
+<p>The SVG is written to <code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>).</p>
 </section>
 <section id="id8">
 <h3>Exit codes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
@@ -1716,6 +1742,7 @@ toolchain is unavailable.</p></td>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">Options</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU mode (no GPU)</a></li>
 <li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV cache shape spec</a></li>
+<li><a :data-current="activeSection === '#profiling-the-server'" class="reference internal" href="#profiling-the-server">Profiling the server</a></li>
 <li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Output</a></li>
 <li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">Example output (progress)</a></li>
 <li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">Exit codes</a></li>

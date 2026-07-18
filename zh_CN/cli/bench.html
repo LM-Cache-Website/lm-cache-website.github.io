@@ -1041,6 +1041,38 @@
 <p>所有组必须共享相同的 <code class="docutils literal notranslate"><span class="pre">NB</span></code> 和 <code class="docutils literal notranslate"><span class="pre">BS</span></code>（这是分页 KV 的物理约束），各组层数之和等于向服务器注册的总层数。</p>
 <p>完整的解析规则和验证错误说明请参阅 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code>。</p>
 </section>
+<section id="profiling-the-server">
+<h3>Profiling the server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-the-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-the-server'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> is a ZMQ client: the store path it exercises
+(hashing, allocation, gather, D2H) runs inside the <strong>server</strong> process, not
+this benchmark. <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> therefore attaches the profiler to a
+server pid you supply, records for the duration of the load, and renders a
+flame graph of the server, not of the client.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">200</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">0</span>.02<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>gil<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--profile-server-pid<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">'lmcache server'</span><span class="k">)</span><span class="s2">"</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> takes the same six values documented under
+<a class="reference internal" href="tool.html#lmcache-flamegraph-modes"><span class="std std-ref">lmcache tool flamegraph</span></a> (or several
+comma-separated to drive the load once per mode, one SVG each). Because the
+target is a separate, already-running server (not a process this benchmark
+spawns), it profiles by <em>attaching</em>, so the same attach-mode caveats
+documented for
+<a class="reference internal" href="tool.html"><span class="doc">lmcache tool flamegraph</span></a> apply here: what each mode
+shows, the <code class="docutils literal notranslate"><span class="pre">PYTHONPERFSUPPORT=1</span></code> requirement for naming Python frames in
+the perf/bcc modes, the container privileges each mode needs, and the fact
+that recording a live process is never free.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The one thing unique to <code class="docutils literal notranslate"><span class="pre">bench</span> <span class="pre">server</span></code>: it records <em>while</em> it drives
+load, so the recording overhead lands on the very throughput/latency
+this benchmark reports. Keep the profiled run short and read those
+numbers as indicative, not a clean baseline.</p>
+</div>
+</section>
 <section id="id3">
 <h3>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>运行完成后（或被 <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> 中断后），将打印结构化的指标摘要，内容包括：</p>
@@ -1271,16 +1303,22 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">关</span></code></p></td>
 <td><p>捕获测量阶段的火焰图（<code class="docutils literal notranslate"><span class="pre">on</span></code>）或正常运行基准测试（<code class="docutils literal notranslate"><span class="pre">off</span></code>）。当设置为``on``时，基准测试会对自身进行分析并渲染 SVG。默认的``off``不会改变基准测试的行为。请参见 <a class="reference internal" href="#lmcache-bench-l2-profiling"><span class="std std-ref">Profiling / flame charts</span></a>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span> <span class="pre">{开启-CPU,关闭-CPU}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span> <span class="pre">{on-cpu,off-cpu,wakeup,offwake,wall,gil}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">on-cpu</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> 的火焰图模式。 <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> 显示 CPU 时间的去向； <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> 显示在 I/O / 锁上被阻塞的时间（最适合 I/O 绑定的适配器）。</p></td>
+<td><p>Flame-graph mode for <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code>. <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> shows
+where CPU time goes; <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> shows time blocked on I/O /
+locks (best for I/O-bound adapters); <code class="docutils literal notranslate"><span class="pre">offwake</span></code> adds the waker
+stack to each blocked stack; <code class="docutils literal notranslate"><span class="pre">wakeup</span></code> shows the stacks doing
+the waking. <code class="docutils literal notranslate"><span class="pre">wall</span></code> and <code class="docutils literal notranslate"><span class="pre">gil</span></code> (<code class="docutils literal notranslate"><span class="pre">py-spy</span></code>) split the chart
+per thread: wall-clock time, and time holding the interpreter
+lock.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span> <span class="pre">PATH</span></code></p></td>
 <td><p><em>(自动)</em></p></td>
 <td><p>SVG 输出路径。默认: <code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span> <span class="pre">DIR</span></code></p></td>
-<td><p><em>($FLAMEGRAPH_DIR 或 ~/FlameGraph)</em></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-scripts-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p><em>(~/FlameGraph)</em></p></td>
 <td><p>包含 FlameGraph 脚本的目录（<code class="docutils literal notranslate"><span class="pre">flamegraph.pl</span></code>，<code class="docutils literal notranslate"><span class="pre">stackcollapse-perf.pl</span></code>）。</p></td>
 </tr>
 </tbody>
@@ -1381,7 +1419,11 @@
 </section>
 <section id="profiling-flame-charts">
 <span id="lmcache-bench-l2-profiling"></span><h3>性能分析 / 火焰图<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-flame-charts" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-flame-charts'"><span>#</span></a></h3>
-<p>当传递 <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> 时，基准测试会对 L2 适配器的性能进行分析，并渲染出测量阶段的火焰图：</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> is passed, the benchmark profiles <strong>its own
+process</strong> (the L2 adapter driven by this microbenchmark's synthetic load)
+and renders a flame graph of the measured phases (to profile a separate
+server or a real process instead, use
+<a class="reference internal" href="tool.html"><span class="doc">lmcache tool flamegraph</span></a>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>l2<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/data/lmcache-bench"}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--rounds<span class="w"> </span><span class="m">300</span><span class="w"> </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>on-cpu
@@ -1389,17 +1431,24 @@
 </span><span id="line-5"><span class="c1">#   [Profile] wrote /tmp/lmcache_bench_flames/FSL2Adapter.oncpu.svg</span>
 </span></code></pre></div>
 </div>
-<p>记录器对进程的每个线程（包括本地工作线程）进行采样。可以通过 <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> 选择两种模式：</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> values, cost of recording, and tool / sysctl
+requirements are documented under
+<a class="reference internal" href="tool.html#lmcache-flamegraph-modes"><span class="std std-ref">lmcache tool flamegraph</span></a> (or pass several
+comma-separated to profile one benchmark run per mode, one SVG each). What is
+specific to <code class="docutils literal notranslate"><span class="pre">bench</span> <span class="pre">l2</span></code>:</p>
 <ul class="simple">
-<li><p><a href="#id1"><span class="problematic" id="id2">**</span></a>在 CPU 上**（默认）-- <code class="docutils literal notranslate"><span class="pre">perf</span> <span class="pre">record</span></code>；CPU 周期的去向（序列化、复制、哈希）。</p></li>
-<li><p><strong>离线 CPU</strong> -- <code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code> (bcc); 被阻塞的时间（等待 I/O、锁、eventfds）。对于 I/O 绑定的适配器，如 <code class="docutils literal notranslate"><span class="pre">fs</span></code> 和 <code class="docutils literal notranslate"><span class="pre">s3</span></code>，通常是更具信息量的视图。</p></li>
+<li><p>It <strong>self-profiles</strong>, so on CPython 3.12+ it activates the perf trampolines
+itself and adapter functions resolve as <code class="docutils literal notranslate"><span class="pre">py::&lt;qualname&gt;</span></code> in the
+<code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> / <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> charts with no <code class="docutils literal notranslate"><span class="pre">PYTHONPERFSUPPORT</span></code> needed (an
+attached server cannot). Trampolines cost a few percent, so treat a
+profiled run's timings as indicative.</p></li>
+<li><p>The recorder runs as a child of the benchmark, so <code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code> need
+<code class="docutils literal notranslate"><span class="pre">kernel.yama.ptrace_scope</span></code> at <code class="docutils literal notranslate"><span class="pre">0</span></code> (not the attach-mode permissions).</p></li>
+<li><p>Recording covers only the measured work, so use a large <code class="docutils literal notranslate"><span class="pre">--rounds</span></code>; too
+short a run captures no samples.</p></li>
 </ul>
-<p>记录仅涵盖测量的存储/查找/加载工作，因此请确保运行时间足够长以收集样本（几秒钟就足够了——使用较大的 <code class="docutils literal notranslate"><span class="pre">--rounds</span></code>）。SVG 文件写入 <code class="docutils literal notranslate"><span class="pre">--flamegraph-output``（默认</span> <span class="pre">``/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>）。</p>
-<p><strong>要求。</strong> 渲染需要 Brendan Gregg 的 <a class="reference external" href="https://github.com/brendangregg/FlameGraph">FlameGraph</a> 脚本（<code class="docutils literal notranslate"><span class="pre">--flamegraph-dir</span></code> 或 <code class="docutils literal notranslate"><span class="pre">FLAMEGRAPH_DIR</span></code>，默认 <code class="docutils literal notranslate"><span class="pre">~/FlameGraph</span></code>；缺失时会自动克隆到临时目录）。<code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> 需要 <code class="docutils literal notranslate"><span class="pre">perf``（并且</span> <span class="pre">``kernel.perf_event_paranoid</span></code> 需要足够低以便对非根用户进行分析，或者以根用户身份运行）；<code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> 需要 <code class="docutils literal notranslate"><span class="pre">bcc``（``offcputime-bpfcc</span></code>）和 <code class="docutils literal notranslate"><span class="pre">sudo</span></code>。所需工具会在前期检查：当请求 <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> 但缺少某个工具时，基准测试会以非零状态退出，并给出一个可操作的消息，指出缺失的工具，而不是运行未分析的测试。默认的 <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">off</span></code> 会跳过所有这些，并保持基准测试行为不变。</p>
-<div class="admonition note">
-<p class="admonition-title">备注</p>
-<p>在比较更改时，使用相同的 <code class="docutils literal notranslate"><span class="pre">--rounds</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--flamegraph-mode</span></code> 以及不同的 <code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code> 路径（例如 <code class="docutils literal notranslate"><span class="pre">baseline.svg</span></code> 与 <code class="docutils literal notranslate"><span class="pre">after.svg</span></code>）对每个变体进行分析，以便两个火焰图可以直接进行比较。</p>
-</div>
+<p>The SVG is written to <code class="docutils literal notranslate"><span class="pre">--flamegraph-output</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/&lt;adapter&gt;.&lt;mode&gt;.svg</span></code>).</p>
 </section>
 <section id="id8">
 <h3>退出代码<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id8'"><span>#</span></a></h3>
@@ -1479,6 +1528,7 @@
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">选项</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU 模式（无 GPU）</a></li>
 <li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV 缓存形状规格</a></li>
+<li><a :data-current="activeSection === '#profiling-the-server'" class="reference internal" href="#profiling-the-server">Profiling the server</a></li>
 <li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">输出</a></li>
 <li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">示例输出（进度）</a></li>
 <li><a :data-current="activeSection === '#id4'" class="reference internal" href="#id4">退出代码</a></li>

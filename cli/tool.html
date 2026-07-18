@@ -286,7 +286,9 @@ LMCache.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>tool<span class="w"> </span>&lt;tool-name&gt;<span class="w"> </span>&lt;action&gt;<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
-<p>Currently one tool is available: <code class="docutils literal notranslate"><span class="pre">cache-simulator</span></code>.</p>
+<p>Three tools are available: <code class="docutils literal notranslate"><span class="pre">cache-simulator</span></code> replays lookup logs,
+<code class="docutils literal notranslate"><span class="pre">transfer-channel-benchmark</span></code> measures peer-to-peer read throughput, and
+<code class="docutils literal notranslate"><span class="pre">flamegraph</span></code> profiles any running process.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">cache-simulator</span></code> depends on the optional <code class="docutils literal notranslate"><span class="pre">plot</span></code> extras
@@ -333,6 +335,290 @@ lookup-hash JSONL logs, preserving prefix-sharing structure.</p></td>
 </span></code></pre></div>
 </div>
 </section>
+<section id="transfer-channel-benchmark">
+<h2>transfer-channel-benchmark<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-channel-benchmark" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-channel-benchmark'"><span>#</span></a></h2>
+<p>Measure read throughput (GB/s) of the LMCache transfer channel
+(<code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/transfer_channel/</span></code>) for batched peer-to-peer
+reads. It allocates the transferred objects through the same
+<code class="docutils literal notranslate"><span class="pre">L1MemoryManager</span></code> production uses, so it exercises the real memory path
+rather than raw tensors.</p>
+<p>The benchmark runs as <strong>two processes</strong>, a <code class="docutils literal notranslate"><span class="pre">server</span></code> that registers a
+source buffer and serves its object catalog, and a <code class="docutils literal notranslate"><span class="pre">client</span></code> that reads a
+subset of those objects and reports throughput:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1: the source</span>
+</span><span id="line-2">lmcache<span class="w"> </span>tool<span class="w"> </span>transfer-channel-benchmark<span class="w"> </span>--role<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--url<span class="w"> </span><span class="m">127</span>.0.0.1:7600<span class="w"> </span>--buffer-size<span class="w"> </span>8GB<span class="w"> </span>--object-size<span class="w"> </span>10MB
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Terminal 2: the reader</span>
+</span><span id="line-6">lmcache<span class="w"> </span>tool<span class="w"> </span>transfer-channel-benchmark<span class="w"> </span>--role<span class="w"> </span>client<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--url<span class="w"> </span><span class="m">127</span>.0.0.1:7600<span class="w"> </span>--object-size<span class="w"> </span>10MB<span class="w"> </span>--num-objects<span class="w"> </span><span class="m">100</span><span class="w"> </span>--iters<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.0%"/>
+<col style="width: 72.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--role</span> <span class="pre">{server,client}</span></code></p></td>
+<td><p>Required. <code class="docutils literal notranslate"><span class="pre">server</span></code> registers the source buffer; <code class="docutils literal notranslate"><span class="pre">client</span></code> reads
+from it and reports throughput.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--transfer-channel-type</span></code></p></td>
+<td><p>Transfer channel implementation to benchmark (default: <code class="docutils literal notranslate"><span class="pre">nixl</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span></code></p></td>
+<td><p>Server: bind address. Client: the server’s advertise URL to read
+from (default: <code class="docutils literal notranslate"><span class="pre">127.0.0.1:7600</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--buffer-size</span></code></p></td>
+<td><p>Server: total registered L1 source buffer, e.g. <code class="docutils literal notranslate"><span class="pre">8GB</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--object-size</span></code> / <code class="docutils literal notranslate"><span class="pre">--page-size</span></code></p></td>
+<td><p>Size of each transferred object and the alignment; must match on
+both sides.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-objects</span></code> / <code class="docutils literal notranslate"><span class="pre">--iters</span></code></p></td>
+<td><p>Objects read per iteration, and number of measured iterations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verify</span></code></p></td>
+<td><p>Check the bytes read against the source after transfer.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <code class="docutils literal notranslate"><span class="pre">--url</span></code>, <code class="docutils literal notranslate"><span class="pre">--object-size</span></code>, and <code class="docutils literal notranslate"><span class="pre">--page-size</span></code> values must match
+between the two processes. Run either side with <code class="docutils literal notranslate"><span class="pre">--help</span></code> for the full
+list, including the client’s own <code class="docutils literal notranslate"><span class="pre">--listen-url</span></code> and the catalog
+<code class="docutils literal notranslate"><span class="pre">--control-url</span></code>.</p>
+</section>
+<section id="flamegraph">
+<h2>flamegraph<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#flamegraph" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#flamegraph'"><span>#</span></a></h2>
+<p>Attach a profiler to an already-running process, record for a fixed
+duration, and render a flame graph to find its bottlenecks.</p>
+<p>It gives one unified interface over widely adopted profilers (<code class="docutils literal notranslate"><span class="pre">py-spy</span></code>,
+<code class="docutils literal notranslate"><span class="pre">perf</span></code>, and <code class="docutils literal notranslate"><span class="pre">bcc</span></code>), each producing a flame graph. A single <code class="docutils literal notranslate"><span class="pre">--mode</span></code>
+spans the whole spectrum, from Python and GIL contention to
+CPU time, kernel frames, and blocked time: you pick a mode by what you want
+to see rather than which tool to run, and get consistent output, defaults,
+and permission checks across all six. It wraps these tools rather than
+replacing them (it names what to install, it does not install it), so a user
+or developer can find a pain point or a resource-heavy code path without
+stitching the tools together by hand.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 12.0%"/>
+<col style="width: 66.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pid</span></code></p></td>
+<td><p><em>(required)</em></p></td>
+<td><p>Process to profile.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gil</span></code></p></td>
+<td><p>One of <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code>, <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code>, <code class="docutils literal notranslate"><span class="pre">wakeup</span></code>, <code class="docutils literal notranslate"><span class="pre">offwake</span></code>, <code class="docutils literal notranslate"><span class="pre">wall</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gil</span></code>, or several comma-separated to record each in turn.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--duration</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30</span></code></p></td>
+<td><p>Seconds to record. <code class="docutils literal notranslate"><span class="pre">0</span></code> records until interrupted with Ctrl-C.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span></code></p></td>
+<td><p><em>(auto)</em></p></td>
+<td><p>SVG path. Default <code class="docutils literal notranslate"><span class="pre">/tmp/lmcache_bench_flames/pid&lt;PID&gt;.&lt;mode&gt;.svg</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flamegraph-scripts-dir</span></code></p></td>
+<td><p><em>(auto)</em></p></td>
+<td><p>FlameGraph scripts directory; unused by <code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="usage">
+<h3>Usage<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#usage'"><span>#</span></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Which threads of an MP cache server hold the GIL, sampled for 20s</span>
+</span><span id="line-2">lmcache<span class="w"> </span>tool<span class="w"> </span>flamegraph<span class="w"> </span>--pid<span class="w"> </span><span class="k">$(</span>pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">'lmcache server'</span><span class="k">)</span><span class="w"> </span>--mode<span class="w"> </span>gil<span class="w"> </span>--duration<span class="w"> </span><span class="m">20</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># Capture GIL, CPU, and blocked-time views in one sweep (one SVG per mode)</span>
+</span><span id="line-5">lmcache<span class="w"> </span>tool<span class="w"> </span>flamegraph<span class="w"> </span>--pid<span class="w"> </span><span class="k">$(</span>pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">'lmcache server'</span><span class="k">)</span><span class="w"> </span>--mode<span class="w"> </span>gil,on-cpu,off-cpu
+</span></code></pre></div>
+</div>
+<p>Reach for this command to profile a <strong>real, unmodified process</strong> (a
+production or vLLM-driven server under actual traffic, an idle server, or any
+arbitrary PID) without standing up a benchmark harness. The <code class="docutils literal notranslate"><span class="pre">bench</span></code>
+commands (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">l2</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code>) instead profile a
+process under synthetic load they generate.</p>
+</section>
+<section id="modes">
+<h3>Modes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#modes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#modes'"><span>#</span></a></h3>
+<p id="lmcache-flamegraph-modes">LMCache is mostly Python, so the first question is usually where Python time
+goes and how contended the GIL is. <strong>To profile Python execution or GIL
+contention</strong>, use <code class="docutils literal notranslate"><span class="pre">gil</span></code> / <code class="docutils literal notranslate"><span class="pre">wall</span></code> (<code class="docutils literal notranslate"><span class="pre">py-spy</span></code>): one root frame per thread,
+attaching to an <strong>unmodified</strong> CPython target, but with no kernel frames.</p>
+<ul class="simple">
+<li><p><strong>gil</strong>: only threads holding the GIL, so interpreter-lock contention is
+directly visible (the default for a live server).</p></li>
+<li><p><strong>wall</strong>: wall-clock time per thread, blocked threads included.</p></li>
+</ul>
+<p>But LMCache also uses C++, Rust, and CUDA to accelerate hot paths and release
+the GIL, and py-spy sees none of that. <strong>To profile CPU/IO time, kernel
+frames, context switches, or a non-Python process</strong> (or to get a
+cross-language picture of where the whole process spends time and blocks),
+use the whole-process modes (<code class="docutils literal notranslate"><span class="pre">perf</span></code> / bcc): every thread, kernel frames,
+scheduler activity, any process, but merged into one chart.</p>
+<ul class="simple">
+<li><p><strong>on-cpu</strong> (<code class="docutils literal notranslate"><span class="pre">perf</span></code>): where CPU <em>cycles</em> go.</p></li>
+<li><p><strong>off-cpu</strong> (<code class="docutils literal notranslate"><span class="pre">offcputime-bpfcc</span></code>): time spent <em>blocked</em> (I/O, locks).</p></li>
+<li><p><strong>wakeup</strong> (<code class="docutils literal notranslate"><span class="pre">wakeuptime-bpfcc</span></code>): the stacks that <em>do</em> the waking, ending
+others’ sleep.</p></li>
+<li><p><strong>offwake</strong> (<code class="docutils literal notranslate"><span class="pre">offwaketime-bpfcc</span></code>): <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> and <code class="docutils literal notranslate"><span class="pre">wakeup</span></code> combined,
+each blocked stack joined to the stack of the thread that woke it (that
+waker half drawn inverted on top). Use it when <code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> shows a big
+blocked tower and you need the cause.</p></li>
+</ul>
+<p><strong>How they work.</strong> All run as external processes; what differs is <em>where the
+data is collected</em>, in the kernel (perf, bcc) or by reading the target’s
+memory (py-spy):</p>
+<ul class="simple">
+<li><p><strong>perf</strong> samples the CPU at 99 Hz, recording the running thread’s stack, so
+it sees only on-CPU work and walks native stacks via frame pointers.</p></li>
+<li><p><strong>bcc</strong> is <em>not</em> sampled: an eBPF program fires on scheduler events, so it
+can measure <em>blocked</em> time perf cannot, at a cost that grows with the
+target’s context-switch rate. Loading eBPF needs privilege.</p></li>
+<li><p><strong>py-spy</strong> works in user space, reading the target’s memory
+(<code class="docutils literal notranslate"><span class="pre">process_vm_readv</span></code>) with <code class="docutils literal notranslate"><span class="pre">--nonblocking</span></code> (no pause); it sees only
+Python frames and needs <code class="docutils literal notranslate"><span class="pre">ptrace</span></code> permission.</p></li>
+</ul>
+<p><strong>Equivalent raw commands</strong> for <code class="docutils literal notranslate"><span class="pre">--pid</span> <span class="pre">P</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">gil      py-spy record --gil --rate 200 --threads --idle --nonblocking --pid P
+</span><span id="line-2">wall     py-spy record       --rate 200 --threads --idle --nonblocking --pid P
+</span><span id="line-3">on-cpu   perf record -F 99 -g -p P  -&gt;  perf script | stackcollapse-perf.pl | flamegraph.pl
+</span><span id="line-4">off-cpu  sudo offcputime-bpfcc  -df -p P  |  flamegraph.pl --colors io
+</span><span id="line-5">wakeup   sudo wakeuptime-bpfcc   -f -p P  |  flamegraph.pl --colors wakeup
+</span><span id="line-6">offwake  sudo offwaketime-bpfcc -df -p P  |  flamegraph.pl --colors chain
+</span></code></pre></div>
+</div>
+<p><strong>Native stacks need frame pointers.</strong> The perf/bcc modes unwind native
+stacks through frame pointers (perf via <code class="docutils literal notranslate"><span class="pre">-g</span></code>, bcc via <code class="docutils literal notranslate"><span class="pre">bpf_get_stackid</span></code>),
+so a target built with <code class="docutils literal notranslate"><span class="pre">-fomit-frame-pointer</span></code> shows broken C stacks in
+either; rebuild with <code class="docutils literal notranslate"><span class="pre">-fno-omit-frame-pointer</span></code>. py-spy is unaffected (it
+reads the interpreter) but sees only Python.</p>
+</section>
+<section id="installation">
+<h3>Installation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installation'"><span>#</span></a></h3>
+<p>Each mode wraps an external tool that must be installed on the host running
+the command (the same host as the target); a missing one fails fast naming
+what to install.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/benfred/py-spy">py-spy</a> (<code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code>): reads
+the interpreter and renders its own SVG. Install with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span>
+<span class="pre">py-spy</span></code>.</p></li>
+<li><p>Linux <code class="docutils literal notranslate"><span class="pre">perf</span></code> (<code class="docutils literal notranslate"><span class="pre">on-cpu</span></code>): <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">linux-tools-generic</span></code>
+(Debian / Ubuntu) or <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dnf</span> <span class="pre">install</span> <span class="pre">perf</span></code> (Fedora / RHEL); the package
+must match the running kernel. Rendered with the FlameGraph scripts below.</p></li>
+<li><p><a class="reference external" href="https://github.com/iovisor/bcc">bcc</a> (<code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> / <code class="docutils literal notranslate"><span class="pre">wakeup</span></code> /
+<code class="docutils literal notranslate"><span class="pre">offwake</span></code>): <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">bpfcc-tools</span></code> (Debian / Ubuntu) or
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dnf</span> <span class="pre">install</span> <span class="pre">bcc-tools</span></code> (Fedora / RHEL). Its <code class="docutils literal notranslate"><span class="pre">*-bpfcc</span></code> tools also
+need <code class="docutils literal notranslate"><span class="pre">sudo</span></code> at run time.</p></li>
+<li><p><a class="reference external" href="https://github.com/brendangregg/FlameGraph">FlameGraph</a>, by Brendan
+Gregg: folds and renders the perf/bcc SVGs. Cloned to <code class="docutils literal notranslate"><span class="pre">~/FlameGraph</span></code> on
+first use (needs <code class="docutils literal notranslate"><span class="pre">git</span></code>); or point <code class="docutils literal notranslate"><span class="pre">--flamegraph-scripts-dir</span></code> at an
+existing checkout.</p></li>
+</ul>
+</section>
+<section id="permissions">
+<h3>Permissions<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#permissions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#permissions'"><span>#</span></a></h3>
+<p><strong>Naming Python frames in the perf/bcc modes</strong> requires the target to have
+been <em>started</em> with <code class="docutils literal notranslate"><span class="pre">PYTHONPERFSUPPORT=1</span></code> (its perf trampoline map); you
+cannot enable it on a running process.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<ul class="simple">
+<li><p><strong>If it was not set:</strong> perf/bcc still record, but Python frames collapse
+to <code class="docutils literal notranslate"><span class="pre">[unknown]</span></code> (C/native stack only). Use <code class="docutils literal notranslate"><span class="pre">gil</span></code> / <code class="docutils literal notranslate"><span class="pre">wall</span></code>, or
+restart the target with the variable set.</p></li>
+<li><p><strong>If it is set:</strong> it adds a standing per-call overhead for the process’s
+lifetime, so reserve it for a dedicated profiling session, not
+production.</p></li>
+</ul>
+</div>
+<p><strong>System settings to adjust (bare-metal / VM).</strong> Each tool needs a kernel
+permission; set the one for your mode, or run as root, which satisfies all
+three:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code> (py-spy) read the target’s memory via <code class="docutils literal notranslate"><span class="pre">ptrace</span></code>, gated
+by Yama. Ubuntu / Debian default <code class="docutils literal notranslate"><span class="pre">ptrace_scope</span></code> to <code class="docutils literal notranslate"><span class="pre">1</span></code> (trace only
+descendants), which blocks attaching to a server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">sudo<span class="w"> </span>sysctl<span class="w"> </span>-w<span class="w"> </span>kernel.yama.ptrace_scope<span class="o">=</span><span class="m">0</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">CAP_SYS_PTRACE</span></code> (or root) bypasses it; py-spy also prints this hint when
+it is blocked.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on-cpu</span></code> (perf) samples via <code class="docutils literal notranslate"><span class="pre">perf_event_open</span></code>. Level <code class="docutils literal notranslate"><span class="pre">3</span></code> (a Debian
+addition) blocks it outright, and any level above <code class="docutils literal notranslate"><span class="pre">2</span></code> makes <code class="docutils literal notranslate"><span class="pre">perf</span>
+<span class="pre">record</span></code> silently write an empty file, so lower it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">sudo<span class="w"> </span>sysctl<span class="w"> </span>-w<span class="w"> </span>kernel.perf_event_paranoid<span class="o">=</span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">off-cpu</span></code> / <code class="docutils literal notranslate"><span class="pre">wakeup</span></code> / <code class="docutils literal notranslate"><span class="pre">offwake</span></code> (bcc) load an eBPF program, so their
+<code class="docutils literal notranslate"><span class="pre">*-bpfcc</span></code> tools need <code class="docutils literal notranslate"><span class="pre">sudo</span></code> (root).</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>In a container, use the py-spy modes.</strong> perf and bcc gate on host-wide
+kernel state a container should not change, so run them on the host (the
+settings above apply there).</p>
+<p>py-spy works inside a container. Run the profiler in the <strong>same container</strong>
+as the target (or share its PID namespace with <code class="docutils literal notranslate"><span class="pre">--pid=container:&lt;target&gt;</span></code>)
+and start the container with <code class="docutils literal notranslate"><span class="pre">--cap-add</span> <span class="pre">SYS_PTRACE</span></code>, the container
+equivalent of the <code class="docutils literal notranslate"><span class="pre">ptrace_scope</span></code> setting above:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--cap-add<span class="w"> </span>SYS_PTRACE<span class="w"> </span>...<span class="w"> </span>&lt;image&gt;
+</span><span id="line-2">pip<span class="w"> </span>install<span class="w"> </span>py-spy
+</span><span id="line-3">lmcache<span class="w"> </span>tool<span class="w"> </span>flamegraph<span class="w"> </span>--pid<span class="w"> </span>&lt;target-pid&gt;<span class="w"> </span>--mode<span class="w"> </span>gil
+</span></code></pre></div>
+</div>
+<p>If the platform will not grant <code class="docutils literal notranslate"><span class="pre">CAP_SYS_PTRACE</span></code> (RunPod, some
+Kubernetes), you can still profile a process you start yourself: tracing
+your own child needs no capability, so launch the target <strong>under</strong> py-spy
+instead of attaching to it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">py-spy<span class="w"> </span>record<span class="w"> </span>--rate<span class="w"> </span><span class="m">200</span><span class="w"> </span>--format<span class="w"> </span>flamegraph<span class="w"> </span>--threads<span class="w"> </span>--idle<span class="w"> </span>--gil<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--subprocesses<span class="w"> </span>--duration<span class="w"> </span><span class="m">30</span><span class="w"> </span>-o<span class="w"> </span>/workspace/flame.svg<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--<span class="w"> </span>&lt;the<span class="w"> </span>target<span class="w"> </span>launch<span class="w"> </span>command&gt;
+</span></code></pre></div>
+</div>
+</div>
+</section>
+<section id="cost">
+<h3>Cost<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cost" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cost'"><span>#</span></a></h3>
+<p>The mechanisms give each mode a different cost <em>shape</em>:</p>
+<ul class="simple">
+<li><p><strong>perf</strong>: <em>bounded</em>, a fixed 99 Hz sample, so overhead is constant; the
+cost is disk, as <code class="docutils literal notranslate"><span class="pre">perf.data</span></code> grows with duration × rate × threads ×
+depth (deleted once rendered).</p></li>
+<li><p><strong>bcc</strong>: <em>unbounded</em>, firing on every scheduler event ties cost to the
+target’s event rate, so a busy service fires the probe constantly. Output
+is tiny.</p></li>
+<li><p><strong>py-spy</strong>: lightest <em>on the target</em>, its sampling runs off the target’s
+CPUs, whereas perf and bcc steal the target’s cycles.</p></li>
+</ul>
+<p>On a production server, prefer <code class="docutils literal notranslate"><span class="pre">wall</span></code> / <code class="docutils literal notranslate"><span class="pre">gil</span></code> and keep <code class="docutils literal notranslate"><span class="pre">--duration</span></code>
+short; if you need a whole-process mode, <code class="docutils literal notranslate"><span class="pre">on-cpu</span></code>’s bounded cost is safer
+than the bcc modes on a busy target.</p>
+</section>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -355,6 +641,15 @@ lookup-hash JSONL logs, preserving prefix-sharing structure.</p></td>
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#cache-simulator'" class="reference internal" href="#cache-simulator">cache-simulator</a></li>
+<li><a :data-current="activeSection === '#transfer-channel-benchmark'" class="reference internal" href="#transfer-channel-benchmark">transfer-channel-benchmark</a></li>
+<li><a :data-current="activeSection === '#flamegraph'" class="reference internal" href="#flamegraph">flamegraph</a><ul>
+<li><a :data-current="activeSection === '#usage'" class="reference internal" href="#usage">Usage</a></li>
+<li><a :data-current="activeSection === '#modes'" class="reference internal" href="#modes">Modes</a></li>
+<li><a :data-current="activeSection === '#installation'" class="reference internal" href="#installation">Installation</a></li>
+<li><a :data-current="activeSection === '#permissions'" class="reference internal" href="#permissions">Permissions</a></li>
+<li><a :data-current="activeSection === '#cost'" class="reference internal" href="#cost">Cost</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </aside>
