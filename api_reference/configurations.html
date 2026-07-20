@@ -517,18 +517,18 @@ We also have more <a class="reference internal" href="../kv_cache_optimizations/
 <tbody>
 <tr class="row-even"><td><p>enable_p2p</p></td>
 <td><p>LMCACHE_ENABLE_P2P</p></td>
-<td><p>Whether to enable peer-to-peer sharing. Values: true/false. Default: false</p></td>
+<td><p>Whether to enable peer-to-peer sharing. Requires <code class="docutils literal notranslate"><span class="pre">enable_controller=true</span></code> and the controller settings below. Values: true/false. Default: false</p></td>
 </tr>
 <tr class="row-odd"><td><p>p2p_host</p></td>
 <td><p>LMCACHE_P2P_HOST</p></td>
 <td><p>Ip address. Required if enable_p2p is true</p></td>
 </tr>
-<tr class="row-even"><td><p>peer_init_ports</p></td>
-<td><p>LMCACHE_PEER_INIT_PORTS</p></td>
+<tr class="row-even"><td><p>p2p_init_ports</p></td>
+<td><p>LMCACHE_P2P_INIT_PORTS</p></td>
 <td><p>Ports for p2p peer init. Required if enable_p2p is true</p></td>
 </tr>
-<tr class="row-odd"><td><p>peer_lookup_ports</p></td>
-<td><p>LMCACHE_PEER_lookup_PORTS</p></td>
+<tr class="row-odd"><td><p>p2p_lookup_ports</p></td>
+<td><p>LMCACHE_P2P_LOOKUP_PORTS</p></td>
 <td><p>Ports for p2p peer lookup. Required if enable_p2p is true</p></td>
 </tr>
 <tr class="row-even"><td><p>transfer_channel</p></td>
@@ -560,15 +560,19 @@ We also have more <a class="reference internal" href="../kv_cache_optimizations/
 </tr>
 <tr class="row-odd"><td><p>lmcache_instance_id</p></td>
 <td><p>LMCACHE_LMCACHE_INSTANCE_ID</p></td>
-<td><p>ID of the LMCache instance. Default: “lmcache_default_instance”</p></td>
+<td><p>ID of the LMCache instance. Must be non-null if <code class="docutils literal notranslate"><span class="pre">enable_controller</span></code> is true. If omitted, a unique <code class="docutils literal notranslate"><span class="pre">lmcacheengineconfig_&lt;uuid&gt;</span></code> value is generated</p></td>
 </tr>
-<tr class="row-even"><td><p>controller_url</p></td>
-<td><p>LMCACHE_CONTROLLER_URL</p></td>
-<td><p>URL of the controller server</p></td>
+<tr class="row-even"><td><p>controller_pull_url</p></td>
+<td><p>LMCACHE_CONTROLLER_PULL_URL</p></td>
+<td><p>URL used by workers to pull commands from the controller server. Required if <code class="docutils literal notranslate"><span class="pre">enable_controller</span></code> is true</p></td>
 </tr>
-<tr class="row-odd"><td><p>lmcache_worker_port</p></td>
-<td><p>LMCACHE_LMCACHE_WORKER_PORT</p></td>
-<td><p>Port number for LMCache worker</p></td>
+<tr class="row-odd"><td><p>controller_reply_url</p></td>
+<td><p>LMCACHE_CONTROLLER_REPLY_URL</p></td>
+<td><p>URL used by workers to send replies to the controller server. Required if <code class="docutils literal notranslate"><span class="pre">enable_controller</span></code> is true</p></td>
+</tr>
+<tr class="row-even"><td><p>lmcache_worker_ports</p></td>
+<td><p>LMCACHE_LMCACHE_WORKER_PORTS</p></td>
+<td><p>Non-empty list of port numbers for LMCache workers. Required if <code class="docutils literal notranslate"><span class="pre">enable_controller</span></code> is true</p></td>
 </tr>
 </tbody>
 </table>
@@ -644,7 +648,7 @@ We also have more <a class="reference internal" href="../kv_cache_optimizations/
 </tr>
 <tr class="row-odd"><td><p>pd_allocation_timeout_sec</p></td>
 <td><p>LMCACHE_PD_ALLOCATION_TIMEOUT_SEC</p></td>
-<td><p>Maximum seconds to retry memory allocation before giving up. Default: 5.0</p></td>
+<td><p>Maximum seconds to retry memory allocation before giving up. Default: infinity (no timeout)</p></td>
 </tr>
 <tr class="row-even"><td><p>pd_shutdown_timeout_sec</p></td>
 <td><p>LMCACHE_PD_SHUTDOWN_TIMEOUT_SEC</p></td>
@@ -652,7 +656,7 @@ We also have more <a class="reference internal" href="../kv_cache_optimizations/
 </tr>
 <tr class="row-odd"><td><p>pd_condition_poll_interval_sec</p></td>
 <td><p>LMCACHE_PD_CONDITION_POLL_INTERVAL_SEC</p></td>
-<td><p>Polling interval in seconds when waiting on a threading/asyncio Condition. Small enough to be responsive, large enough not to spin-waste CPU. Default: 0.05</p></td>
+<td><p>Polling interval in seconds when waiting on a threading/asyncio Condition. Small enough to be responsive, large enough not to spin-waste CPU. Default: 0.005</p></td>
 </tr>
 <tr class="row-even"><td><p>pd_max_prefill_len</p></td>
 <td><p>LMCACHE_PD_MAX_PREFILL_LEN</p></td>
@@ -982,9 +986,9 @@ is the metric name <strong>without</strong> the <code class="docutils literal no
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>plugin_locations</p></td>
-<td><p>LMCACHE_PLUGIN_LOCATIONS</p></td>
-<td><p>List of plugin locations. Default: []</p></td>
+<tr class="row-even"><td><p>runtime_plugin_locations</p></td>
+<td><p>LMCACHE_RUNTIME_PLUGIN_LOCATIONS</p></td>
+<td><p>List of runtime plugin locations. Default: null</p></td>
 </tr>
 </tbody>
 </table>
@@ -1008,6 +1012,10 @@ is the metric name <strong>without</strong> the <code class="docutils literal no
 <tr class="row-even"><td><p>audit_actual_remote_url</p></td>
 <td><p>LMCACHE_AUDIT_ACTUAL_REMOTE_URL</p></td>
 <td><p>(Deprecated) URL of actual remote LMCache instance for auditing. Use extra_config[‘audit_actual_remote_url’] instead</p></td>
+</tr>
+<tr class="row-odd"><td><p>plugin_locations</p></td>
+<td><p>LMCACHE_PLUGIN_LOCATIONS</p></td>
+<td><p>Deprecated alias for <code class="docutils literal notranslate"><span class="pre">runtime_plugin_locations</span></code></p></td>
 </tr>
 </tbody>
 </table>
