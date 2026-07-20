@@ -536,11 +536,11 @@ setup.  There is currently no dedicated <code class="docutils literal notranslat
 checks — both must succeed, otherwise the factory raises
 <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> (no silent fallback):</p>
 <ol class="arabic simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">DeviceIPCWrapper</span></code> subclass with <code class="docutils literal notranslate"><span class="pre">device_type</span></code> and <code class="docutils literal notranslate"><span class="pre">wrap</span></code>
-must be registered.  It is auto-discovered by scanning
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/</span></code> (see <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/_registry.py</span></code>),
-so you only need to ship the subclass under
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/</span></code>.</p></li>
+<li><p>Your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> subclass must bind a <code class="docutils literal notranslate"><span class="pre">DeviceIPCWrapper</span></code>
+subclass (exposing a <code class="docutils literal notranslate"><span class="pre">wrap</span></code> classmethod) via
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">ipc_wrapper_cls</span></code>.
+<code class="xref py py-func docutils literal notranslate"><span class="pre">resolve_kv_wrapper_factory()</span></code> reads that
+binding off the registered spec — no separate registry / auto-scan.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.is_handle_transfer_available()</span></code> must return <code class="docutils literal notranslate"><span class="pre">True</span></code>
 (the base-class default; override to <code class="docutils literal notranslate"><span class="pre">False</span></code> only if your device
 lacks IPC handle transfer).</p></li>
@@ -556,17 +556,28 @@ affects staging-buffer performance; it is not required to enable
 LMCache-driven mode.</p>
 <p>Override these methods in your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
-</span><span id="line-2">    <span class="k">def</span><span class="w"> </span><span class="nf">is_handle_transfer_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="line-3"><span class="w">        </span><span class="sd">"""Return True if your device supports IPC handle transfer."""</span>
-</span><span id="line-4">        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># base-class default; override to False if unsupported</span>
+</span><span id="line-2">    <span class="nd">@property</span>
+</span><span id="line-3">    <span class="k">def</span><span class="w"> </span><span class="nf">ipc_wrapper_cls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-4"><span class="w">        </span><span class="sd">"""Bind the DeviceIPCWrapper subclass for this device.</span>
 </span><span id="line-5">
-</span><span id="line-6">    <span class="nd">@property</span>
-</span><span id="line-7">    <span class="k">def</span><span class="w"> </span><span class="nf">pin_memory_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-8"><span class="w">        </span><span class="sd">"""Return a PinMemoryBackend subclass, or None.</span>
-</span><span id="line-9">
-</span><span id="line-10"><span class="sd">        Optional; only affects host staging performance.</span>
-</span><span id="line-11"><span class="sd">        """</span>
-</span><span id="line-12">        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># default</span>
+</span><span id="line-6"><span class="sd">        Lazy import so the accelerator-specific module is only</span>
+</span><span id="line-7"><span class="sd">        pulled in when the LMCache-driven path is actually used.</span>
+</span><span id="line-8"><span class="sd">        """</span>
+</span><span id="line-9">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.foo.ipc_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">FooIPCWrapper</span>
+</span><span id="line-10">
+</span><span id="line-11">        <span class="k">return</span> <span class="n">FooIPCWrapper</span>
+</span><span id="line-12">
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">is_handle_transfer_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="line-14"><span class="w">        </span><span class="sd">"""Return True if your device supports IPC handle transfer."""</span>
+</span><span id="line-15">        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># base-class default; override to False if unsupported</span>
+</span><span id="line-16">
+</span><span id="line-17">    <span class="nd">@property</span>
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">pin_memory_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="line-19"><span class="w">        </span><span class="sd">"""Return a PinMemoryBackend subclass, or None.</span>
+</span><span id="line-20">
+</span><span id="line-21"><span class="sd">        Optional; only affects host staging performance.</span>
+</span><span id="line-22"><span class="sd">        """</span>
+</span><span id="line-23">        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># default</span>
 </span></code></pre></div>
 </div>
 <p>Opt into LMCache-driven mode by setting <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code>
