@@ -553,10 +553,15 @@ lacks IPC handle transfer).</p></li>
 </ol>
 <p>Separately, the LMCache-driven server module also requires a
 <code class="docutils literal notranslate"><span class="pre">BaseCacheContext</span></code> subclass under
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/cache_context.py</span></code>.  <code class="docutils literal notranslate"><span class="pre">create_cache_context</span></code>
-discovers it lazily at runtime and raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if no backend
-matches the device type; it manages the KV cache layout and pointers
-used for IPC transfer.</p>
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/cache_context.py</span></code> <strong>and</strong> a matching
+<code class="docutils literal notranslate"><span class="pre">DeviceSpec.create_cache_context</span></code> override that lazy-imports and
+instantiates it.  The platform-agnostic factory
+<code class="docutils literal notranslate"><span class="pre">lmcache.v1.platform.cache_context.create_cache_context</span></code> dispatches
+by <code class="docutils literal notranslate"><span class="pre">device_type</span></code> through the <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> registry and invokes
+that hook; the default <code class="docutils literal notranslate"><span class="pre">DeviceSpec.create_cache_context</span></code> raises
+<code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code> so a missing override surfaces loudly instead
+of silently falling back.  The cache context itself manages the KV
+cache layout and pointers used for IPC transfer.</p>
 <p>Host-side pinning via <code class="docutils literal notranslate"><span class="pre">pin_memory_backend</span></code> is <em>optional</em> and only
 affects staging-buffer performance; it is not required to enable
 LMCache-driven mode.</p>
@@ -584,6 +589,16 @@ LMCache-driven mode.</p>
 </span><span id="line-21"><span class="sd">        Optional; only affects host staging performance.</span>
 </span><span id="line-22"><span class="sd">        """</span>
 </span><span id="line-23">        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># default</span>
+</span><span id="line-24">
+</span><span id="line-25">    <span class="k">def</span><span class="w"> </span><span class="nf">create_cache_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="line-26"><span class="w">        </span><span class="sd">"""Lazy-import and instantiate the BaseCacheContext for this device.</span>
+</span><span id="line-27">
+</span><span id="line-28"><span class="sd">        Required for LMCache-driven mode; the base-class default</span>
+</span><span id="line-29"><span class="sd">        raises ``NotImplementedError``.</span>
+</span><span id="line-30"><span class="sd">        """</span>
+</span><span id="line-31">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.foo.cache_context</span><span class="w"> </span><span class="kn">import</span> <span class="n">FooCacheContext</span>
+</span><span id="line-32">
+</span><span id="line-33">        <span class="k">return</span> <span class="n">FooCacheContext</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p>Opt into LMCache-driven mode by setting <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code>
