@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="zh-CN" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>追踪和调试 | LMCache</title>
+<meta content="追踪和调试 | LMCache" property="og:title"/>
+<meta content="追踪和调试 | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="搜索"/>
+<link href="../genindex.html" rel="index" title="索引"/>
+<link href="../community/index.html" rel="next" title="社区"/>
+<link href="observability/traces.html" rel="prev" title="追踪"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">入门指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="index.html">概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">安装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">快速入门</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">配置参考</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">基准测试</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache 大小计算器</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache 操作<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI 参考<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend_dashboard.html">前端仪表板</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sdk.html">KV Cache SDK</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">配置示例<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="hybrid_models.html">Hybrid Attention 模型<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 系列</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs.html">文件系统</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs_native.html">FS（原生）</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/raw_block.html">原始块（Rust）</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/remote_and_distributed.html">远程与分布式<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/bigtable.html">Bigtable</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/sagemaker_hyperpod.html">SageMaker HyperPod</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/mock.html">模拟</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/fault_inject.html">故障注入</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">插件（自定义 / 外部）</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="serde.html">KV Cache 压缩<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">分布式 KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="disaggregated_prefill.html">分离式预填充</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p2p.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinator.html">多服务器协调</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kv_cache_management.html">KV Cache 管理</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">在生产环境中使用 LMCache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="deployment.html">部署指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">运行时插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo 集成</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="observability/index.html">可观察性<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="observability/metrics.html">指标</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observability/logs.html">日志记录</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="observability/traces.html">追踪</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache 优化<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">分段式预填充</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">开发者指南<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">贡献指南</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">添加原生后端</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">非 KV 缓存<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">编码</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">隐藏状态</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">旧版（进程内模式）<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">更多示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">使用不同的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">异步加载</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">使用不同的缓存策略</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV 缓存共享</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">编码器缓存</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">使用 NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">使用共享存储</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">压缩</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">逐层 KV 传输</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache 控制器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">混合</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">多模态模型的 KV Cache 与 vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">添加新的存储后端</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM 动态连接器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">配置 LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">内部 API 服务器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">控制器 WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">可观察性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker 部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">性能调优</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache 事件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/architecture.html">架构概述</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">集成</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">使用数据模块</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">基本检查工具</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">存储插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">远程存储插件</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="observability/index.html">可观察性</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="observability/traces.html">追踪</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">追踪和调试</span>
+</nav>
+<div id="content" role="main">
+<section id="tracing-and-debugging">
+<h1>追踪和调试<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tracing-and-debugging"><span>#</span></a></h1>
+<p>LMCache MP 模式可以将每个 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 公共 API 调用记录到一个二进制 <strong>跟踪文件</strong> 中，并通过 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code> 在新服务器上重新发出这些调用。该功能旨在用于：</p>
+<ul class="simple">
+<li><p><strong>回归排查</strong> — 捕获生产工作负载，然后在调查中的构建上重放，以离线重现错误。</p></li>
+<li><p><strong>性能特征化</strong> — 在真实的存储级访问模式下测量 L1/L2 延迟分布，无需 vLLM 或 GPU。</p></li>
+<li><p><strong>配置调整</strong> — 针对不同的 L1 大小、逐出策略和 L2 适配器重放相同的跟踪，以比较它们在相同输入下的行为。</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>跟踪记录与 <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code>（OTel spans）是 <strong>独立</strong> 的。OTel 跟踪将实时 spans 导出到 OTLP 端点以进行在线可观察性；跟踪记录则持久化一个可重放的二进制文件以供离线分析。两者可以同时启用。</p>
+</div>
+<section id="recording-a-trace">
+<span id="trace-recording-guide"></span><h2>记录跟踪<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#recording-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#recording-a-trace'"><span>#</span></a></h2>
+<p>记录默认是<strong>关闭的</strong>。通过将<code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code>添加到<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>来启用它：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Explicit output path</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--trace-level<span class="w"> </span>storage<span class="w"> </span>--trace-output<span class="w"> </span>/tmp/run.lct
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Implicit timestamped path under $TMPDIR</span>
+</span><span id="line-7">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--trace-level<span class="w"> </span>storage
+</span><span id="line-10"><span class="c1"># → INFO log: "trace recording enabled (level=storage); no</span>
+</span><span id="line-11"><span class="c1">#   --trace-output given, writing to</span>
+</span><span id="line-12"><span class="c1">#   /tmp/lmcache-trace-&lt;pid&gt;-&lt;UTC&gt;.lct"</span>
+</span></code></pre></div>
+</div>
+<p>通过服务器正常驱动流量（vLLM 请求、基准测试脚本等）。在通过 EventBus 停止路径接收到 <code class="docutils literal notranslate"><span class="pre">SIGTERM</span></code> 时，跟踪文件会被干净地关闭 — 不需要 <code class="docutils literal notranslate"><span class="pre">--stop-tracing</span></code> 命令。</p>
+<p><strong>捕获的内容：</strong></p>
+<ul class="simple">
+<li><p>每个被装饰的 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 调用的完全限定名称（例如 <code class="docutils literal notranslate"><span class="pre">StorageManager.reserve_write</span></code>、<code class="docutils literal notranslate"><span class="pre">StorageManager.submit_prefetch_task</span></code>）。</p></li>
+<li><p>每个调用的输入参数（<code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">layout_desc</span></code>, <code class="docutils literal notranslate"><span class="pre">mode</span></code>, <code class="docutils literal notranslate"><span class="pre">extra_count</span></code>, <code class="docutils literal notranslate"><span class="pre">external_request_id</span></code>, …）。</p></li>
+<li><p>每次调用的墙钟时间和单调时间戳。</p></li>
+<li><p>一个包含文件格式版本、跟踪模式版本、开始时间戳以及活动的 <code class="docutils literal notranslate"><span class="pre">StorageManagerConfig</span></code> 的 SHA-256 摘要的头部，以便重放可以标记不匹配的配置。</p></li>
+</ul>
+<p><strong>未捕获的内容：</strong></p>
+<ul class="simple">
+<li><p><strong>KV 张量字节。</strong> 重放练习的记账和控制逻辑；重放时的有效载荷为零。即使在长时间运行的情况下，跟踪文件也保持有限。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code>、消息队列或显存复制代码中的调用。这些层超出了 <code class="docutils literal notranslate"><span class="pre">storage</span></code> 跟踪级别的范围。</p></li>
+</ul>
+<p><strong>开销：</strong></p>
+<ul class="simple">
+<li><p>关闭：每次 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 调用进行一次布尔检查。实际上是免费的。</p></li>
+<li><p>开启：编码和文件 I/O 在 EventBus 排水线程上进行，不在请求路径上。实际上，这对请求延迟没有明显影响。</p></li>
+</ul>
+</section>
+<section id="inspecting-a-trace">
+<h2>检查追踪<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#inspecting-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#inspecting-a-trace'"><span>#</span></a></h2>
+<p>在重放之前，<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">info</span></code> 打印一个一屏的摘要：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>info<span class="w"> </span>/tmp/run.lct
+</span></code></pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Trace file: /tmp/run.lct
+</span><span id="line-2">  level:                storage
+</span><span id="line-3">  format_version:       1
+</span><span id="line-4">  trace_schema_version: 1
+</span><span id="line-5">  duration:             226.691s
+</span><span id="line-6">  sm_config_digest:     0f685d8a...
+</span><span id="line-7">  total_records:        1318
+</span><span id="line-8">  ops:
+</span><span id="line-9">    lmcache.v1.distributed.storage_manager.StorageManager.finish_read_prefetched: 133
+</span><span id="line-10">    lmcache.v1.distributed.storage_manager.StorageManager.finish_write: 349
+</span><span id="line-11">    lmcache.v1.distributed.storage_manager.StorageManager.read_prefetched_results.__enter__: 96
+</span><span id="line-12">    lmcache.v1.distributed.storage_manager.StorageManager.read_prefetched_results.__exit__: 96
+</span><span id="line-13">    lmcache.v1.distributed.storage_manager.StorageManager.reserve_write: 349
+</span><span id="line-14">    lmcache.v1.distributed.storage_manager.StorageManager.submit_prefetch_task: 295
+</span></code></pre></div>
+</div>
+<p>使用此功能来检查您打算重放的跟踪是否涵盖了预期的操作组合和持续时间。</p>
+</section>
+<section id="replaying-a-trace">
+<h2>重放跟踪<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replaying-a-trace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replaying-a-trace'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span> <span class="pre">FILE</span></code> 重新发出每个记录的调用，使用您提供的 CLI 标志构建的 <strong>全新</strong> <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code>。重放端的配置由 <strong>您选择</strong>，而不是从录音中复制。这是该功能的主要价值——您可以在相同的输入上比较不同的 L1/L2 设置。</p>
+<p>最小调用：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code> 是必需的，就像在 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> 上一样。服务器接受的任何存储管理器标志在这里也有效（<code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>、<code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code>、<code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span></code> 等）；运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span> <span class="pre">--help</span></code> 获取完整列表。</p>
+<p><strong>节奏控制。</strong> 驱动程序始终遵循记录的调用间隔时间，通过休眠来使每次调度与其记录的 <code class="docutils literal notranslate"><span class="pre">t_mono</span></code> 偏移对齐。没有“尽可能快”的模式：<code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 的读写是异步的，并且存在跨调用依赖关系（例如，检索可能依赖于先前的 L2 加载完成），因此压缩记录的间隔会导致内部队列竞争，从而导致非确定性的检索未命中。如果重放主机比记录主机慢，循环会简单地滞后于记录的时间表。</p>
+<p><strong>输出。</strong> 每次重放默认都会打印一个终端指标表，并写入每个 qualname 的 CSV：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">=================== Trace Replay Result ======================
+</span><span id="line-2">--------------------------- Overall --------------------------
+</span><span id="line-3">Trace level:                                         storage
+</span><span id="line-4">Records replayed:                                       1318
+</span><span id="line-5">Records skipped:                                           0
+</span><span id="line-6">Records failed:                                            0
+</span><span id="line-7">Replay duration (s):                                  226.69
+</span><span id="line-8">Config digest:                          match (0f685d8a)
+</span><span id="line-9">--------------------- Per-Op Latency (ms) --------------------
+</span><span id="line-10">reserve_write count:                                     349
+</span><span id="line-11">reserve_write mean:                                     0.16
+</span><span id="line-12">reserve_write p50:                                      0.13
+</span><span id="line-13">reserve_write p99:                                      0.93
+</span><span id="line-14">...
+</span></code></pre></div>
+</div>
+<p>每条记录的附加输出由以下内容控制：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>目的</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p>聚合摘要文件的目录。默认：当前目录。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-csv</span></code></p></td>
+<td><p>跳过 <code class="docutils literal notranslate"><span class="pre">trace_replay_ops.csv</span></code> 导出。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--json</span></code></p></td>
+<td><p>还会写入 <code class="docutils literal notranslate"><span class="pre">trace_replay_summary.json</span></code>（按资格名称的计数 / 平均值 / p50 / p90 / p99 / 最小值 / 最大值，以及总持续时间）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<td><p>除了 INFO 日志外，还将每条记录打印一行 <code class="docutils literal notranslate"><span class="pre">[N/total]</span> <span class="pre">OK|FAIL</span> <span class="pre">&lt;qualname&gt;</span> <span class="pre">(Xms)</span></code> 到 stdout。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--jsonl-out</span> <span class="pre">PATH</span></code></p></td>
+<td><p>将每个重放记录写入一个 JSON 对象到 <code class="docutils literal notranslate"><span class="pre">PATH</span></code> (<code class="docutils literal notranslate"><span class="pre">{qualname,</span> <span class="pre">latency_ms,</span> <span class="pre">failed}</span></code>)，以便进行事后分析。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>抑制终端指标表。聚合文件仍然会被写入。</p></td>
+</tr>
+</tbody>
+</table>
+<p>即使没有 <code class="docutils literal notranslate"><span class="pre">--verbose</span></code>，驱动程序也会在 INFO 级别记录每个调度。</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[1/1318] OK lmcache...StorageManager.reserve_write (0.252ms)
+</span><span id="line-2">[2/1318] OK lmcache...StorageManager.finish_write (0.032ms)
+</span><span id="line-3">...
+</span></code></pre></div>
+</div>
+<p>进度数字来自对跟踪文件的廉价预扫描，因此您总是看到 <code class="docutils literal notranslate"><span class="pre">[N/total]</span></code> 而不仅仅是一个运行计数器。</p>
+</section>
+<section id="monitoring-during-replay">
+<h2>重放期间的监控<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#monitoring-during-replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#monitoring-during-replay'"><span>#</span></a></h2>
+<p>重放驱动程序在构造重放端 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 之前初始化了完整可观察性 EventBus。因此，内部事件（L1/L2 生命周期、逐出时钟、存储/检索发布等）在重放期间通过一个实时总线流动，标准订阅者——日志记录、指标、OTel 跟踪——可以附加到这些事件上。</p>
+<p>在 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code> 上可用的与服务器接受的相同可观察性 CLI 标志：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 65.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>效果</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-observability</span></code></p></td>
+<td><p>完全关闭 EventBus。没有订阅者会触发。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code></p></td>
+<td><p>跳过 OTel 指标初始化和指标订阅者。对于仅想要日志时，避免绑定 Prometheus 端口非常有用。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--disable-logging</span></code></p></td>
+<td><p>跳过日志订阅者。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code></p></td>
+<td><p>启用 OTel span 订阅者。需要 <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span></code>。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span> <span class="pre">URL</span></code></p></td>
+<td><p>将指标/追踪导出到 OTLP gRPC 收集器（例如 <code class="docutils literal notranslate"><span class="pre">http://localhost:4317</span></code>）。如果未设置，指标将回退到进程内的 Prometheus 拉取端点。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--prometheus-port</span> <span class="pre">PORT</span></code></p></td>
+<td><p>用于拉取模式下 Prometheus <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> 端点的端口。默认值为 <code class="docutils literal notranslate"><span class="pre">9090</span></code>。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--metrics-sample-rate</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>生命周期直方图的采样率。计数器始终计算所有事件。</p></td>
+</tr>
+</tbody>
+</table>
+<p>典型的监控设置：</p>
+<p><strong>原始日志轨迹（SM/L1/L2 事件到 stdout）：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--disable-metrics
+</span></code></pre></div>
+</div>
+<p><strong>以拉取模式的 Prometheus 指标：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9095</span>
+</span><span id="line-4"><span class="c1"># scrape http://localhost:9095/metrics from another terminal</span>
+</span></code></pre></div>
+</div>
+<p><strong>OTel 指标 + 跟踪到收集器：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>/tmp/run.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--otlp-endpoint<span class="w"> </span>http://localhost:4317<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--enable-tracing
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">--trace-level</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--trace-output</span></code> 标志是 <strong>仅记录</strong> 的，不被 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code> 接受。重放不会写入新的追踪文件。</p>
+</div>
+</section>
+<section id="notes-hints-and-caveats">
+<h2>注意、提示和注意事项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes-hints-and-caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes-hints-and-caveats'"><span>#</span></a></h2>
+<p><strong>当重放环境不同时，预期会出现未命中的情况。</strong> 在重放开始时，CLI 会打印一个可见的警告横幅：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">==============================================================================
+</span><span id="line-2">  !! REPLAY ENVIRONMENT MISMATCH MAY CAUSE RETRIEVE MISSES !!
+</span><span id="line-3">==============================================================================
+</span></code></pre></div>
+</div>
+<p>由于 KV 负载未被捕获，并且重放端的配置和主机速度可能与录制时不同，因此在录制时命中的检索调用在重放时可能会未命中——例如，在录制的检索发出时已完成的异步 L2 加载在重放的检索触发时可能仍在进行中。将未命中的检索计数视为重放环境的信号，<strong>而不是</strong>跟踪中的缺陷。</p>
+<p><strong>配置摘要不匹配是信息性的，而不是致命的。</strong> 无论摘要是否匹配，重放始终会运行。 不匹配仅告诉您重放端的 <code class="docutils literal notranslate"><span class="pre">StorageManagerConfig</span></code> 与记录时不同——这通常正是您所期望的（在同一跟踪上比较两个配置）。</p>
+<p><strong>Prometheus 端口绑定。</strong> 服务器的 <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code> 默认值为 <code class="docutils literal notranslate"><span class="pre">9090</span></code>。在同一端口上与服务器并发运行 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span> <span class="pre">replay</span></code> 或同时运行两个重放将会失败。请在第二次运行时传递不同的 <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code> 或 <code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code>。</p>
+<p><strong>跟踪记录开销。</strong> 记录发生在 EventBus 排出线程上，而不是请求处理线程上。当禁用时（默认），门控是一个单一的布尔检查，因此关闭记录的生产构建不会产生可测量的成本。</p>
+<p><strong>跟踪文件未加密。</strong> 参数如 <code class="docutils literal notranslate"><span class="pre">ObjectKey</span></code> 块哈希以明文形式写入。请像对待缓存哈希日志一样小心处理跟踪文件。</p>
+<p><strong>向前兼容性。</strong> 头部携带格式版本和追踪模式版本。读取器会拒绝未知版本的文件，而不是默默地产生垃圾。捕获的 API 表面变化（追踪方法上的新参数、新的编解码器标签）会提升模式版本；框架变化会提升格式版本。</p>
+<p><strong>可扩展性。</strong> 该格式旨在适应未来的追踪 <strong>级别</strong>（<code class="docutils literal notranslate"><span class="pre">mq</span></code>、<code class="docutils literal notranslate"><span class="pre">gpu</span></code>）。在现有级别中添加一个新的追踪方法只需在记录端进行装饰，并在重放端注册一个处理程序 — 无需格式更改。</p>
+</section>
+<section id="see-also">
+<h2>另请参阅<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="observability/traces.html#trace-recording"><span class="std std-ref">追踪记录</span></a> — 可观察性页面中的短小 <code class="docutils literal notranslate"><span class="pre">Trace</span> <span class="pre">Recording</span></code> 部分专注于记录端标志。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/trace.md</span></code> 在源代码树中 — 完整设计文档：架构、重放调度器、上下文管理器配对、统计收集器和测试矩阵。</p></li>
+</ul>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="observability/traces.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        追踪
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../community/index.html">
+        社区
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#recording-a-trace'" class="reference internal" href="#recording-a-trace">记录跟踪</a></li>
+<li><a :data-current="activeSection === '#inspecting-a-trace'" class="reference internal" href="#inspecting-a-trace">检查追踪</a></li>
+<li><a :data-current="activeSection === '#replaying-a-trace'" class="reference internal" href="#replaying-a-trace">重放跟踪</a></li>
+<li><a :data-current="activeSection === '#monitoring-during-replay'" class="reference internal" href="#monitoring-during-replay">重放期间的监控</a></li>
+<li><a :data-current="activeSection === '#notes-hints-and-caveats'" class="reference internal" href="#notes-hints-and-caveats">注意、提示和注意事项</a></li>
+<li><a :data-current="activeSection === '#see-also'" class="reference internal" href="#see-also">另请参阅</a></li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=7d86a446"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/translations.js?v=beaddf03"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>

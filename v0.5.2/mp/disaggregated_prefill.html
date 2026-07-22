@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Disaggregated Prefill | LMCache</title>
+<meta content="Disaggregated Prefill | LMCache" property="og:title"/>
+<meta content="Disaggregated Prefill | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="Search"/>
+<link href="../genindex.html" rel="index" title="Index"/>
+<link href="p2p.html" rel="next" title="P2P KV Cache Sharing"/>
+<link href="../distributed_kv_cache.html" rel="prev" title="Distributed KV Cache"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">Getting Started<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="index.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">Benchmarking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache Size Calculator</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache Operations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend_dashboard.html">Frontend Dashboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sdk.html">KV Cache SDK</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">Recipes<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="hybrid_models.html">Hybrid Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/index.html">Secondary KV Storage<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/supported_storages.html">Supported Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/file_and_block.html">File &amp; Block<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs.html">FileSystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/fs_native.html">FS (native)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/raw_block.html">Raw Block (Rust)</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="l2_storage/remote_and_distributed.html">Remote &amp; Distributed<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/bigtable.html">Bigtable</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/sagemaker_hyperpod.html">SageMaker HyperPod</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/aerospike.html">Aerospike</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/mock.html">Mock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/fault_inject.html">Fault Inject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="serde.html">KV Cache Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Disaggregated Prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p2p.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinator.html">Multi-Server Coordination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kv_cache_management.html">KV Cache Management</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">Use LMCache in Production<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="deployment.html">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes Deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/runtime_plugins.html">Runtime Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo Integration</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="observability/index.html">Observability<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="observability/metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observability/logs.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observability/traces.html">Tracing</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">Community<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache Optimizations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">Segmented Prefill</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">Developer Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">Contributing Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">Adding Native Backends</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">Non-KV Caching<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">Encodings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/hidden_states.html">Hidden states</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/index.html">Legacy (In-Process Mode)<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart/index.html">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/storage_backends/index.html">Using Different Storage Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/async_loading.html">Async Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/caching_policies.html">Using Different Caching Policies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache/p2p_sharing.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encoder_cache.html">Encoder caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/nixl/index.html">Using NIXL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/compression/index.html">Compression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/layerwise.html">Layerwise KV Transfer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_management/index.html">LMCache Controller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/blending.html">Blending</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/multimodality.html">KV Caching for Multimodal Models with vLLM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/storage_backends.html">Adding new storage backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/dynamic_connector.html">vLLM Dynamic Connector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/configurations.html">Configuring LMCache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../internal_api_server/internal_api_server.html">Internal API Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../controller/index.html">Controller WebUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/observability/index.html">Observability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/performance_tuning.html">Performance Tuning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kv_cache_events.html">KV Cache Events</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">Usage Data Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">Basic Check Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">Storage Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/remote_storage_plugins.html">Remote Storage Plugins</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../distributed_kv_cache.html">Distributed KV Cache</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Disaggregated Prefill</span>
+</nav>
+<div id="content" role="main">
+<section id="disaggregated-prefill">
+<span id="mp-disaggregated-prefill"></span><h1>Disaggregated Prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#disaggregated-prefill"><span>#</span></a></h1>
+<section id="overview">
+<h2>Overview<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#overview" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#overview'"><span>#</span></a></h2>
+<p>Disaggregated prefill (P/D) runs prefill and decode on separate vLLM instances:
+a <strong>prefill</strong> instance computes the prompt’s KV, hands it to a <strong>decode</strong>
+instance over NIXL, and the decoder generates tokens without recomputing the
+prompt. Prefill- and decode-heavy work then scale independently.</p>
+<p><strong>LMCache MP adds cross-request KV reuse on top.</strong> Each vLLM instance also
+offloads its KV to a co-located LMCache server, so a recurring prefix — on a
+later request, or after eviction from GPU HBM — is loaded from LMCache instead
+of recomputed. KV-source order on the prefill path: local GPU cache → LMCache →
+recompute.</p>
+<p>Both are composed with vLLM’s <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>, which runs two connectors per
+instance:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> — the prefill→decode KV handoff for the current
+request, over NIXL (UCX / RDMA).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> — offload/load to the instance’s LMCache
+server for cross-request reuse.</p></li>
+</ul>
+<p>A vLLM <strong>router</strong> in P/D mode sends each request to a prefill then a decode
+instance and threads the NIXL handshake between them.</p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h2>
+<p>A minimal deployment is five processes:</p>
+<ul class="simple">
+<li><p><strong>Prefill vLLM (producer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_producer),</span>
+<span class="pre">LMCacheMPConnector]</span></code>; computes prompt KV, stores it to its LMCache server,
+and exposes it for the decoder to pull over NIXL.</p></li>
+<li><p><strong>Decode vLLM (consumer)</strong> — <code class="docutils literal notranslate"><span class="pre">MultiConnector[NixlConnector</span> <span class="pre">(kv_consumer),</span>
+<span class="pre">LMCacheMPConnector]</span></code>; pulls prompt KV from the producer and generates output.</p></li>
+<li><p><strong>Two LMCache servers</strong> — one <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> per vLLM instance (they must
+not share one).</p></li>
+<li><p><strong>Router</strong> — <code class="docutils literal notranslate"><span class="pre">vllm-router</span> <span class="pre">--vllm-pd-disaggregation</span></code> routes prefill then
+decode.</p></li>
+</ul>
+<p>To share reuse across the prefill and decode pools too, layer
+<a class="reference internal" href="p2p.html"><span class="doc">P2P KV cache sharing</span></a> on top (give both servers a coordinator and
+<code class="docutils literal notranslate"><span class="pre">--p2p-advertise-url</span></code>).</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#requirements'"><span>#</span></a></h2>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><a class="reference external" href="https://github.com/vllm-project/vllm/pull/46865">vllm-project/vllm#46865</a> (the MultiConnector
+real-blocks fix) unblocks LMCache offload under <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>. Without
+it, offload silently never triggers.</p>
+</div>
+<ul class="simple">
+<li><p><strong>NIXL</strong> available in the vLLM environment (<code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code> extra, which
+pulls <code class="docutils literal notranslate"><span class="pre">nixl&gt;=1.3.0</span></code>).</p></li>
+</ul>
+</section>
+<section id="configuration">
+<h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>Each vLLM instance takes a <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> selecting <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code>
+with two sub-connectors:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">kv_connector</span></code> = <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code></p></td>
+<td><p>Runs the <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config.connectors</span></code> side by side.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kv_role</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kv_producer</span></code> (prefill) or <code class="docutils literal notranslate"><span class="pre">kv_consumer</span></code> (decode), on both the
+top-level <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> and the nested <code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code></p></td>
+<td><p>The prefill→decode handoff. Set <code class="docutils literal notranslate"><span class="pre">kv_load_failure_policy</span></code> = <code class="docutils literal notranslate"><span class="pre">fail</span></code> so
+a failed transfer surfaces instead of silently recomputing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code></p></td>
+<td><p>Offload/load to the local LMCache server; use <code class="docutils literal notranslate"><span class="pre">kv_role</span></code> = <code class="docutils literal notranslate"><span class="pre">kv_both</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
+<td><p>Transport+host and ZMQ <code class="docutils literal notranslate"><span class="pre">--port</span></code> of the instance’s LMCache server
+(distinct per instance).</p></td>
+</tr>
+</tbody>
+</table>
+<p>The NIXL transfer is tuned via environment variables on the vLLM instances:
+<code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST</span></code> (host advertised for the handshake, reachable by
+the peer), <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> (<strong>must differ between instances on
+the same host</strong>; default <code class="docutils literal notranslate"><span class="pre">5600</span></code>), plus <code class="docutils literal notranslate"><span class="pre">UCX_NET_DEVICES=all</span></code> and
+<code class="docutils literal notranslate"><span class="pre">NCCL_CUMEM_ENABLE=1</span></code>. See <a class="reference internal" href="../cli/server.html"><span class="doc">lmcache server</span></a> for the full <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>
+flag list.</p>
+</section>
+<section id="running-a-deployment">
+<h2>Running a deployment<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-a-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-a-deployment'"><span>#</span></a></h2>
+<p>The example below places the prefill pool, the decode pool, and the router on
+separate hosts. Replace <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;DECODE_IP&gt;</span></code> with routable
+addresses and <code class="docutils literal notranslate"><span class="pre">&lt;model&gt;</span></code> with the model path (identical on both instances).</p>
+<p><strong>Step 1 — prefill LMCache server</strong> (on the prefill host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>prefiller
+</span></code></pre></div>
+</div>
+<p><strong>Step 2 — prefill vLLM (producer)</strong> (on the prefill host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;PREFILL_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span>--tensor-parallel-size<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6555}}]}}'</span>
+</span></code></pre></div>
+</div>
+<p>The producer advertises its NIXL side channel on <code class="docutils literal notranslate"><span class="pre">&lt;PREFILL_IP&gt;:5600</span></code> and
+offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6555</span></code>.</p>
+<p><strong>Step 3 — decode LMCache server</strong> (on the decode host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8091</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--instance-id<span class="w"> </span>decoder
+</span></code></pre></div>
+</div>
+<p><strong>Step 4 — decode vLLM (consumer)</strong> (on the decode host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span>&lt;DECODE_IP&gt;<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5558</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8002</span><span class="w"> </span>--tensor-parallel-size<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6556}}]}}'</span>
+</span></code></pre></div>
+</div>
+<p>The consumer offloads to the LMCache server on port <code class="docutils literal notranslate"><span class="pre">6556</span></code>; its side-channel
+port (<code class="docutils literal notranslate"><span class="pre">5558</span></code>) differs from the producer’s so the two can share a host.</p>
+<p><strong>Step 5 — router</strong> (on any host that can reach both vLLM instances):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm-router<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--policy<span class="w"> </span>round_robin<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--prefill<span class="w"> </span>http://&lt;PREFILL_IP&gt;:8001<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--decode<span class="w"> </span>http://&lt;DECODE_IP&gt;:8002<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
+</span></code></pre></div>
+</div>
+<p>Send requests to the router (<code class="docutils literal notranslate"><span class="pre">http://&lt;ROUTER_IP&gt;:30000/v1/...</span></code>); it handles
+the prefill→decode split transparently.</p>
+</section>
+<section id="running-on-a-single-node-testing-debugging">
+<h2>Running on a single node (testing &amp; debugging)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-on-a-single-node-testing-debugging" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-on-a-single-node-testing-debugging'"><span>#</span></a></h2>
+<p>Same five processes over <code class="docutils literal notranslate"><span class="pre">localhost</span></code>, prefill on GPU 6 and decode on GPU 7.
+The instances must differ in <strong>every</strong> shared-host port: the LMCache <code class="docutils literal notranslate"><span class="pre">--port</span></code>
+and <code class="docutils literal notranslate"><span class="pre">--http-port</span></code>, the vLLM <code class="docutils literal notranslate"><span class="pre">--port</span></code>, and <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8090</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--instance-id<span class="w"> </span>prefiller
+</span><span id="line-3">
+</span><span id="line-4"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">6</span><span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8001</span><span class="w"> </span>--enforce-eager<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6555}}]}}'</span>
+</span><span id="line-8">
+</span><span id="line-9">lmcache<span class="w"> </span>server<span class="w"> </span>--port<span class="w"> </span><span class="m">6556</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8091</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--instance-id<span class="w"> </span>decoder
+</span><span id="line-11">
+</span><span id="line-12"><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">7</span><span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="nv">VLLM_NIXL_SIDE_CHANNEL_PORT</span><span class="o">=</span><span class="m">5558</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-13"><span class="nv">UCX_NET_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="nv">NCCL_CUMEM_ENABLE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-14">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8002</span><span class="w"> </span>--enforce-eager<span class="w"> </span>--max-model-len<span class="w"> </span><span class="m">16384</span><span class="w"> </span>--gpu-memory-utilization<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span><span class="se">\</span>
+</span><span id="line-15"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{"kv_connector":"MultiConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail"},{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":6556}}]}}'</span>
+</span><span id="line-16">
+</span><span id="line-17">vllm-router<span class="w"> </span>--policy<span class="w"> </span>round_robin<span class="w"> </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
+</span><span id="line-18"><span class="w">    </span>--prefill<span class="w"> </span>http://localhost:8001<span class="w"> </span>--decode<span class="w"> </span>http://localhost:8002<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
+</span></code></pre></div>
+</div>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span> <span class="pre">--otlp-endpoint</span> <span class="pre">http://localhost:4317</span></code> to each
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> to export traces/metrics to a local OpenTelemetry collector.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On a single host, NIXL over <code class="docutils literal notranslate"><span class="pre">localhost</span></code> uses loopback/TCP, not RDMA, so
+latencies are not representative — single-node mode is for <strong>functional</strong>
+testing only.</p>
+</div>
+</section>
+<section id="verifying-it-is-working">
+<h2>Verifying it is working<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-it-is-working" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-it-is-working'"><span>#</span></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:30000/v1/completions<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"model":"&lt;model&gt;","prompt":"The capital of France is","max_tokens":16}'</span>
+</span></code></pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>P/D routing</strong> — the response <code class="docutils literal notranslate"><span class="pre">id</span></code> is stamped with the workers, e.g.
+<code class="docutils literal notranslate"><span class="pre">cmpl-___prefill_addr_localhost:8001___decode_addr_localhost:8002_...</span></code>.</p></li>
+<li><p><strong>NIXL transfer</strong> — the decode vLLM logs <code class="docutils literal notranslate"><span class="pre">KV</span> <span class="pre">Transfer</span> <span class="pre">metrics:</span>
+<span class="pre">NixlConnector={'Num</span> <span class="pre">successful</span> <span class="pre">transfers':</span> <span class="pre">N,</span> <span class="pre">...}</span></code>.</p></li>
+<li><p><strong>LMCache offload</strong> — <code class="docutils literal notranslate"><span class="pre">storage_manager.l1_manager.total_object_count</span></code> in
+<code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://localhost:8090/status</span></code> grows (prompts must be at least
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> tokens to store anything).</p></li>
+<li><p><strong>LMCache hit rate</strong> — read vLLM’s <strong>“External prefix cache hit rate”</strong> log
+line (the fraction of prefill tokens served from LMCache), <em>not</em> the LMCache
+server <code class="docutils literal notranslate"><span class="pre">/status</span></code>. It stays <code class="docutils literal notranslate"><span class="pre">0</span></code> while the working set fits in GPU HBM and
+rises once reuse spills out of the GPU cache.</p></li>
+</ul>
+</section>
+<section id="limitations-and-tuning">
+<h2>Limitations and tuning<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations-and-tuning" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations-and-tuning'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>Keep cold KV transfers bounded under high concurrency.</strong> vLLM’s native NIXL
+P/D path is sensitive to many large <em>cold</em> transfers (full-prompt, nothing
+cached) in flight at once. Keep the decode instance’s GPU KV cache large
+enough to hold the working set so transfers stay small and cache-served, or
+reduce concurrency when per-request transfers are large.</p></li>
+</ul>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../distributed_kv_cache.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        Distributed KV Cache
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="p2p.html">
+        P2P KV Cache Sharing
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#overview'" class="reference internal" href="#overview">Overview</a></li>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
+<li><a :data-current="activeSection === '#requirements'" class="reference internal" href="#requirements">Requirements</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#running-a-deployment'" class="reference internal" href="#running-a-deployment">Running a deployment</a></li>
+<li><a :data-current="activeSection === '#running-on-a-single-node-testing-debugging'" class="reference internal" href="#running-on-a-single-node-testing-debugging">Running on a single node (testing &amp; debugging)</a></li>
+<li><a :data-current="activeSection === '#verifying-it-is-working'" class="reference internal" href="#verifying-it-is-working">Verifying it is working</a></li>
+<li><a :data-current="activeSection === '#limitations-and-tuning'" class="reference internal" href="#limitations-and-tuning">Limitations and tuning</a></li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=5929fcd5"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script src="../_static/design-tabs.js?v=f930bc37"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=9f7bad42"></script>
+</body>
+</html>
