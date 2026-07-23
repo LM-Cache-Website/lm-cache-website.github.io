@@ -489,75 +489,6 @@ that hook; the default <code class="docutils literal notranslate"><span class="p
 of silently falling back.  The cache context itself manages the KV
 cache layout and pointers used for IPC transfer.</p>
 <p>通过 <code class="docutils literal notranslate"><span class="pre">pin_memory_backend</span></code> 在主机端固定是 <em>可选</em> 的，仅影响暂存缓冲区的性能；启用 LMCache 驱动模式并不需要它。</p>
-<section id="event-ipc-capability">
-<h4>Event IPC capability<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#event-ipc-capability"><span>#</span></a></h4>
-<p>The LMCache-driven multiprocess handle path also requires a platform
-event-IPC backend.  The capability is declared by
-<code class="docutils literal notranslate"><span class="pre">DeviceSpec.event_ipc_backend</span></code> and is intentionally separate from
-<code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceIPCWrapper</span></code>:</p>
-<ul class="simple">
-<li><p>The base <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.  A concrete device must
-explicitly opt in.</p></li>
-<li><p>CUDA-style event APIs can use
-<code class="docutils literal notranslate"><span class="pre">DefaultEventIPCBackend(event_module=...,</span> <span class="pre">device_type=...)</span></code>.</p></li>
-<li><p>Devices with a different event ABI should implement an
-<code class="docutils literal notranslate"><span class="pre">EventIPCBackend</span></code> in their own <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/</span></code> package.</p></li>
-<li><p>Concrete device specs should cache the backend because request futures
-may query this property repeatedly.</p></li>
-</ul>
-<p>The backend contract covers event creation, handle export/import, event
-recording, stream wait, query, and synchronization.
-<code class="docutils literal notranslate"><span class="pre">check_event_support(device)</span></code> must raise <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> when those
-operations are unavailable for the requested device.  The default backend
-checks for a CUDA-style Event type that accepts <code class="docutils literal notranslate"><span class="pre">interprocess=True</span></code> and
-provides <code class="docutils literal notranslate"><span class="pre">from_ipc_handle</span></code>.  A custom backend should instead validate the
-equivalent prerequisites for its own event ABI.</p>
-<p>For a CUDA-style device, bind and cache the default backend as follows:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
-</span><span id="line-2">
-</span><span id="line-3"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSpec</span>
-</span><span id="line-4">
-</span><span id="line-5"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span id="line-6">    <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.event_ipc</span><span class="w"> </span><span class="kn">import</span> <span class="n">EventIPCBackend</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
-</span><span id="line-9">    <span class="n">_event_backend_cache</span><span class="p">:</span> <span class="s2">"EventIPCBackend | None"</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-10">
-</span><span id="line-11">    <span class="nd">@property</span>
-</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">event_ipc_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EventIPCBackend"</span><span class="p">:</span>
-</span><span id="line-13">        <span class="n">backend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_backend_cache</span>
-</span><span id="line-14">        <span class="k">if</span> <span class="n">backend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-15">            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span id="line-16">
-</span><span id="line-17">            <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.event_ipc</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="line-18">                <span class="n">DefaultEventIPCBackend</span><span class="p">,</span>
-</span><span id="line-19">            <span class="p">)</span>
-</span><span id="line-20">
-</span><span id="line-21">            <span class="n">backend</span> <span class="o">=</span> <span class="n">DefaultEventIPCBackend</span><span class="p">(</span>
-</span><span id="line-22">                <span class="n">event_module</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">foo</span><span class="p">,</span>
-</span><span id="line-23">                <span class="n">device_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
-</span><span id="line-24">            <span class="p">)</span>
-</span><span id="line-25">            <span class="bp">self</span><span class="o">.</span><span class="n">_event_backend_cache</span> <span class="o">=</span> <span class="n">backend</span>
-</span><span id="line-26">        <span class="k">return</span> <span class="n">backend</span>
-</span></code></pre></div>
-</div>
-<p>Event IPC operations must preserve producer/consumer stream ordering without
-adding a device-wide synchronization.  <code class="docutils literal notranslate"><span class="pre">query_event</span></code> must remain
-non-blocking so request futures can poll completion safely.</p>
-<div class="admonition note">
-<p class="admonition-title">备注</p>
-<p>If the device does not support Event IPC, leave the base
-<code class="docutils literal notranslate"><span class="pre">event_ipc_backend</span></code> implementation unchanged so it returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.
-Engine-driven mode does not require this capability.  LMCache-driven
-mode raises an explicit error rather than falling back to CUDA or to the
-accelerator active in the process.</p>
-</div>
-<p>The capability is checked during worker/server registration and before
-constructing a device-aware completion future.  This keeps unsupported
-platforms from entering an asynchronous transfer path that cannot order
-KV-cache memory safely.  The STORE and RETRIEVE message wire format is
-unchanged: the existing event handle bytes are still carried in the
-request and response payloads.</p>
 <p>在你的 <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> 中重写这些方法：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
 </span><span id="line-2">    <span class="nd">@property</span>
@@ -597,7 +528,6 @@ request and response payloads.</p>
 <p>通过在 <a class="reference internal" href="#part-1-basic"><span class="std std-ref">Part 1</span></a> 中显示的 vLLM <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 中将 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code> 设置为 <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code>，或通过导出 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_TRANSFER_MODE=lmcache_driven</span></code> 来选择 LMCache 驱动模式。如果任何硬检查失败，工厂将引发 <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> 并拒绝构造上下文——请切换回 <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> 或 <code class="docutils literal notranslate"><span class="pre">auto</span></code>。</p>
 </section>
 </section>
-</section>
 <section id="references">
 <h2>参考文献<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#references" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#references'"><span>#</span></a></h2>
 <table class="docutils align-default">
@@ -610,28 +540,25 @@ request and response payloads.</p>
 <tr class="row-even"><td><p>设备规格基础</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/device_spec.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Event IPC base</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/event_ipc.py</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>后端加载</p></td>
+<tr class="row-odd"><td><p>后端加载</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Python 回退</p></td>
+<tr class="row-even"><td><p>Python 回退</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/python_ops_fallback.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>缓存上下文基类</p></td>
+<tr class="row-odd"><td><p>缓存上下文基类</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>缓存上下文工厂</p></td>
+<tr class="row-even"><td><p>缓存上下文工厂</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>参考 <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> （引擎驱动的基线）</p></td>
+<tr class="row-odd"><td><p>参考 <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> （引擎驱动的基线）</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>参考 <a href="#id1"><span class="problematic" id="id2">``</span></a>DeviceSpec``（支持 LMCache 的能力）</p></td>
+<tr class="row-even"><td><p>参考 <a href="#id1"><span class="problematic" id="id2">``</span></a>DeviceSpec``（支持 LMCache 的能力）</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>引擎驱动的调用站点</p></td>
+<tr class="row-odd"><td><p>引擎驱动的调用站点</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transfer_context/worker_transfer.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferContext</span></code>, <code class="docutils literal notranslate"><span class="pre">create_transfer_context</span></code>)</p></td>
 </tr>
@@ -671,10 +598,7 @@ request and response payloads.</p>
 <li><a :data-current="activeSection === '#implementation-notes'" class="reference internal" href="#implementation-notes">实现说明</a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#advanced-transfer-mode'" class="reference internal" href="#advanced-transfer-mode">高级传输模式</a><ul>
-<li><a :data-current="activeSection === '#event-ipc-capability'" class="reference internal" href="#event-ipc-capability">Event IPC capability</a></li>
-</ul>
-</li>
+<li><a :data-current="activeSection === '#advanced-transfer-mode'" class="reference internal" href="#advanced-transfer-mode">高级传输模式</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#references'" class="reference internal" href="#references">参考文献</a></li>

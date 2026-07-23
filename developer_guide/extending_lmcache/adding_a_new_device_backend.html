@@ -566,75 +566,6 @@ cache layout and pointers used for IPC transfer.</p>
 <p>Host-side pinning via <code class="docutils literal notranslate"><span class="pre">pin_memory_backend</span></code> is <em>optional</em> and only
 affects staging-buffer performance; it is not required to enable
 LMCache-driven mode.</p>
-<section id="event-ipc-capability">
-<h4>Event IPC capability<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#event-ipc-capability"><span>#</span></a></h4>
-<p>The LMCache-driven multiprocess handle path also requires a platform
-event-IPC backend.  The capability is declared by
-<code class="docutils literal notranslate"><span class="pre">DeviceSpec.event_ipc_backend</span></code> and is intentionally separate from
-<code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceIPCWrapper</span></code>:</p>
-<ul class="simple">
-<li><p>The base <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.  A concrete device must
-explicitly opt in.</p></li>
-<li><p>CUDA-style event APIs can use
-<code class="docutils literal notranslate"><span class="pre">DefaultEventIPCBackend(event_module=...,</span> <span class="pre">device_type=...)</span></code>.</p></li>
-<li><p>Devices with a different event ABI should implement an
-<code class="docutils literal notranslate"><span class="pre">EventIPCBackend</span></code> in their own <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/</span></code> package.</p></li>
-<li><p>Concrete device specs should cache the backend because request futures
-may query this property repeatedly.</p></li>
-</ul>
-<p>The backend contract covers event creation, handle export/import, event
-recording, stream wait, query, and synchronization.
-<code class="docutils literal notranslate"><span class="pre">check_event_support(device)</span></code> must raise <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> when those
-operations are unavailable for the requested device.  The default backend
-checks for a CUDA-style Event type that accepts <code class="docutils literal notranslate"><span class="pre">interprocess=True</span></code> and
-provides <code class="docutils literal notranslate"><span class="pre">from_ipc_handle</span></code>.  A custom backend should instead validate the
-equivalent prerequisites for its own event ABI.</p>
-<p>For a CUDA-style device, bind and cache the default backend as follows:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
-</span><span id="line-2">
-</span><span id="line-3"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSpec</span>
-</span><span id="line-4">
-</span><span id="line-5"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span id="line-6">    <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.event_ipc</span><span class="w"> </span><span class="kn">import</span> <span class="n">EventIPCBackend</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
-</span><span id="line-9">    <span class="n">_event_backend_cache</span><span class="p">:</span> <span class="s2">"EventIPCBackend | None"</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="line-10">
-</span><span id="line-11">    <span class="nd">@property</span>
-</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">event_ipc_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EventIPCBackend"</span><span class="p">:</span>
-</span><span id="line-13">        <span class="n">backend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_backend_cache</span>
-</span><span id="line-14">        <span class="k">if</span> <span class="n">backend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-15">            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span id="line-16">
-</span><span id="line-17">            <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.event_ipc</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="line-18">                <span class="n">DefaultEventIPCBackend</span><span class="p">,</span>
-</span><span id="line-19">            <span class="p">)</span>
-</span><span id="line-20">
-</span><span id="line-21">            <span class="n">backend</span> <span class="o">=</span> <span class="n">DefaultEventIPCBackend</span><span class="p">(</span>
-</span><span id="line-22">                <span class="n">event_module</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">foo</span><span class="p">,</span>
-</span><span id="line-23">                <span class="n">device_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
-</span><span id="line-24">            <span class="p">)</span>
-</span><span id="line-25">            <span class="bp">self</span><span class="o">.</span><span class="n">_event_backend_cache</span> <span class="o">=</span> <span class="n">backend</span>
-</span><span id="line-26">        <span class="k">return</span> <span class="n">backend</span>
-</span></code></pre></div>
-</div>
-<p>Event IPC operations must preserve producer/consumer stream ordering without
-adding a device-wide synchronization.  <code class="docutils literal notranslate"><span class="pre">query_event</span></code> must remain
-non-blocking so request futures can poll completion safely.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If the device does not support Event IPC, leave the base
-<code class="docutils literal notranslate"><span class="pre">event_ipc_backend</span></code> implementation unchanged so it returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.
-Engine-driven mode does not require this capability.  LMCache-driven
-mode raises an explicit error rather than falling back to CUDA or to the
-accelerator active in the process.</p>
-</div>
-<p>The capability is checked during worker/server registration and before
-constructing a device-aware completion future.  This keeps unsupported
-platforms from entering an asynchronous transfer path that cannot order
-KV-cache memory safely.  The STORE and RETRIEVE message wire format is
-unchanged: the existing event handle bytes are still carried in the
-request and response payloads.</p>
 <p>Override these methods in your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
 </span><span id="line-2">    <span class="nd">@property</span>
@@ -679,7 +610,6 @@ fails, the factory raises <code class="docutils literal notranslate"><span class
 context — switch back to <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p>
 </section>
 </section>
-</section>
 <section id="references">
 <h2>References<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#references" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#references'"><span>#</span></a></h2>
 <table class="docutils align-default">
@@ -692,28 +622,25 @@ context — switch back to <code class="docutils literal notranslate"><span clas
 <tr class="row-even"><td><p>Device spec base</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/device_spec.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Event IPC base</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/event_ipc.py</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>Backend loading</p></td>
+<tr class="row-odd"><td><p>Backend loading</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Python fallback</p></td>
+<tr class="row-even"><td><p>Python fallback</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/python_ops_fallback.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Cache context base</p></td>
+<tr class="row-odd"><td><p>Cache context base</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Cache context factory</p></td>
+<tr class="row-even"><td><p>Cache context factory</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (engine-driven baseline)</p></td>
+<tr class="row-odd"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (engine-driven baseline)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (LMCache-driven capable)</p></td>
+<tr class="row-even"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (LMCache-driven capable)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Engine-driven call site</p></td>
+<tr class="row-odd"><td><p>Engine-driven call site</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transfer_context/worker_transfer.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferContext</span></code>, <code class="docutils literal notranslate"><span class="pre">create_transfer_context</span></code>)</p></td>
 </tr>
@@ -753,10 +680,7 @@ context — switch back to <code class="docutils literal notranslate"><span clas
 <li><a :data-current="activeSection === '#implementation-notes'" class="reference internal" href="#implementation-notes">Implementation notes</a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#advanced-transfer-mode'" class="reference internal" href="#advanced-transfer-mode">Advanced transfer mode</a><ul>
-<li><a :data-current="activeSection === '#event-ipc-capability'" class="reference internal" href="#event-ipc-capability">Event IPC capability</a></li>
-</ul>
-</li>
+<li><a :data-current="activeSection === '#advanced-transfer-mode'" class="reference internal" href="#advanced-transfer-mode">Advanced transfer mode</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#references'" class="reference internal" href="#references">References</a></li>
