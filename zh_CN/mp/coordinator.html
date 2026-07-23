@@ -153,6 +153,7 @@
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/hfbucket.html">HF Bucket</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/mooncake_store.html">Mooncake Store</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/valkey.html">Valkey</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/aerospike.html">Aerospike</a></li>
 </ul>
 </li>
@@ -319,6 +320,13 @@
 <li><p><a class="reference internal" href="#post-cache-delete" id="id24"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
 </ul>
 </li>
+<li><p><a class="reference internal" href="#cacheblend-fingerprint-directory" id="id25">CacheBlend fingerprint directory</a></p>
+<ul>
+<li><p><a class="reference internal" href="#post-blend-fingerprints" id="id26"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-blend-fingerprints" id="id27"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-blend-match" id="id28"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></p></li>
+</ul>
+</li>
 </ul>
 </nav>
 <section id="running-the-coordinator">
@@ -363,7 +371,10 @@
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_HEALTH_CHECK_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
-<td><p>健康检查扫描之间的秒数。<code class="docutils literal notranslate"><span class="pre">0</span></code> 禁用逐出。</p></td>
+<td><p>Seconds between health-check sweeps that expire stale MP-server
+registrations. <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the stale-instance eviction loop; it does
+<strong>not</strong> affect the <code class="docutils literal notranslate"><span class="pre">/quota</span></code> L2 eviction loop (see
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code> below).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
@@ -460,6 +471,9 @@
 <li><p><strong>车队成员资格和健康</strong> -- 注册和存活 (<code class="docutils literal notranslate"><span class="pre">/instances</span></code>, <code class="docutils literal notranslate"><span class="pre">/healthz</span></code>)。</p></li>
 <li><p><strong>配额、使用情况和逐出</strong> -- <code class="docutils literal notranslate"><span class="pre">/quota</span></code> 组：每个租户的字节预算、使用情况核算，以及驱动全队逐出的使用事件摄取。</p></li>
 <li><p><strong>缓存控制</strong> -- <code class="docutils literal notranslate"><span class="pre">/cache</span></code> 组：分派给命名服务器的缓存操作（热预取、固定/解固定和删除，更多功能即将推出）。</p></li>
+<li><p><strong>CacheBlend fingerprint directory</strong> -- the <code class="docutils literal notranslate"><span class="pre">/blend</span></code> group: the fleet-wide
+fingerprint index blend-enabled MP servers publish to on STORE and query on
+LOOKUP. Server-to-coordinator only; not usually called by hand.</p></li>
 </ul>
 <p>每个端点的文档如下。成功状态为 <code class="docutils literal notranslate"><span class="pre">200</span></code>，除非另有说明，<code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> 使用 <code class="docutils literal notranslate"><span class="pre">_default</span></code> 哨兵表示空盐。数据类型位于 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>。</p>
 </section>
@@ -1084,6 +1098,149 @@
 </div>
 </section>
 </section>
+<section id="cacheblend-fingerprint-directory">
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">CacheBlend fingerprint directory</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fingerprint-directory" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fingerprint-directory'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">/blend</span></code> group is the fleet-wide fingerprint index behind CacheBlend
+cross-request reuse. Blend-enabled MP servers publish chunk fingerprints on
+STORE (<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code>) and query them on LOOKUP
+(<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code>); the index is chunked at
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code> tokens and rolling-hash-matched at
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code>. These endpoints are
+server-to-coordinator; they are not usually called by hand.</p>
+<p>The wire types (<code class="docutils literal notranslate"><span class="pre">StoreRangeModel</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendFingerprintRequest</span></code>,
+<code class="docutils literal notranslate"><span class="pre">BlendMatchRequest</span></code>, <code class="docutils literal notranslate"><span class="pre">GlobalMatchModel</span></code> and their responses) live in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>.</p>
+<section id="post-blend-fingerprints">
+<h3><a class="toc-backref" href="#id26" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-fingerprints'"><span>#</span></a></h3>
+<p>Register stored chunk fingerprints (idempotent).</p>
+<p><strong>请求体：</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 64.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ranges</span></code></p></td>
+<td><p>list</p></td>
+<td><p>Stored token ranges. Each entry carries <code class="docutils literal notranslate"><span class="pre">model_scope</span></code> (the reuse
+scope, typically the model name), <code class="docutils literal notranslate"><span class="pre">tokens</span></code> (the raw stored token
+ids), <code class="docutils literal notranslate"><span class="pre">object_keys</span></code> (the shared-L2 storage key per chunk, in order),
+and <code class="docutils literal notranslate"><span class="pre">old_st_base</span></code> (the token position of the range's first token).
+The directory chunks <code class="docutils literal notranslate"><span class="pre">tokens</span></code> at the coordinator's chunk size and
+hashes each chunk; chunk <code class="docutils literal notranslate"><span class="pre">i</span></code> maps to <code class="docutils literal notranslate"><span class="pre">object_keys[i]</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"inserted"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">inserted</span></code> reports how many fingerprints were newly registered (existing
+entries are left in place; re-publishing is safe).</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: fingerprints processed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: 请求体未通过字段级验证。</p></li>
+</ul>
+</section>
+<section id="delete-blend-fingerprints">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-blend-fingerprints'"><span>#</span></a></h3>
+<p>Evict fingerprints by shared-L2 storage key (idempotent). MP servers call this
+when the underlying L2 objects are dropped, so the directory does not keep
+handing out stale matches.</p>
+<p><strong>请求体：</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 64.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">object_keys</span></code></p></td>
+<td><p>list[string]</p></td>
+<td><p>Storage keys whose fingerprint entries should be removed. Unknown keys
+are ignored.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">removed</span></code> reports how many entries were actually evicted.</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: keys processed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: 请求体未通过字段级验证。</p></li>
+</ul>
+</section>
+<section id="post-blend-match">
+<h3><a class="toc-backref" href="#id28" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-match" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-match'"><span>#</span></a></h3>
+<p>Match a request's token buffer against the directory and return the reusable
+chunks.</p>
+<p><strong>请求体：</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%"/>
+<col style="width: 14.0%"/>
+<col style="width: 64.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_scope</span></code></p></td>
+<td><p>字符串</p></td>
+<td><p>Reuse scope to match within (typically the model name).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tokens_b64</span></code></p></td>
+<td><p>字符串</p></td>
+<td><p>Request tokens packed as base64 little-endian <code class="docutils literal notranslate"><span class="pre">uint32</span></code> (see
+<code class="docutils literal notranslate"><span class="pre">encode_tokens</span></code> / <code class="docutils literal notranslate"><span class="pre">decode_tokens</span></code> in <code class="docutils literal notranslate"><span class="pre">schemas.py</span></code>). The
+coordinator hashes them at
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code> positions striding by
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"matches"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span><span class="nt">"object_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ab12..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">    </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">},</span>
+</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"object_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cd34..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w">  </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">}</span>
+</span><span id="line-5"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-6"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>Each entry names one reusable chunk: <code class="docutils literal notranslate"><span class="pre">object_key</span></code> is the shared-L2 key,
+<code class="docutils literal notranslate"><span class="pre">old_st</span></code> is its token position in the stored sequence (re-RoPE source), and
+<code class="docutils literal notranslate"><span class="pre">cur_st</span></code> is the position in the request (re-RoPE target). Matches are sorted
+ascending by <code class="docutils literal notranslate"><span class="pre">cur_st</span></code>. An empty request or an unknown <code class="docutils literal notranslate"><span class="pre">model_scope</span></code>
+returns <code class="docutils literal notranslate"><span class="pre">{"matches":</span> <span class="pre">[]}</span></code>.</p>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: match completed (an empty match list is not an error).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: <code class="docutils literal notranslate"><span class="pre">tokens_b64</span></code> is not valid base64 or not a whole number of
+<code class="docutils literal notranslate"><span class="pre">uint32</span></code> tokens.</p></li>
+</ul>
+</section>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -1132,6 +1289,12 @@
 <li><a :data-current="activeSection === '#post-cache-pins'" class="reference internal" href="#post-cache-pins"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></li>
 <li><a :data-current="activeSection === '#delete-cache-pins'" class="reference internal" href="#delete-cache-pins"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></li>
 <li><a :data-current="activeSection === '#post-cache-delete'" class="reference internal" href="#post-cache-delete"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#cacheblend-fingerprint-directory'" class="reference internal" href="#cacheblend-fingerprint-directory">CacheBlend fingerprint directory</a><ul>
+<li><a :data-current="activeSection === '#post-blend-fingerprints'" class="reference internal" href="#post-blend-fingerprints"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></li>
+<li><a :data-current="activeSection === '#delete-blend-fingerprints'" class="reference internal" href="#delete-blend-fingerprints"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></li>
+<li><a :data-current="activeSection === '#post-blend-match'" class="reference internal" href="#post-blend-match"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></li>
 </ul>
 </li>
 </ul>

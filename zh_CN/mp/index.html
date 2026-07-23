@@ -153,6 +153,7 @@
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/hfbucket.html">HF Bucket</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/mooncake_store.html">Mooncake Store</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="l2_storage/valkey.html">Valkey</a></li>
 <li class="toctree-l4"><a class="reference internal" href="l2_storage/aerospike.html">Aerospike</a></li>
 </ul>
 </li>
@@ -380,16 +381,17 @@
 </span><span id="line-14">StorageManager (distributed/storage_manager.py)
 </span><span id="line-15">     |
 </span><span id="line-16">     |--- L1Manager (l1_manager.py)
-</span><span id="line-17">     |       |--- L1MemoryManager (CPU DRAM) or
-</span><span id="line-18">     |       |    GDSL1MemoryManager (NVMe slab via cuFile / hipFile)
-</span><span id="line-19">     |       |--- TTLLock per object (read/write)
-</span><span id="line-20">     |
-</span><span id="line-21">     |--- StoreController  -----&gt; L2 Adapter(s) (async L1-&gt;L2 push)
-</span><span id="line-22">     |--- PrefetchController ---&gt; L2 Adapter(s) (async L2-&gt;L1 load)
-</span><span id="line-23">     |--- EvictionController ----&gt; L1Manager (watermark-triggered eviction)
-</span><span id="line-24">     |
-</span><span id="line-25">     v
-</span><span id="line-26">EventBus + OTel providers (observability)
+</span><span id="line-17">     |       |--- L1MemoryManager (CPU DRAM),
+</span><span id="line-18">     |       |    DevDaxL1MemoryManager (Device-DAX slab), or
+</span><span id="line-19">     |       |    GDSL1MemoryManager (NVMe slab via cuFile / hipFile)
+</span><span id="line-20">     |       |--- TTLLock per object (read/write)
+</span><span id="line-21">     |
+</span><span id="line-22">     |--- StoreController  -----&gt; L2 Adapter(s) (async L1-&gt;L2 push)
+</span><span id="line-23">     |--- PrefetchController ---&gt; L2 Adapter(s) (async L2-&gt;L1 load)
+</span><span id="line-24">     |--- EvictionController ----&gt; L1Manager (watermark-triggered eviction)
+</span><span id="line-25">     |
+</span><span id="line-26">     v
+</span><span id="line-27">EventBus + OTel providers (observability)
 </span></code></pre></div>
 </div>
 </section>
@@ -615,9 +617,15 @@
 </span></code></pre></div>
 </div>
 <p>每个对象都有两个 <code class="docutils literal notranslate"><span class="pre">TTLLock</span></code> 实例（读和写），并具有可配置的超时，以防止因崩溃的客户端导致的死锁。</p>
-<p>底层内存分配由在启动时选择的两个可互换层之一处理（两者都满足 <code class="docutils literal notranslate"><span class="pre">L1ManagerProtocol</span></code>）：</p>
+<p>The underlying memory allocation is handled by one of three interchangeable
+tiers selected at startup (all satisfy <code class="docutils literal notranslate"><span class="pre">L1ManagerProtocol</span></code>):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">L1MemoryManager</span></code>（默认）-- 固定 CPU DRAM，按需惰性增长至 <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DevDaxL1MemoryManager</span></code> -- a Device-DAX-backed L1 slab when
+<code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code> is set. A pure Device-DAX configuration maps the DAX
+device as the full L1 arena; a hybrid configuration uses DRAM first and
+spills overflow allocations into Device-DAX. See the <em>L1 Memory Manager</em>
+section of <a class="reference internal" href="configuration.html"><span class="doc">配置参考</span></a> for the accepted knobs.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">GDSL1MemoryManager</span></code> -- 当设置了 <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> 时，使用 NVMe 块文件。字节存储在磁盘上；读/写通过 DMA 直接在 GPU 暂存缓冲区和块之间进行，由进程全局的 <code class="docutils literal notranslate"><span class="pre">GDSContext``（``gpu_connector/gds_context.py</span></code>）驱动，并从 <code class="docutils literal notranslate"><span class="pre">gpu_ops</span></code> 派发。DMA 后端由平台通过 <code class="docutils literal notranslate"><span class="pre">gpu_connector/_gds_async.py</span></code> 选择 -- NVIDIA 使用 cuFile（<code class="docutils literal notranslate"><span class="pre">libcufile.so</span></code>），AMD ROCm 使用 hipFile（<code class="docutils literal notranslate"><span class="pre">libhipfile.so</span></code>）；有关特定于供应商的要求，请参见 <a class="reference internal" href="configuration.html"><span class="doc">配置参考</span></a> 的 <em>GDS L1 Tier</em> 部分。在此模式下，CPU 层被禁用。</p></li>
 </ul>
 </section>
