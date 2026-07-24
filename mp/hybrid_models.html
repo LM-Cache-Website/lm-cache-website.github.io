@@ -128,6 +128,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/kimi_linear.html">Kimi-Linear</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
@@ -304,9 +305,8 @@ caching and KV reuse work the same way they do for plain models.</p>
 <li><p><a class="reference internal" href="#caveats" id="id7">Caveats</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#what-is-not-supported-yet" id="id8">What Is Not Supported Yet</a></p></li>
-<li><p><a class="reference internal" href="#verifying-correctness" id="id9">Verifying Correctness</a></p></li>
-<li><p><a class="reference internal" href="#see-also" id="id10">See Also</a></p></li>
+<li><p><a class="reference internal" href="#verifying-correctness" id="id8">Verifying Correctness</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id9">See Also</a></p></li>
 </ul>
 </nav>
 <section id="validated-hybrid-models">
@@ -341,15 +341,19 @@ caching and KV reuse work the same way they do for plain models.</p>
 <td><p>Mamba / GDN + full</p></td>
 <td><p><a class="reference internal" href="../recipes/qwen3_5.html"><span class="doc">Qwen3.5 / Qwen3.6 series</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p>DeepSeek-V4-Flash</p></td>
+<tr class="row-even"><td><p>Kimi-Linear</p></td>
+<td><p>KDA linear-attention + MLA full</p></td>
+<td><p><a class="reference internal" href="../recipes/kimi_linear.html"><span class="doc">Kimi-Linear</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>DeepSeek-V4-Flash</p></td>
 <td><p>Sparse-MLA (multiple KV groups)</p></td>
 <td><p><a class="reference internal" href="../recipes/deepseek_v4_flash.html"><span class="doc">DeepSeek-V4-Flash</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p>GLM 5.1/5.2</p></td>
+<tr class="row-even"><td><p>GLM 5.1/5.2</p></td>
 <td><p>Dynamic Sparse Attention (multiple KV groups)</p></td>
 <td><p><a class="reference internal" href="../recipes/glm5_2.html"><span class="doc">GLM 5.1/5.2</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p>MiniMax-M3</p></td>
+<tr class="row-odd"><td><p>MiniMax-M3</p></td>
 <td><p>Sparse attention + lightning indexer (mixed KV formats in one group)</p></td>
 <td><p><a class="reference internal" href="../recipes/minimax_m3.html"><span class="doc">MiniMax M3</span></a></p></td>
 </tr>
@@ -429,7 +433,9 @@ independently.</p>
 <h2><a class="toc-backref" href="#id4" role="doc-backlink">Mamba / Linear-Attention Hybrids</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mamba-linear-attention-hybrids" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mamba-linear-attention-hybrids'"><span>#</span></a></h2>
 <p>Models that interleave <strong>Mamba / Gated-DeltaNet (GDN) linear-attention layers</strong>
 with full attention — the Qwen3.5 and Qwen3.6 series (<code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.5-0.8B</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.6-27B</span></code>, …), Qwen3-Next, and other GDN hybrids — are supported.
+<code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3.6-27B</span></code>, …), Qwen3-Next, Kimi-Linear
+(<code class="docutils literal notranslate"><span class="pre">moonshotai/Kimi-Linear-48B-A3B-Instruct</span></code>), and other GDN hybrids — are
+supported.
 Unlike a paged key/value cache, their linear-attention layers keep a recurrent
 <strong>state cache</strong> (a convolution + SSM state). LMCache reinterprets that state as
 an opaque page at registration time, so prefix caching and KV reuse work end to
@@ -495,6 +501,10 @@ example:</p>
 <td><p>544</p></td>
 <td><p>1</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">moonshotai/Kimi-Linear-48B-A3B-Instruct</span></code></p></td>
+<td><p>944</p></td>
+<td><p>2</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -551,15 +561,8 @@ is not validated.</p></li>
 end-to-end commands and the per-model block sizes.</p>
 </section>
 </section>
-<section id="what-is-not-supported-yet">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">What Is Not Supported Yet</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-is-not-supported-yet" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-is-not-supported-yet'"><span>#</span></a></h2>
-<ul class="simple">
-<li><p><strong>DeepSeek-V4-style compressed / indexer caches</strong> are not yet handled by the
-multiprocess connector.</p></li>
-</ul>
-</section>
 <section id="verifying-correctness">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Verifying Correctness</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-correctness" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-correctness'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Verifying Correctness</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-correctness" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-correctness'"><span>#</span></a></h2>
 <p>To convince yourself that a hybrid model’s KV is being cached and reused
 correctly, you can compare a cold run against a run served from LMCache:</p>
 <ol class="arabic">
@@ -580,7 +583,7 @@ KV is <strong>retrieved</strong> from LMCache. The score should match the first 
 <code class="docutils literal notranslate"><span class="pre">.buildkite/k3_tests/multiprocess</span></code>).</p>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">See Also</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">See Also</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#see-also" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#see-also'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">Quickstart</span></a> — launching the LMCache server and a vLLM client.</p></li>
 <li><p>Design notes on how groups are detected and addressed:
@@ -617,7 +620,6 @@ KV is <strong>retrieved</strong> from LMCache. The score should match the first 
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">Caveats</a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#what-is-not-supported-yet'" class="reference internal" href="#what-is-not-supported-yet">What Is Not Supported Yet</a></li>
 <li><a :data-current="activeSection === '#verifying-correctness'" class="reference internal" href="#verifying-correctness">Verifying Correctness</a></li>
 <li><a :data-current="activeSection === '#see-also'" class="reference internal" href="#see-also">See Also</a></li>
 </ul>
