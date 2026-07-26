@@ -296,10 +296,11 @@
 <li><p><a class="reference internal" href="#when-to-use-serde" id="id3">何时使用 serde</a></p></li>
 <li><p><a class="reference internal" href="#configuring-serde-on-an-l2-adapter" id="id4">在 L2 适配器上配置 serde</a></p></li>
 <li><p><a class="reference internal" href="#turboquant-serde" id="id5">TurboQuant 序列化与反序列化</a></p></li>
-<li><p><a class="reference internal" href="#writing-a-custom-serde" id="id6">编写自定义 serde</a></p></li>
-<li><p><a class="reference internal" href="#notes" id="id7">注意事项</a></p></li>
-<li><p><a class="reference internal" href="#example" id="id8">示例</a></p></li>
-<li><p><a class="reference internal" href="#compression-methods" id="id9">压缩方法</a></p></li>
+<li><p><a class="reference internal" href="#encryption-serde" id="id6">Encryption serde</a></p></li>
+<li><p><a class="reference internal" href="#writing-a-custom-serde" id="id7">编写自定义 serde</a></p></li>
+<li><p><a class="reference internal" href="#notes" id="id8">注意事项</a></p></li>
+<li><p><a class="reference internal" href="#example" id="id9">示例</a></p></li>
+<li><p><a class="reference internal" href="#compression-methods" id="id10">压缩方法</a></p></li>
 </ul>
 </nav>
 <section id="when-to-use-serde">
@@ -345,6 +346,13 @@
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">turboquant</span></code></p></td>
 <td><p>在 L2 存储之前使用 TurboQuant 预设压缩 KV 张量，并在加载时重构它们。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">preset``（默认</span> <span class="pre">``turboquant_k8v4</span></code>），<a href="#id1"><span class="problematic" id="id2">``</span></a>head_dim``（可选，默认 128），<a href="#id3"><span class="problematic" id="id4">``</span></a>block_size``（默认 16），<a href="#id5"><span class="problematic" id="id6">``</span></a>max_workers``（线程池大小，默认 1）</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aesgcm</span></code></p></td>
+<td><p>AES-GCM authenticated encryption of KV bytes at rest in L2, keyed
+per <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">key_provider</span></code> (default <code class="docutils literal notranslate"><span class="pre">hkdf</span></code>), <code class="docutils literal notranslate"><span class="pre">master_key_path</span></code> (required
+for <code class="docutils literal notranslate"><span class="pre">hkdf</span></code>), <code class="docutils literal notranslate"><span class="pre">aes_bits</span></code> (<code class="docutils literal notranslate"><span class="pre">128</span></code> default, or <code class="docutils literal notranslate"><span class="pre">256</span></code>),
+<code class="docutils literal notranslate"><span class="pre">max_workers</span></code> (thread pool size, default 1)</p></td>
 </tr>
 </tbody>
 </table>
@@ -399,8 +407,40 @@
 </tbody>
 </table>
 </section>
+<section id="encryption-serde">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Encryption serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#encryption-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#encryption-serde'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">aesgcm</span></code> serde encrypts KV bytes with AES-GCM before they land in L2
+and decrypts them on load, so a party who can read the remote storage
+(bucket / disk / RESP) cannot recover cache contents. Each tenant's data is
+encrypted under a distinct key derived from its <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-5"><span class="s1">        "type": "s3",</span>
+</span><span id="line-6"><span class="s1">        "bucket": "my-kv-cache",</span>
+</span><span id="line-7"><span class="s1">        "serde": {</span>
+</span><span id="line-8"><span class="s1">            "type": "aesgcm",</span>
+</span><span id="line-9"><span class="s1">            "key_provider": "hkdf",</span>
+</span><span id="line-10"><span class="s1">            "master_key_path": "/etc/lmcache/keys/master"</span>
+</span><span id="line-11"><span class="s1">        }</span>
+</span><span id="line-12"><span class="s1">    }'</span>
+</span></code></pre></div>
+</div>
+<p>Provide the master key as a file (e.g. a mounted Kubernetes <code class="docutils literal notranslate"><span class="pre">Secret</span></code>).
+The <code class="docutils literal notranslate"><span class="pre">hkdf</span></code> provider reads it once at startup and derives a per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>
+key via HKDF-SHA256; the master key is never written to L2. <code class="docutils literal notranslate"><span class="pre">aes_bits</span></code>
+defaults to <code class="docutils literal notranslate"><span class="pre">128</span></code> (already unbreakable and slightly faster); set <code class="docutils literal notranslate"><span class="pre">256</span></code> if a
+compliance mandate requires it.</p>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">hkdf</span></code> provider derives every tenant's key from one shared master
+key, so any server holding the master can decrypt any tenant's data
+("fleet vs. outside" trust). It is not per-tenant access isolation.</p>
+</div>
+</section>
 <section id="writing-a-custom-serde">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">编写自定义 serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-serde'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">编写自定义 serde</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-serde" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-serde'"><span>#</span></a></h2>
 <p>实现两个同步 ABC（<code class="docutils literal notranslate"><span class="pre">Serializer</span></code>，<code class="docutils literal notranslate"><span class="pre">Deserializer</span></code>），并使用您的转换逻辑，然后注册一个以您选择的名称为键的工厂：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># my_project/my_serde.py</span>
 </span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.distributed.serde</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -440,19 +480,27 @@
 </div>
 </section>
 <section id="notes">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">注意事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">注意事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#notes'"><span>#</span></a></h2>
 <ul class="simple">
 <li><p><strong>缓冲区大小。</strong> <code class="docutils literal notranslate"><span class="pre">estimate_serialized_size(layout)</span></code> 必须返回实际序列化输出的上限——安全余量应直接计入估算值（例如，内置的 fp8 序列化器返回 <code class="docutils literal notranslate"><span class="pre">1.5</span> <span class="pre">*</span> <span class="pre">num_elements</span></code>）。</p></li>
+<li><p><strong>Raw-byte output.</strong> If your serde writes bytes directly (rather than
+through <code class="docutils literal notranslate"><span class="pre">MemoryObj.tensor</span></code> like the quantizers), reach the buffer via
+<code class="docutils literal notranslate"><span class="pre">MemoryObj.byte_array</span></code> and <strong>cast it to the native format first</strong>:
+<code class="docutils literal notranslate"><span class="pre">memoryview(dst.byte_array).cast("B")</span></code>. <code class="docutils literal notranslate"><span class="pre">byte_array</span></code> is a
+ctypes-backed view with format <code class="docutils literal notranslate"><span class="pre">"&lt;B"</span></code>, and CPython does not support
+slice assignment into a non-native format (<code class="docutils literal notranslate"><span class="pre">dst[i:j]</span> <span class="pre">=</span> <span class="pre">...</span></code> raises
+<code class="docutils literal notranslate"><span class="pre">NotImplementedError:</span> <span class="pre">memoryview:</span> <span class="pre">unsupported</span> <span class="pre">format</span> <span class="pre">&lt;B</span></code>). The built-in
+<code class="docutils literal notranslate"><span class="pre">aesgcm</span></code> serde is an example.</p></li>
 <li><p><strong>失败处理。</strong> 如果任何步骤失败（序列化、存储、加载或反序列化），整个提交的批次均报告为失败——批次内的部分成功不会对外呈现。失败的键会自动清理。</p></li>
 <li><p><strong>线程池。</strong> <code class="docutils literal notranslate"><span class="pre">AsyncSerdeProcessor(max_workers=N)</span></code> 控制池的大小。释放全局解释器锁（GIL）的变换（例如，torch 操作）可以从 <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> 中受益；纯 Python 变换则不然。</p></li>
 </ul>
 </section>
 <section id="example">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example'"><span>#</span></a></h2>
 <p>一个端到端的脚本，它在磁盘适配器上启动一个带有 fp8 的 lmcache 服务器，运行 vLLM，清除 L1，然后重新运行相同的请求以触发 L2 预取 + fp8 反序列化路径，位于 <code class="file docutils literal notranslate"><span class="pre">examples/serde/fp8/</span></code>。一个基于 pytest 的文件系统往返测试（不需要 vLLM）位于 <code class="file docutils literal notranslate"><span class="pre">tests/v1/distributed/serde/test_serde_fs_e2e.py</span></code>。</p>
 </section>
 <section id="compression-methods">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">压缩方法</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#compression-methods" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#compression-methods'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">压缩方法</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#compression-methods" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#compression-methods'"><span>#</span></a></h2>
 <p>构建于按适配器 serde 机制之上的高阶 KV Cache 压缩方法：</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -484,6 +532,7 @@
 <li><a :data-current="activeSection === '#when-to-use-serde'" class="reference internal" href="#when-to-use-serde">何时使用 serde</a></li>
 <li><a :data-current="activeSection === '#configuring-serde-on-an-l2-adapter'" class="reference internal" href="#configuring-serde-on-an-l2-adapter">在 L2 适配器上配置 serde</a></li>
 <li><a :data-current="activeSection === '#turboquant-serde'" class="reference internal" href="#turboquant-serde">TurboQuant 序列化与反序列化</a></li>
+<li><a :data-current="activeSection === '#encryption-serde'" class="reference internal" href="#encryption-serde">Encryption serde</a></li>
 <li><a :data-current="activeSection === '#writing-a-custom-serde'" class="reference internal" href="#writing-a-custom-serde">编写自定义 serde</a></li>
 <li><a :data-current="activeSection === '#notes'" class="reference internal" href="#notes">注意事项</a></li>
 <li><a :data-current="activeSection === '#example'" class="reference internal" href="#example">示例</a></li>
