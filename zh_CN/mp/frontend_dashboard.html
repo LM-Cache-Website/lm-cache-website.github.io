@@ -351,31 +351,94 @@
 </div>
 <p>这些并不是通过基础的 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 安装引入的，以保持其精简。</p>
 </section>
-<section id="quick-start">
-<h2>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start'"><span>#</span></a></h2>
+<section id="quick-start-all-in-one-on-localhost">
+<h2>Quick Start (all-in-one on <code class="docutils literal notranslate"><span class="pre">localhost</span></code>)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#quick-start-all-in-one-on-localhost" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#quick-start-all-in-one-on-localhost'"><span>#</span></a></h2>
+<p>The steps below spin up the <strong>discovery service</strong>, the <strong>LMCache MP
+server</strong> and the <strong>dashboard</strong> on a single machine and glue them
+together with <code class="docutils literal notranslate"><span class="pre">localhost</span></code>. Open three terminals and run one command
+in each.</p>
+<p>Endpoint cheat sheet used throughout this section:</p>
+<ul class="simple">
+<li><p>Discovery service: <code class="docutils literal notranslate"><span class="pre">http://localhost:5000</span></code></p></li>
+<li><p>LMCache MP HTTP server: <code class="docutils literal notranslate"><span class="pre">http://localhost:8085</span></code></p></li>
+<li><p>Dashboard UI: <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code></p></li>
+</ul>
 <p><strong>步骤 1 — 启动发现服务</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.tools.simple_discover_service
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.tools.simple_discover_service<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span>
 </span></code></pre></div>
 </div>
-<p>该服务监听 <code class="docutils literal notranslate"><span class="pre">0.0.0.0:5000</span></code> 并暴露：</p>
+<p>This binds to <code class="docutils literal notranslate"><span class="pre">0.0.0.0:5000</span></code> by default. To pick a different
+interface or port, pass <code class="docutils literal notranslate"><span class="pre">--host</span></code> / <code class="docutils literal notranslate"><span class="pre">--port</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">5001</span></code>); if you change the port, remember to update the
+URLs in Step 2 &amp; 3 accordingly.</p>
+<p>The service exposes:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/lmcache_heartbeat</span></code> — 记录来自 MP 服务器的心跳。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/lmcache_infos</span></code> — 以 JSON 格式返回所有注册的节点。</p></li>
 </ul>
-<p><strong>步骤 2 — 启动带有前端插件的 LMCache MP 服务器</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--http-host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--http-port<span class="w"> </span><span class="m">8085</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--runtime-plugin-locations<span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">        </span>lmcache/lmcache_frontend/lmcache_mp_plugin/lmcache_mp_frontend_plugin.py<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>--runtime-plugin-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-8"><span class="w">        </span><span class="s1">'{"plugin.frontend.heartbeat-url": "http://localhost:5000/lmcache_heartbeat"}'</span>
+<p>Verify it is up:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://localhost:5000/lmcache_infos
 </span></code></pre></div>
 </div>
-<p>插件子进程将每 30 秒向发现服务发送一次心跳（可通过 <code class="docutils literal notranslate"><span class="pre">plugin.frontend.heartbeat-interval</span></code> 配置）。</p>
-<p>或者，使用提供的示例脚本：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">bash<span class="w"> </span>lmcache/lmcache_frontend/run_mp_server_with_frontend.sh
+<p><strong>步骤 2 — 启动带有前端插件的 LMCache MP 服务器</strong></p>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code> accepts either a relative path
+(resolved against the <strong>current working directory</strong>) or an
+absolute path. The command below uses a relative path, so it
+<strong>must be run from the repository root</strong>. Otherwise you will see:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache WARNING: Runtime plugin location
+</span><span id="line-2">lmcache/lmcache_frontend/lmcache_mp_plugin/lmcache_mp_frontend_plugin.py
+</span><span id="line-3">does not exist
+</span></code></pre></div>
+</div>
+<p>and no heartbeat will be sent. Either <code class="docutils literal notranslate"><span class="pre">cd</span></code> into the repo root
+first, or replace the plugin path with an absolute one such as
+<code class="docutils literal notranslate"><span class="pre">$(pwd)/lmcache/lmcache_frontend/lmcache_mp_plugin/lmcache_mp_frontend_plugin.py</span></code>
+(evaluated from the repo root) or a fully-qualified path
+<code class="docutils literal notranslate"><span class="pre">/abs/path/to/LMCache/lmcache/lmcache_frontend/lmcache_mp_plugin/lmcache_mp_frontend_plugin.py</span></code>.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Run from the repository root of LMCache.</span>
+</span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>/path/to/LMCache
+</span><span id="line-3">
+</span><span id="line-4">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--http-host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--http-port<span class="w"> </span><span class="m">8085</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--runtime-plugin-locations<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">        </span>lmcache/lmcache_frontend/lmcache_mp_plugin/lmcache_mp_frontend_plugin.py<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>--runtime-plugin-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">        </span><span class="s1">'{"plugin.frontend.heartbeat-url": "http://localhost:5000/lmcache_heartbeat", "plugin.frontend.report-host": "127.0.0.1"}'</span>
+</span></code></pre></div>
+</div>
+<p>The plugin subprocess sends a heartbeat to the discovery service every
+30 seconds (configurable via <code class="docutils literal notranslate"><span class="pre">plugin.frontend.heartbeat-interval</span></code>).</p>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p><strong>Why ``plugin.frontend.report-host: 127.0.0.1`` matters for local dev.</strong></p>
+<p>By default the plugin calls <code class="docutils literal notranslate"><span class="pre">get_local_ip()</span></code> to guess a
+non-loopback IPv4 to put into the reported <code class="docutils literal notranslate"><span class="pre">api_address</span></code>. On a
+developer laptop that guess is often a NIC/VPN address that is
+<strong>not reachable</strong> from the dashboard side (Wi-Fi switched off,
+split-tunnel VPN, macOS firewall, etc.), so
+<code class="docutils literal notranslate"><span class="pre">http://localhost:5000/lmcache_infos</span></code> will list an
+<code class="docutils literal notranslate"><span class="pre">apiAddress</span></code> that the dashboard cannot connect to.</p>
+<p>Setting <code class="docutils literal notranslate"><span class="pre">plugin.frontend.report-host</span></code> to <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> bypasses
+the auto-detection and forces the reported address to
+<code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:8085</span></code>, which is always reachable on the same
+machine. For multi-host deployments, set it to the real IP or
+hostname that the dashboard should use to reach this server, or
+leave it unset to keep auto-detection.</p>
+</div>
+<p>Verify the heartbeat landed:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://localhost:5000/lmcache_infos
+</span><span id="line-2"><span class="c1"># Expect: processInfos -&gt; "http://127.0.0.1:8085": { ... }</span>
+</span></code></pre></div>
+</div>
+<p>Alternatively, use the provided example script (accepts the
+<code class="docutils literal notranslate"><span class="pre">REPORT_HOST</span></code> env var):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">REPORT_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>bash<span class="w"> </span>lmcache/lmcache_frontend/run_mp_server_with_frontend.sh
 </span></code></pre></div>
 </div>
 <p><strong>步骤 3 — 启动仪表板</strong></p>
@@ -385,7 +448,11 @@
 </span><span id="line-4"><span class="w">    </span>--node-supplier-url<span class="w"> </span>http://localhost:5000/lmcache_infos
 </span></code></pre></div>
 </div>
-<p>在浏览器中打开 <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code>。</p>
+<p>Open <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code> in your browser. The dashboard fetches
+the node list from the discovery service and reverse-proxies to each
+node's <code class="docutils literal notranslate"><span class="pre">apiAddress</span></code> — with <code class="docutils literal notranslate"><span class="pre">report-host</span></code> set to <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>
+above, this always resolves back to the local MP server on
+<code class="docutils literal notranslate"><span class="pre">:8085</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>仪表板在加载主页时，最多每 30 秒自动从供应商 URL 刷新一次节点列表。</p>
@@ -427,7 +494,8 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--node-supplier-url</span></code></p></td>
 <td><p>(无)</p></td>
-<td><p>发现服务的节点列表端点的 URL，例如 <code class="docutils literal notranslate"><span class="pre">http://localhost:5000/lmcache_infos</span></code>。</p></td>
+<td><p>URL to fetch node information from, e.g.:
+<code class="docutils literal notranslate"><span class="pre">http://localhost:5000/lmcache_infos</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span></code></p></td>
 <td><p>(内置)</p></td>
@@ -441,11 +509,17 @@
 <td><p>(无)</p></td>
 <td><p>如果设置，仪表板本身也会向此 URL 发送心跳。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--report-host</span></code></p></td>
+<td><p><em>(auto)</em></p></td>
+<td><p>Host reported in the heartbeat <code class="docutils literal notranslate"><span class="pre">api_address</span></code>. When set, skips
+<code class="docutils literal notranslate"><span class="pre">get_local_ip()</span></code> auto-detection. Useful for local dev where the
+auto-detected IP is not reachable from the discovery service side.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">warning</span></code></p></td>
 <td><p>Uvicorn 日志级别 (<code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">info</span></code>, <code class="docutils literal notranslate"><span class="pre">warning</span></code>, …)。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-http</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-http</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>禁用 HTTP 服务器；仅运行心跳循环。由 MP 插件内部使用。</p></td>
 </tr>
@@ -475,6 +549,13 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">plugin.frontend.heartbeat-initial-delay</span></code></p></td>
 <td><p>在第一次心跳之前等待的秒数（默认值：<code class="docutils literal notranslate"><span class="pre">0</span></code>）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plugin.frontend.report-host</span></code></p></td>
+<td><p>Host reported in the heartbeat <code class="docutils literal notranslate"><span class="pre">api_address</span></code>. When set, the
+plugin skips <code class="docutils literal notranslate"><span class="pre">get_local_ip()</span></code> auto-detection and uses this
+value verbatim. Handy for local dev (<code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>), multi-NIC
+hosts, or when the auto-detected IP is not reachable from the
+discovery service side.</p></td>
 </tr>
 </tbody>
 </table>
@@ -522,7 +603,7 @@
 <li><a :data-current="activeSection === '#architecture-overview'" class="reference internal" href="#architecture-overview">架构概述</a></li>
 <li><a :data-current="activeSection === '#components'" class="reference internal" href="#components">组件</a></li>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">先决条件</a></li>
-<li><a :data-current="activeSection === '#quick-start'" class="reference internal" href="#quick-start">快速开始</a></li>
+<li><a :data-current="activeSection === '#quick-start-all-in-one-on-localhost'" class="reference internal" href="#quick-start-all-in-one-on-localhost">Quick Start (all-in-one on <code class="docutils literal notranslate"><span class="pre">localhost</span></code>)</a></li>
 <li><a :data-current="activeSection === '#dashboard-features'" class="reference internal" href="#dashboard-features">仪表板功能</a></li>
 <li><a :data-current="activeSection === '#cli-reference'" class="reference internal" href="#cli-reference">CLI 参考</a><ul>
 <li><a :data-current="activeSection === '#python-m-lmcache-lmcache-frontend-app'" class="reference internal" href="#python-m-lmcache-lmcache-frontend-app"><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">lmcache.lmcache_frontend.app</span></code></a></li>
