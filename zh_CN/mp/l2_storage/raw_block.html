@@ -302,7 +302,8 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">capacity_bytes</span></code>：可用设备字节的可选上限。默认值 <code class="docutils literal notranslate"><span class="pre">0</span></code> 表示使用完整的设备/文件大小。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>: <code class="docutils literal notranslate"><span class="pre">true</span></code> 或 <code class="docutils literal notranslate"><span class="pre">false</span></code>（默认 <code class="docutils literal notranslate"><span class="pre">true</span></code>）。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">block_align</span></code>: 设备对齐字节数（默认 <code class="docutils literal notranslate"><span class="pre">4096</span></code>）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">block_align</span></code>: Device alignment in bytes (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>). Must be a
+power of two.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">header_bytes</span></code>: 每个槽位的头部预留大小（默认 <code class="docutils literal notranslate"><span class="pre">4096</span></code>）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_total_bytes</span></code>: 保留的元数据检查点区域（默认 <code class="docutils literal notranslate"><span class="pre">256MiB</span></code>）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_magic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_version</span></code>: 元数据检查点的标识符与版本号调节参数。</p></li>
@@ -320,7 +321,12 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 是一个由服务端管理的 MP 适配器。它 <strong>不</strong> 支持 MP 模式下按 TP 粒度配置设备路径映射。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 在所有支持的引擎中保持 <code class="docutils literal notranslate"><span class="pre">"type":</span> <span class="pre">"raw_block"</span></code>。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> 负责设备上的槽分配、检查点和通过 <code class="docutils literal notranslate"><span class="pre">RawBlockCore</span></code> 的恢复。槽回收由共享/全局 L2 逐出控制器或显式的 <code class="docutils literal notranslate"><span class="pre">delete()</span></code> 调用驱动。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>, <code class="docutils literal notranslate"><span class="pre">header_bytes</span></code>, and <code class="docutils literal notranslate"><span class="pre">meta_total_bytes</span></code> must be multiples
+of <code class="docutils literal notranslate"><span class="pre">block_align</span></code>.</p></li>
 <li><p>如果启用了 <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>，则服务器的 <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> 应至少为 <code class="docutils literal notranslate"><span class="pre">block_align</span></code>。</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>, raw-block I/O rejects offsets and total I/O lengths that
+are not multiples of <code class="docutils literal notranslate"><span class="pre">block_align</span></code>. Misaligned write buffers use an aligned
+bounce buffer.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> 对此适配器必须保持为 <code class="docutils literal notranslate"><span class="pre">true</span></code>。</p></li>
 <li><p>对于 <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>，<code class="docutils literal notranslate"><span class="pre">device_path</span></code> 必须使用 NVMe 字符设备节点（例如，<code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>），而不是块设备节点（<code class="docutils literal notranslate"><span class="pre">/dev/nvme0n1</span></code>）。字符设备提供直接的 NVMe 命令直通。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code> 需要设置 <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code>。</p></li>

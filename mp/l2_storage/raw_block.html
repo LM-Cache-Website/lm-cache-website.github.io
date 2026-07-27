@@ -306,7 +306,8 @@ caller-provided load buffers during prefetch.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">capacity_bytes</span></code>: Optional cap on the usable device bytes. Default <code class="docutils literal notranslate"><span class="pre">0</span></code>
 means use the full device/file size.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>: <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> (default <code class="docutils literal notranslate"><span class="pre">true</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">block_align</span></code>: Device alignment in bytes (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">block_align</span></code>: Device alignment in bytes (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>). Must be a
+power of two.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">header_bytes</span></code>: Per-slot header reservation (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_total_bytes</span></code>: Reserved metadata checkpoint region (default <code class="docutils literal notranslate"><span class="pre">256MiB</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_magic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_version</span></code>: Metadata checkpoint identity/version knobs.</p></li>
@@ -338,8 +339,13 @@ per-TP device-path mappings in MP mode.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">raw_block</span></code> owns on-device slot allocation, checkpointing, and recovery
 through <code class="docutils literal notranslate"><span class="pre">RawBlockCore</span></code>. Slot reclamation is driven by the shared/global
 L2 eviction controller or explicit <code class="docutils literal notranslate"><span class="pre">delete()</span></code> calls.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>, <code class="docutils literal notranslate"><span class="pre">header_bytes</span></code>, and <code class="docutils literal notranslate"><span class="pre">meta_total_bytes</span></code> must be multiples
+of <code class="docutils literal notranslate"><span class="pre">block_align</span></code>.</p></li>
 <li><p>If <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> is enabled, the server’s <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> should be
 at least <code class="docutils literal notranslate"><span class="pre">block_align</span></code>.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>, raw-block I/O rejects offsets and total I/O lengths that
+are not multiples of <code class="docutils literal notranslate"><span class="pre">block_align</span></code>. Misaligned write buffers use an aligned
+bounce buffer.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> must remain <code class="docutils literal notranslate"><span class="pre">true</span></code> for this adapter.</p></li>
 <li><p>For <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, <code class="docutils literal notranslate"><span class="pre">device_path</span></code> must use the NVMe character
 device node (e.g., <code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>) instead of the block device node
