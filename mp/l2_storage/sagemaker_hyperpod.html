@@ -346,7 +346,23 @@ address:</p>
 <section id="dev-shm-volume-configuration">
 <h3>/dev/shm Volume Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dev-shm-volume-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dev-shm-volume-configuration'"><span>#</span></a></h3>
 <p>SageMaker Hyperpod requires /dev/shm for high-performance shared memory
-operations:</p>
+operations. The right configuration depends on whether the LMCache server
+runs in the same pod as the inference engine or in a separate pod.</p>
+<p><strong>Separate pods (Recommended) — LMCache server in its own pod</strong></p>
+<p>GPU IPC between the inference engine and the LMCache server requires a
+shared IPC namespace; across pods this is only possible through the host.
+Set <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> on <strong>both</strong> pods:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">hostIPC</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> the pod’s <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> <em>is</em> the host’s, so the
+daemon’s segment is already visible — do not add the <code class="docutils literal notranslate"><span class="pre">subPath</span></code> mount in
+this case (the host IPC namespace shadows it).</p>
+<p><strong>Same pod (LMCache server and inference engine as containers in one pod)</strong></p>
+<p>The pod-shared IPC namespace already covers the GPU IPC between the engine
+and the LMCache server, so only the daemon’s shared-memory segment needs to
+be exposed. Mount it from the host with <code class="docutils literal notranslate"><span class="pre">subPath</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">volumeMounts</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dshm</span>
 </span><span id="line-3"><span class="w">    </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/shm/shared_memory</span>
