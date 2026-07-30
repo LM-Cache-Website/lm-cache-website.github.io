@@ -325,6 +325,33 @@
 </tr>
 </tbody>
 </table>
+<section id="gc-monitoring-garbage-collection-pauses">
+<h2>GC Monitoring (garbage-collection pauses)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gc-monitoring-garbage-collection-pauses" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gc-monitoring-garbage-collection-pauses'"><span>#</span></a></h2>
+<p>A full (generation-2) collection is stop-the-world and walks the whole
+heap, so it lands inside request handling as tail latency that nothing else
+in the server accounts for. Opt in to time collections and log the slow
+ones:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>...<span class="w"> </span>--enable-gc-monitor<span class="w"> </span>--gc-monitor-min-pause-ms<span class="w"> </span><span class="m">10</span><span class="w"> </span>--gc-monitor-top-objects<span class="w"> </span><span class="m">3</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">GC gen2 173.2ms collected=0 uncollectable=0 builtins.function=86911 builtins.tuple=70493 builtins.dict=45107
+</span></code></pre></div>
+</div>
+<p>注意：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--gc-monitor-min-pause-ms</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>) drops faster collections.
+<code class="docutils literal notranslate"><span class="pre">0</span></code> logs everything, including the sub-millisecond gen-0 sweeps CPython
+runs roughly every 700 net container allocations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--gc-monitor-top-objects</span></code> shows <em>what</em> the collector is walking, but
+scans the whole generation on <strong>every</strong> collection (O(heap), can itself
+cost hundreds of ms). Debugging only.</p></li>
+<li><p>Non-zero <code class="docutils literal notranslate"><span class="pre">uncollectable</span></code> means CPython found garbage it could not free —
+a reference-cycle leak worth chasing.</p></li>
+<li><p>The monitor logs directly instead of publishing events, so it is
+independent of the <code class="docutils literal notranslate"><span class="pre">--disable-observability</span></code> / <code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code> /
+<code class="docutils literal notranslate"><span class="pre">--disable-logging</span></code> flags.</p></li>
+</ul>
+</section>
 <section id="extra-logging-periodic-transfer-stats">
 <h2>额外日志记录（定期传输统计信息）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#extra-logging-periodic-transfer-stats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#extra-logging-periodic-transfer-stats'"><span>#</span></a></h2>
 <p>选择性地记录周期性 INFO 级别的统计信息，旨在通过日志监控正在运行的服务器，而无需使用指标堆栈：</p>
@@ -369,6 +396,7 @@
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
+<li><a :data-current="activeSection === '#gc-monitoring-garbage-collection-pauses'" class="reference internal" href="#gc-monitoring-garbage-collection-pauses">GC Monitoring (garbage-collection pauses)</a></li>
 <li><a :data-current="activeSection === '#extra-logging-periodic-transfer-stats'" class="reference internal" href="#extra-logging-periodic-transfer-stats">额外日志记录（定期传输统计信息）</a></li>
 </ul>
 </div>
