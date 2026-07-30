@@ -334,32 +334,33 @@ resource and the operator reconciles all underlying Kubernetes objects.</p>
 <ul>
 <li><p><a class="reference internal" href="#target-only-gpu-nodes" id="id31">Target Only GPU Nodes</a></p></li>
 <li><p><a class="reference internal" href="#custom-server-port" id="id32">Custom Server Port</a></p></li>
-<li><p><a class="reference internal" href="#production-with-prometheus-monitoring" id="id33">Production with Prometheus Monitoring</a></p></li>
-<li><p><a class="reference internal" href="#override-auto-computed-resources" id="id34">Override Auto-Computed Resources</a></p></li>
+<li><p><a class="reference internal" href="#encrypted-l2-backend" id="id33">Encrypted L2 Backend</a></p></li>
+<li><p><a class="reference internal" href="#production-with-prometheus-monitoring" id="id34">Production with Prometheus Monitoring</a></p></li>
+<li><p><a class="reference internal" href="#override-auto-computed-resources" id="id35">Override Auto-Computed Resources</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cacheblend" id="id35">CacheBlend</a></p>
+<li><p><a class="reference internal" href="#cacheblend" id="id36">CacheBlend</a></p>
 <ul>
-<li><p><a class="reference internal" href="#additional-prerequisites" id="id36">Additional Prerequisites</a></p></li>
-<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id37">Deploying a CacheBlendEngine</a></p></li>
-<li><p><a class="reference internal" href="#id2" id="id38">Opting a vLLM Pod In</a></p></li>
-<li><p><a class="reference internal" href="#id3" id="id39">Verifying Injection</a></p></li>
-<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id40">CacheBlendEngine Fields</a></p></li>
+<li><p><a class="reference internal" href="#additional-prerequisites" id="id37">Additional Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#deploying-a-cacheblendengine" id="id38">Deploying a CacheBlendEngine</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id39">Opting a vLLM Pod In</a></p></li>
+<li><p><a class="reference internal" href="#id3" id="id40">Verifying Injection</a></p></li>
+<li><p><a class="reference internal" href="#cacheblendengine-fields" id="id41">CacheBlendEngine Fields</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#lmcachecoordinator" id="id41">LMCacheCoordinator</a></p>
+<li><p><a class="reference internal" href="#lmcachecoordinator" id="id42">LMCacheCoordinator</a></p>
 <ul>
-<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id42">Deploying a Coordinator</a></p></li>
-<li><p><a class="reference internal" href="#connecting-an-engine" id="id43">Connecting an Engine</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id44">Coordinator CRD Spec Reference</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-resources-created" id="id45">Coordinator Resources Created</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id46">Coordinator Status &amp; Conditions</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id47">Coordinator Validation Rules</a></p></li>
+<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id43">Deploying a Coordinator</a></p></li>
+<li><p><a class="reference internal" href="#connecting-an-engine" id="id44">Connecting an Engine</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id45">Coordinator CRD Spec Reference</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-resources-created" id="id46">Coordinator Resources Created</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id47">Coordinator Status &amp; Conditions</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id48">Coordinator Validation Rules</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id48">Operator vs Manual Deployment</a></p></li>
-<li><p><a class="reference internal" href="#security-considerations" id="id49">Security Considerations</a></p></li>
-<li><p><a class="reference internal" href="#development" id="id50">Development</a></p></li>
+<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id49">Operator vs Manual Deployment</a></p></li>
+<li><p><a class="reference internal" href="#security-considerations" id="id50">Security Considerations</a></p></li>
+<li><p><a class="reference internal" href="#development" id="id51">Development</a></p></li>
 </ul>
 </nav>
 <section id="why-use-the-operator">
@@ -899,6 +900,33 @@ for buffer-only mode.</p></td>
 <td><p>List of L2 backends (<code class="docutils literal notranslate"><span class="pre">type</span></code> + <code class="docutils literal notranslate"><span class="pre">config</span></code>).
 See <a class="reference internal" href="l2_storage/index.html"><span class="doc">Secondary KV Storage</span></a>.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde</span></code></p></td>
+<td><p>–</p></td>
+<td><p>Optional serde transform on KV bytes to/from the L2 adapter
+(rendered as the <code class="docutils literal notranslate"><span class="pre">serde</span></code> sub-dict of <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>). Exactly
+one serde type must be set. See <a class="reference internal" href="serde.html"><span class="doc">KV Cache Compression</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde.aesgcm</span></code></p></td>
+<td><p>–</p></td>
+<td><p>At-rest encryption of L2 KV bytes (AES-GCM, keyed per
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>). L1 (host RAM) and L0 (GPU) remain plaintext.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde.aesgcm.masterKeySecretRef.name</span></code></p></td>
+<td><p>–</p></td>
+<td><p>Required. User-created Secret in the engine’s namespace holding
+the master key under the <code class="docutils literal notranslate"><span class="pre">master</span></code> data key; mounted read-only
+into the engine pods at <code class="docutils literal notranslate"><span class="pre">/etc/lmcache/keys/master</span></code>. The
+operator never generates key material.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde.aesgcm.keyProvider</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hkdf</span></code></p></td>
+<td><p>How per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> keys are derived from the master key.
+Only <code class="docutils literal notranslate"><span class="pre">hkdf</span></code> (HKDF-SHA256) is implemented.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde.aesgcm.aesBits</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">128</span></code></p></td>
+<td><p>AES key size: <code class="docutils literal notranslate"><span class="pre">128</span></code> or <code class="docutils literal notranslate"><span class="pre">256</span></code>.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1155,6 +1183,16 @@ readiness).</p></li>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">server.port</span></code></p></td>
 <td><p>Must be in [1024, 65535].</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde</span></code></p></td>
+<td><p>Exactly one serde type must be set (only <code class="docutils literal notranslate"><span class="pre">aesgcm</span></code> today).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde.aesgcm.masterKeySecretRef.name</span></code></p></td>
+<td><p>Required, must be non-empty.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l2Backend.serde</span></code> + <code class="docutils literal notranslate"><span class="pre">l2Backend.raw</span></code></p></td>
+<td><p>Rejected if the raw adapter config already sets a <code class="docutils literal notranslate"><span class="pre">serde</span></code> key
+(one would silently overwrite the other).</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1199,8 +1237,41 @@ when not specified, so a minimal CR already targets GPU nodes.</p>
 <p>The connection ConfigMap updates automatically – vLLM pods pick up the new
 port on restart.</p>
 </section>
+<section id="encrypted-l2-backend">
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Encrypted L2 Backend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#encrypted-l2-backend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#encrypted-l2-backend'"><span>#</span></a></h3>
+<p>Encrypt KV bytes at rest in the L2 tier with the <code class="docutils literal notranslate"><span class="pre">aesgcm</span></code> serde. Create
+the master-key Secret first, in the engine’s namespace (the operator never
+generates keys):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">head<span class="w"> </span>-c<span class="w"> </span><span class="m">16</span><span class="w"> </span>/dev/urandom<span class="w"> </span>&gt;<span class="w"> </span>master.key<span class="w">   </span><span class="c1"># 16 bytes for AES-128, 32 for AES-256</span>
+</span><span id="line-2">kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>lmcache-l2-master-key<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--from-file<span class="o">=</span><span class="nv">master</span><span class="o">=</span>master.key
+</span></code></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
+</span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
+</span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-cache</span>
+</span><span id="line-5"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">l1</span><span class="p">:</span>
+</span><span id="line-7"><span class="w">    </span><span class="nt">sizeGB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">l2Backend</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">    </span><span class="nt">raw</span><span class="p">:</span>
+</span><span id="line-10"><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fs</span>
+</span><span id="line-11"><span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+</span><span id="line-12"><span class="w">        </span><span class="nt">base_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/lmcache/l2</span>
+</span><span id="line-13"><span class="w">    </span><span class="nt">serde</span><span class="p">:</span>
+</span><span id="line-14"><span class="w">      </span><span class="nt">aesgcm</span><span class="p">:</span>
+</span><span id="line-15"><span class="w">        </span><span class="nt">masterKeySecretRef</span><span class="p">:</span>
+</span><span id="line-16"><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache-l2-master-key</span>
+</span></code></pre></div>
+</div>
+<p>The Secret is mounted directly into the engine pods (read-only, only the
+<code class="docutils literal notranslate"><span class="pre">master</span></code> data key). A missing Secret or missing key surfaces as a pod
+mount event and self-heals once the Secret is fixed. See <a class="reference internal" href="serde.html"><span class="doc">KV Cache Compression</span></a> for
+the key model and threat model.</p>
+</section>
 <section id="production-with-prometheus-monitoring">
-<h3><a class="toc-backref" href="#id33" role="doc-backlink">Production with Prometheus Monitoring</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-with-prometheus-monitoring" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-with-prometheus-monitoring'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Production with Prometheus Monitoring</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-with-prometheus-monitoring" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-with-prometheus-monitoring'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1237,7 +1308,7 @@ port on restart.</p>
 <p>See <a class="reference internal" href="observability/index.html"><span class="doc">Observability</span></a> for metric names and Grafana configuration.</p>
 </section>
 <section id="override-auto-computed-resources">
-<h3><a class="toc-backref" href="#id34" role="doc-backlink">Override Auto-Computed Resources</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#override-auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#override-auto-computed-resources'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Override Auto-Computed Resources</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#override-auto-computed-resources" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#override-auto-computed-resources'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1256,7 +1327,7 @@ port on restart.</p>
 </section>
 </section>
 <section id="cacheblend">
-<span id="mp-operator-cacheblend"></span><h2><a class="toc-backref" href="#id35" role="doc-backlink">CacheBlend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend'"><span>#</span></a></h2>
+<span id="mp-operator-cacheblend"></span><h2><a class="toc-backref" href="#id36" role="doc-backlink">CacheBlend</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend'"><span>#</span></a></h2>
 <p>CacheBlend reuses cached KV at shifted (non-prefix) positions by recomputing a
 small subset of tokens.  The operator manages it as a second CRD,
 <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code>, plus a <strong>mutating admission webhook</strong> that injects the
@@ -1274,7 +1345,7 @@ and</p></li>
 <li><p>the vLLM-side plugin, injected into opted-in pods by the webhook.</p></li>
 </ul>
 <section id="additional-prerequisites">
-<h3><a class="toc-backref" href="#id36" role="doc-backlink">Additional Prerequisites</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Additional Prerequisites</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#additional-prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#additional-prerequisites'"><span>#</span></a></h3>
 <p>Beyond the operator prerequisites above:</p>
 <ul>
 <li><p><strong>cert-manager</strong> – the webhook’s serving certificate is issued by a
@@ -1292,7 +1363,7 @@ and the vLLM pod’s namespaces <code class="docutils literal notranslate"><span
 </ul>
 </section>
 <section id="deploying-a-cacheblendengine">
-<h3><a class="toc-backref" href="#id37" role="doc-backlink">Deploying a CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">Deploying a CacheBlendEngine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-cacheblendengine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-cacheblendengine'"><span>#</span></a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
 </span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CacheBlendEngine</span>
 </span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
@@ -1319,7 +1390,7 @@ emits a <code class="docutils literal notranslate"><span class="pre">my-cacheble
 the <code class="docutils literal notranslate"><span class="pre">cb.*</span></code> tunables).</p>
 </section>
 <section id="id2">
-<h3><a class="toc-backref" href="#id38" role="doc-backlink">Opting a vLLM Pod In</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Opting a vLLM Pod In</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
 <p>Label the pod template for the webhook and bind it to an engine by name.  Launch
 vLLM via the image <strong>ENTRYPOINT</strong> (args only) – a
 <code class="docutils literal notranslate"><span class="pre">command:</span> <span class="pre">["/bin/sh",</span> <span class="pre">"-c",</span> <span class="pre">...]</span></code> wrapper is skipped, since appended args would
@@ -1359,7 +1430,7 @@ connection ConfigMap, <code class="docutils literal notranslate"><span class="pr
 You supply only the model and your non-CacheBlend flags.</p>
 </section>
 <section id="id3">
-<h3><a class="toc-backref" href="#id39" role="doc-backlink">Verifying Injection</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Verifying Injection</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>The webhook mutates <strong>Pods</strong>, not the Deployment, so inspect a pod:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-cacheblend<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|attention-backend|cacheblend-injected|skip-reason"</span>
@@ -1377,7 +1448,7 @@ webhook/cert problem also leaves the pod un-mutated silently – confirm the
 operator pod is <code class="docutils literal notranslate"><span class="pre">Running</span></code> and the <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> exists.</p>
 </section>
 <section id="cacheblendengine-fields">
-<h3><a class="toc-backref" href="#id40" role="doc-backlink">CacheBlendEngine Fields</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id41" role="doc-backlink">CacheBlendEngine Fields</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblendengine-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblendengine-fields'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">CacheBlendEngineSpec</span></code> mirrors <code class="docutils literal notranslate"><span class="pre">LMCacheEngineSpec</span></code> (every field in the CRD
 Spec Reference above) and adds:</p>
 <table class="docutils align-default">
@@ -1426,14 +1497,14 @@ requires <code class="docutils literal notranslate"><span class="pre">chunk_size
 </section>
 </section>
 <section id="lmcachecoordinator">
-<h2><a class="toc-backref" href="#id41" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id42" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> CRD runs the <strong>mp coordinator</strong> – a fleet-wide HTTP
 service that tracks mp server instances, evicts those whose heartbeats lapse,
 performs L2 quota eviction, and hosts the global CacheBlend fingerprint
 directory.  It is a plain (non-GPU) <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> exposed through a ClusterIP
 Service; engines reach it via <code class="docutils literal notranslate"><span class="pre">coordinator.ref</span></code> or <code class="docutils literal notranslate"><span class="pre">coordinator.url</span></code>.</p>
 <section id="deploying-a-coordinator">
-<h3><a class="toc-backref" href="#id42" role="doc-backlink">Deploying a Coordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id43" role="doc-backlink">Deploying a Coordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
 <p>A ready-to-edit manifest lives at
 <code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcachecoordinator.yaml</span></code> in the operator
 repo.  A minimal coordinator:</p>
@@ -1450,7 +1521,7 @@ repo.  A minimal coordinator:</p>
 </div>
 </section>
 <section id="connecting-an-engine">
-<h3><a class="toc-backref" href="#id43" role="doc-backlink">Connecting an Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id44" role="doc-backlink">Connecting an Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
 <p>Point an <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> / <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> at the coordinator through its
 <code class="docutils literal notranslate"><span class="pre">coordinator</span></code> block.  Use <code class="docutils literal notranslate"><span class="pre">ref</span></code> to name a coordinator in the same namespace
 (the operator resolves it to the in-cluster Service URL), or <code class="docutils literal notranslate"><span class="pre">url</span></code> for an
@@ -1465,7 +1536,7 @@ explicit endpoint:</p>
 </div>
 </section>
 <section id="coordinator-crd-spec-reference">
-<h3><a class="toc-backref" href="#id44" role="doc-backlink">Coordinator CRD Spec Reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id45" role="doc-backlink">Coordinator CRD Spec Reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
 <section id="topology">
 <h4>Topology<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#topology"><span>#</span></a></h4>
 <table class="docutils align-default">
@@ -1671,7 +1742,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </section>
 </section>
 <section id="coordinator-resources-created">
-<h3><a class="toc-backref" href="#id45" role="doc-backlink">Coordinator Resources Created</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id46" role="doc-backlink">Coordinator Resources Created</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
 <p>For an <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> named <code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code>:</p>
 <table class="docutils align-default">
 <colgroup>
@@ -1709,7 +1780,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 <code class="docutils literal notranslate"><span class="pre">http://my-coordinator.default.svc:9300</span></code>).</p>
 </section>
 <section id="coordinator-status-conditions">
-<h3><a class="toc-backref" href="#id46" role="doc-backlink">Coordinator Status &amp; Conditions</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id47" role="doc-backlink">Coordinator Status &amp; Conditions</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
 <p>The status section includes:</p>
 <ul class="simple">
 <li><p><strong>phase</strong>: <code class="docutils literal notranslate"><span class="pre">Pending</span></code>, <code class="docutils literal notranslate"><span class="pre">Running</span></code>, <code class="docutils literal notranslate"><span class="pre">Degraded</span></code>, or <code class="docutils literal notranslate"><span class="pre">Failed</span></code>.</p></li>
@@ -1726,7 +1797,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </ul>
 </section>
 <section id="coordinator-validation-rules">
-<h3><a class="toc-backref" href="#id47" role="doc-backlink">Coordinator Validation Rules</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id48" role="doc-backlink">Coordinator Validation Rules</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1764,7 +1835,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </section>
 </section>
 <section id="operator-vs-manual-deployment">
-<h2><a class="toc-backref" href="#id48" role="doc-backlink">Operator vs Manual Deployment</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id49" role="doc-backlink">Operator vs Manual Deployment</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1814,7 +1885,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </table>
 </section>
 <section id="security-considerations">
-<h2><a class="toc-backref" href="#id49" role="doc-backlink">Security Considerations</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id50" role="doc-backlink">Security Considerations</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
 <p><strong>hostIPC</strong> exposes the host’s IPC namespace (System V IPC, POSIX message
 queues) to the container.  Any process in the container can interact with IPC
 resources from other processes on the same host.</p>
@@ -1830,7 +1901,7 @@ requires it.</p></li>
 </ul>
 </section>
 <section id="development">
-<h2><a class="toc-backref" href="#id50" role="doc-backlink">Development</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id51" role="doc-backlink">Development</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">make<span class="w"> </span>generate<span class="w">     </span><span class="c1"># Generate DeepCopy methods</span>
 </span><span id="line-2">make<span class="w"> </span>manifests<span class="w">    </span><span class="c1"># Generate CRD YAML + RBAC</span>
 </span><span id="line-3">make<span class="w"> </span>build<span class="w">        </span><span class="c1"># Compile operator binary</span>
@@ -1912,6 +1983,7 @@ requires it.</p></li>
 <li><a :data-current="activeSection === '#examples'" class="reference internal" href="#examples">Examples</a><ul>
 <li><a :data-current="activeSection === '#target-only-gpu-nodes'" class="reference internal" href="#target-only-gpu-nodes">Target Only GPU Nodes</a></li>
 <li><a :data-current="activeSection === '#custom-server-port'" class="reference internal" href="#custom-server-port">Custom Server Port</a></li>
+<li><a :data-current="activeSection === '#encrypted-l2-backend'" class="reference internal" href="#encrypted-l2-backend">Encrypted L2 Backend</a></li>
 <li><a :data-current="activeSection === '#production-with-prometheus-monitoring'" class="reference internal" href="#production-with-prometheus-monitoring">Production with Prometheus Monitoring</a></li>
 <li><a :data-current="activeSection === '#override-auto-computed-resources'" class="reference internal" href="#override-auto-computed-resources">Override Auto-Computed Resources</a></li>
 </ul>
