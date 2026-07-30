@@ -457,13 +457,16 @@ registrations. <code class="docutils literal notranslate"><span class="pre">0</s
 <td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_HEARTBEAT_INTERVAL</span></code></p></td>
 <td><p>心跳之间的秒数（必须为 <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>，默认值为 <code class="docutils literal notranslate"><span class="pre">5</span></code>）。保持远低于协调器的 <code class="docutils literal notranslate"><span class="pre">INSTANCE_TIMEOUT</span></code>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_REPORTING</span></code></p></td>
-<td><p>启用向协调器上报 L2 存储/查找事件，用于全集群使用量跟踪及基于配额的逐出。</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_EVENT_REPORTING</span></code></p></td>
+<td><p>Enable reporting cache events to the coordinator: the key
+directory's store/access/delete stream (fleet-wide placement
+tracking) and the L2 usage stream (quota tracking and eviction).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-flush-interval</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_L2_EVENT_FLUSH_INTERVAL</span></code></p></td>
-<td><p>L2 事件批量刷新之间的秒数（必须为 <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>，默认值为 <code class="docutils literal notranslate"><span class="pre">1</span></code>）。</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-event-flush-interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_EVENT_FLUSH_INTERVAL</span></code></p></td>
+<td><p>Seconds between cache-event batch flushes (must be <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>, default
+<code class="docutils literal notranslate"><span class="pre">1</span></code>).</p></td>
 </tr>
 </tbody>
 </table>
@@ -647,7 +650,11 @@ LOOKUP. Server-to-coordinator only; not usually called by hand.</p></li>
 </span><span id="line-9"><span class="c1"># -&gt; {"default_limit_gb": 0.0}</span>
 </span></code></pre></div>
 </div>
-<p>当 MP 服务器启用 <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code> 时，它们将 L2 <code class="docutils literal notranslate"><span class="pre">store</span></code>、<code class="docutils literal notranslate"><span class="pre">lookup</span></code> 和 <code class="docutils literal notranslate"><span class="pre">delete</span></code> 事件流式传输到协调器，协调器汇总每个 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 的使用情况，强制执行配额，并选择 LRU 键进行逐出。每个批次携带服务器的 <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> 和一个单调递增的序列号 (<code class="docutils literal notranslate"><span class="pre">seq</span></code>)，该序列号作用于该实例，从而实现未来的间隙检测。</p>
+<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code>, they stream L2
+<code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">lookup</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator, which aggregates
+per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and selects LRU keys to evict. Each
+batch carries the server's <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and a monotonically increasing
+sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>) scoped to that instance, enabling future gap detection.</p>
 <p><strong>主动逐出循环。</strong> 每 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code> 秒，协调器检查每个盐的使用情况与注册的配额，并对任何超过触发水位线的盐选择 LRU 牺牲品，并向一个均匀随机的注册 MP 服务器发送单个 <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/objects</span></code>。由于所有 MP 服务器共享相同的后端 L2（例如，一个 S3 存储桶），一次调度会逐出整个集群的键。MP 服务器的 L2 适配器在删除完成后触发 <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> 监听器；这些监听器通过 <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code> 发送 <code class="docutils literal notranslate"><span class="pre">delete</span></code> 事件，这就是更新协调器的 LRU + 每盐总数的方式。调度失败或没有注册实例将进入下一个周期——至少一次语义，安全，因为 S3 删除是幂等的。</p>
 <p><strong>启动重新同步。</strong> 在启动时，协调器最多等待 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code> 秒以注册第一个 MP 服务器，然后对其 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> 进行分页，并用 L2 中已经存在的内容填充内存中的使用情况和逐出跟踪器——因此一个新的协调器不会从零使用开始。设置 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC=False</span></code> 以跳过此阶段。尽力而为：重新同步失败会被记录，管理器会放弃；来自 MP 服务器的持续使用事件流最终会纠正任何初始盲点。</p>
 <section id="put-quota-config-get-quota-config">
@@ -1051,7 +1058,9 @@ LOOKUP. Server-to-coordinator only; not usually called by hand.</p></li>
 </div>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p><strong>需要 L2 事件报告。</strong> 协调器只能排除其正在跟踪的盐的键的逐出，这需要 MP 服务器以 <code class="docutils literal notranslate"><span class="pre">--coordinator-l2-event-reporting</span></code> 启动（请参见 <a class="reference internal" href="#connecting-mp-servers">连接 MP 服务器</a>）。</p>
+<p><strong>Requires event reporting.</strong> The coordinator can only exclude keys from
+eviction for a salt it is tracking, which requires the MP servers started with
+<code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code> (see <a class="reference internal" href="#connecting-mp-servers">Connecting MP servers</a>).</p>
 </div>
 </section>
 <section id="delete-cache-pins">
