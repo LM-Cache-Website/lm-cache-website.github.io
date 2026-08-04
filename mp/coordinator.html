@@ -317,23 +317,22 @@ the coordinator ties them together into one coordinated fleet.</p>
 <li><p><a class="reference internal" href="#delete-quota-cache-salt" id="id14"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code></a></p></li>
 <li><p><a class="reference internal" href="#get-quota-cache-salt" id="id15"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code></a></p></li>
 <li><p><a class="reference internal" href="#get-quota" id="id16"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code></a></p></li>
-<li><p><a class="reference internal" href="#post-quota-events" id="id17"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cache-control" id="id18">Cache control</a></p>
+<li><p><a class="reference internal" href="#cache-control" id="id17">Cache control</a></p>
 <ul>
-<li><p><a class="reference internal" href="#post-cache-prefetches" id="id19"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></p></li>
-<li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id20"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
-<li><p><a class="reference internal" href="#post-cache-pins" id="id21"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></p></li>
-<li><p><a class="reference internal" href="#delete-cache-pins" id="id22"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></p></li>
-<li><p><a class="reference internal" href="#post-cache-delete" id="id23"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-prefetches" id="id18"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-cache-prefetches-instance-id-request-id" id="id19"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-pins" id="id20"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-cache-pins" id="id21"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-cache-delete" id="id22"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cacheblend-fingerprint-directory" id="id24">CacheBlend fingerprint directory</a></p>
+<li><p><a class="reference internal" href="#cacheblend-fingerprint-directory" id="id23">CacheBlend fingerprint directory</a></p>
 <ul>
-<li><p><a class="reference internal" href="#post-blend-fingerprints" id="id25"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
-<li><p><a class="reference internal" href="#delete-blend-fingerprints" id="id26"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
-<li><p><a class="reference internal" href="#post-blend-match" id="id27"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-blend-fingerprints" id="id24"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
+<li><p><a class="reference internal" href="#delete-blend-fingerprints" id="id25"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
+<li><p><a class="reference internal" href="#post-blend-match" id="id26"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></p></li>
 </ul>
 </li>
 </ul>
@@ -436,7 +435,8 @@ connection and fail with <code class="docutils literal notranslate"><span class=
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
 startup that paginates an MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and
-backfills usage + eviction trackers from existing L2 contents.
+backfills the key directory’s L2 placements plus the
+usage/eviction trackers from existing L2 contents.
 Disable to start from empty trackers (handy for tests, or
 deployments that start the coordinator before any MP server).</p></td>
 </tr>
@@ -498,9 +498,9 @@ below the coordinator’s <code class="docutils literal notranslate"><span class
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_EVENT_REPORTING</span></code></p></td>
-<td><p>Enable reporting cache events to the coordinator: the key
-directory’s store/access/delete stream (fleet-wide placement
-tracking) and the L2 usage stream (quota tracking and eviction).</p></td>
+<td><p>Stream cache store/access/delete events to the coordinator,
+feeding the key directory (fleet-wide placement tracking) and,
+for L2 events, usage/quota tracking and eviction.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-event-flush-interval</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_COORDINATOR_EVENT_FLUSH_INTERVAL</span></code></p></td>
@@ -736,11 +736,14 @@ cycle):</p>
 </span><span id="line-9"><span class="c1"># -&gt; {"default_limit_gb": 0.0}</span>
 </span></code></pre></div>
 </div>
-<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code>, they stream L2
-<code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">lookup</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator, which aggregates
-per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and selects LRU keys to evict. Each
-batch carries the server’s <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> and a monotonically increasing
-sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>) scoped to that instance, enabling future gap detection.</p>
+<p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code>, they stream cache
+<code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">access</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator’s
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>. Applied <code class="docutils literal notranslate"><span class="pre">l2</span></code> batches also feed the quota side:
+the coordinator aggregates per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and
+selects LRU keys to evict. Each batch carries the server’s <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">incarnation</span></code>, and a monotonically increasing sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>)
+scoped to that instance, so replays are deduplicated and lost batches are
+detected.</p>
 <p><strong>Active eviction loop.</strong> Every
 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_EVICTION_CHECK_INTERVAL</span></code> seconds, the
 coordinator inspects per-salt usage against the registered quotas and,
@@ -750,16 +753,16 @@ server. Because all MP servers share the same backing L2 (e.g. one S3
 bucket), one dispatch evicts the keys for the whole fleet. The MP
 server’s L2 adapter fires <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> listeners after the
 delete completes; those listeners ship <code class="docutils literal notranslate"><span class="pre">delete</span></code> events back through
-<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code>, which is what updates the coordinator’s LRU +
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>, which is what updates the coordinator’s LRU +
 per-salt totals. Dispatch failures or no-instances-registered fall
 through to the next cycle — at-least-once semantics, safe because the
 S3 delete is idempotent.</p>
 <p><strong>Startup resync.</strong> On boot, the coordinator waits up to
 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code> seconds for the first MP
 server to register, then paginates its
-<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and seeds the in-memory usage + eviction trackers
-with whatever is already resident in L2 — so a fresh coordinator
-does not start from zero usage. Set
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and seeds the key directory and the usage +
+eviction trackers with whatever is already resident in L2 — so a fresh
+coordinator does not start from zero usage. Set
 <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC=False</span></code> to skip this
 phase. Best-effort: resync failures are logged and the manager gives
 up; the ongoing usage-event stream from MP servers eventually corrects
@@ -928,77 +931,14 @@ entry has the same fields as the <code class="docutils literal notranslate"><spa
 </span><span id="line-2"><span class="c1"># -&gt; {"total_gb": 0.005, "by_cache_salt": [...]}</span>
 </span></code></pre></div>
 </div>
-</section>
-<section id="post-quota-events">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-quota-events" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-quota-events'"><span>#</span></a></h3>
-<p>Ingest a batch of usage events. Sent automatically by reporting MP servers; not
-usually called by hand.</p>
-<p><strong>Request body:</strong></p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 18.0%"/>
-<col style="width: 16.0%"/>
-<col style="width: 66.0%"/>
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Field</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">instance_id</span></code></p></td>
-<td><p>string</p></td>
-<td><p>The MP server that produced this batch.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">seq</span></code></p></td>
-<td><p>int</p></td>
-<td><p>Monotonic per-instance sequence number (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>); supports future gap
-detection of lost batches.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
-<td><p>string</p></td>
-<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">l2</span></code>). Cache tier the events apply to.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">events</span></code></p></td>
-<td><p>list[object]</p></td>
-<td><p>The events to record. Each is <code class="docutils literal notranslate"><span class="pre">{"type",</span> <span class="pre">"key",</span> <span class="pre">"bytes"}</span></code>: <code class="docutils literal notranslate"><span class="pre">type</span></code> is
-<code class="docutils literal notranslate"><span class="pre">"store"</span></code>, <code class="docutils literal notranslate"><span class="pre">"lookup"</span></code>, or <code class="docutils literal notranslate"><span class="pre">"delete"</span></code>; <code class="docutils literal notranslate"><span class="pre">key</span></code> is the encoded object
-key; <code class="docutils literal notranslate"><span class="pre">bytes</span></code> (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">0</span></code>) is the stored size — counted for <code class="docutils literal notranslate"><span class="pre">store</span></code> and
-ignored for <code class="docutils literal notranslate"><span class="pre">lookup</span></code> / <code class="docutils literal notranslate"><span class="pre">delete</span></code> (a <code class="docutils literal notranslate"><span class="pre">delete</span></code> subtracts the size
-recorded at the original <code class="docutils literal notranslate"><span class="pre">store</span></code>).</p></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"recorded"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">recorded</span></code> is the number of events processed.</p>
-<p><strong>HTTP status codes:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: events processed.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
-</ul>
-<p><strong>Example:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/quota/events<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
-</span><span id="line-4"><span class="s1">        "instance_id": "server-1",</span>
-</span><span id="line-5"><span class="s1">        "seq": 1,</span>
-</span><span id="line-6"><span class="s1">        "events": [</span>
-</span><span id="line-7"><span class="s1">            {"type": "store",  "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 1024},</span>
-</span><span id="line-8"><span class="s1">            {"type": "lookup", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0},</span>
-</span><span id="line-9"><span class="s1">            {"type": "delete", "key": {"chunk_hash_hex": "aa", "model_name": "m", "kv_rank": 0, "cache_salt": "user-a"}, "bytes": 0}</span>
-</span><span id="line-10"><span class="s1">        ]</span>
-</span><span id="line-11"><span class="s1">    }'</span>
-</span><span id="line-12"><span class="c1"># -&gt; {"recorded": 3}</span>
-</span></code></pre></div>
-</div>
+<p>Usage events arrive on the fleet cache-event stream
+(<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>); there is no separate quota ingestion
+endpoint. See <code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_coordinator/cache_events.md</span></code> for the
+batch format and routing semantics.</p>
 </section>
 </section>
 <section id="cache-control">
-<h2><a class="toc-backref" href="#id18" role="doc-backlink">Cache control</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Cache control</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cache-control" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cache-control'"><span>#</span></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group dispatches cache operations to a named MP server. It covers
 <strong>warm prefetch</strong>, <strong>pin/unpin</strong>, and <strong>delete</strong>; further cache-control
 operations will be documented as endpoints here as they land.</p>
@@ -1015,7 +955,7 @@ The submit returns a <code class="docutils literal notranslate"><span class="pre
 <code class="docutils literal notranslate"><span class="pre">completed</span></code>. The warm acquires no lock – the poll simply reports progress and
 clears the server-side job once the load finishes.</p>
 <section id="post-cache-prefetches">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-prefetches" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-prefetches'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-prefetches" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-prefetches'"><span>#</span></a></h3>
 <p>Submit a warm prefetch of a token sequence on one named server.</p>
 <p><strong>Request body:</strong></p>
 <table class="docutils align-default">
@@ -1095,7 +1035,7 @@ a model sharded across multiple nodes, submit one request per node’s instance.
 </div>
 </section>
 <section id="get-cache-prefetches-instance-id-request-id">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-cache-prefetches-instance-id-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-cache-prefetches-instance-id-request-id'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/prefetches/{instance_id}/{request_id}</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-cache-prefetches-instance-id-request-id" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-cache-prefetches-instance-id-request-id'"><span>#</span></a></h3>
 <p>Poll a submitted warm prefetch; the response relays the owning server’s status
 verbatim with its code.</p>
 <p><strong>Path parameters:</strong></p>
@@ -1157,7 +1097,7 @@ launched with <code class="docutils literal notranslate"><span class="pre">--no-
 a single object group).</p>
 </section>
 <section id="post-cache-pins">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-pins'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-pins'"><span>#</span></a></h3>
 <p>Pin a token sequence’s keys in the L2 eviction plan.</p>
 <p><strong>Request body:</strong></p>
 <table class="docutils align-default">
@@ -1225,7 +1165,7 @@ eviction for a salt it is tracking, which requires the MP servers started with
 </div>
 </section>
 <section id="delete-cache-pins">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-pins'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-pins'"><span>#</span></a></h3>
 <p>Unpin a token sequence’s keys from the L2 eviction plan. Same request body as
 <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>. The response mirrors the pin (<code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
 of keys unpinned), with <code class="docutils literal notranslate"><span class="pre">status</span></code> <code class="docutils literal notranslate"><span class="pre">"unpinned"</span></code>. Pins are reference-counted: a
@@ -1254,7 +1194,7 @@ delete set unless <code class="docutils literal notranslate"><span class="pre">f
 the delete would have touched; <code class="docutils literal notranslate"><span class="pre">force</span></code> deletes them and drops those pins.</p>
 </section>
 <section id="post-cache-delete">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-delete" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-delete'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-delete" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-delete'"><span>#</span></a></h3>
 <p>Delete a token sequence on one named server.</p>
 <p><strong>Request body:</strong> (<code class="docutils literal notranslate"><span class="pre">model_name</span></code>,
 <code class="docutils literal notranslate"><span class="pre">world_size</span></code>, <code class="docutils literal notranslate"><span class="pre">token_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>) plus <code class="docutils literal notranslate"><span class="pre">tier</span></code> (<code class="docutils literal notranslate"><span class="pre">l1</span></code> / <code class="docutils literal notranslate"><span class="pre">l2</span></code> /
@@ -1296,7 +1236,7 @@ sequence returns <code class="docutils literal notranslate"><span class="pre">st
 </section>
 </section>
 <section id="cacheblend-fingerprint-directory">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">CacheBlend fingerprint directory</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fingerprint-directory" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fingerprint-directory'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">CacheBlend fingerprint directory</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fingerprint-directory" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fingerprint-directory'"><span>#</span></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">/blend</span></code> group is the fleet-wide fingerprint index behind CacheBlend
 cross-request reuse. Blend-enabled MP servers publish chunk fingerprints on
 STORE (<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code>) and query them on LOOKUP
@@ -1308,7 +1248,7 @@ server-to-coordinator; they are not usually called by hand.</p>
 <code class="docutils literal notranslate"><span class="pre">BlendMatchRequest</span></code>, <code class="docutils literal notranslate"><span class="pre">GlobalMatchModel</span></code> and their responses) live in
 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>.</p>
 <section id="post-blend-fingerprints">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-fingerprints'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-fingerprints'"><span>#</span></a></h3>
 <p>Register stored chunk fingerprints (idempotent).</p>
 <p><strong>Request body:</strong></p>
 <table class="docutils align-default">
@@ -1348,7 +1288,7 @@ entries are left in place; re-publishing is safe).</p>
 </ul>
 </section>
 <section id="delete-blend-fingerprints">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-blend-fingerprints'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-blend-fingerprints'"><span>#</span></a></h3>
 <p>Evict fingerprints by shared-L2 storage key (idempotent). MP servers call this
 when the underlying L2 objects are dropped, so the directory does not keep
 handing out stale matches.</p>
@@ -1385,7 +1325,7 @@ are ignored.</p></td>
 </ul>
 </section>
 <section id="post-blend-match">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-match" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-match'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-match" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-match'"><span>#</span></a></h3>
 <p>Match a request’s token buffer against the directory and return the reusable
 chunks.</p>
 <p><strong>Request body:</strong></p>
@@ -1477,7 +1417,6 @@ returns <code class="docutils literal notranslate"><span class="pre">{"matches":
 <li><a :data-current="activeSection === '#delete-quota-cache-salt'" class="reference internal" href="#delete-quota-cache-salt"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/quota/{cache_salt}</span></code></a></li>
 <li><a :data-current="activeSection === '#get-quota-cache-salt'" class="reference internal" href="#get-quota-cache-salt"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/{cache_salt}</span></code></a></li>
 <li><a :data-current="activeSection === '#get-quota'" class="reference internal" href="#get-quota"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota</span></code></a></li>
-<li><a :data-current="activeSection === '#post-quota-events'" class="reference internal" href="#post-quota-events"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/quota/events</span></code></a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#cache-control'" class="reference internal" href="#cache-control">Cache control</a><ul>
