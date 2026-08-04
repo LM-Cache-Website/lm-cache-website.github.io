@@ -1050,7 +1050,75 @@
 </span></code></pre></div>
 </div>
 <p>所有组必须共享相同的 <code class="docutils literal notranslate"><span class="pre">NB</span></code> 和 <code class="docutils literal notranslate"><span class="pre">BS</span></code>（这是分页 KV 的物理约束），各组层数之和等于向服务器注册的总层数。</p>
+<section id="mla-multi-head-latent-attention">
+<h4>MLA (Multi-head Latent Attention)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mla-multi-head-latent-attention"><span>#</span></a></h4>
+<p>Set <code class="docutils literal notranslate"><span class="pre">kv_size=1</span></code> to exercise the MLA data path. MLA folds K and V into
+a single latent plane, so each chunk on the wire is
+<code class="docutils literal notranslate"><span class="pre">(num_layers,</span> <span class="pre">chunk_tokens,</span> <span class="pre">num_heads</span> <span class="pre">*</span> <span class="pre">head_size)</span></code> instead of the
+classical <code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">num_layers,</span> <span class="pre">chunk_tokens,</span> <span class="pre">num_heads</span> <span class="pre">*</span> <span class="pre">head_size)</span></code>.
+The bench also allocates each per-layer client tensor as rank-3
+<code class="docutils literal notranslate"><span class="pre">(NB,</span> <span class="pre">BS,</span> <span class="pre">num_heads</span> <span class="pre">*</span> <span class="pre">head_size)</span></code> (rather than the classical rank-5
+<code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">NB,</span> <span class="pre">BS,</span> <span class="pre">NH,</span> <span class="pre">HS)</span></code>), which is what the server's vLLM detector
+recognises as MLA -- see <code class="docutils literal notranslate"><span class="pre">NL_X_NB_BS_HS</span></code> in
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/gpu_connector/kv_format/detectors/vllm.py</span></code>.</p>
+<p>Pure MLA example (DeepSeek-V2-style, 61 layers, single latent head):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):bfloat16:61"</span>
+</span></code></pre></div>
+</div>
+<p>Both transfer modes support MLA:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> (GPU default / CPU opt-in): the server discovers
+<code class="docutils literal notranslate"><span class="pre">use_mla</span></code> from the registered tensor shapes -- the bench's rank-3
+MLA client tensors trip this automatically.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> (CPU default): the bench derives <code class="docutils literal notranslate"><span class="pre">use_mla</span></code> from
+<code class="docutils literal notranslate"><span class="pre">kv_size</span></code> in the spec and sends it on the register payload, so the
+server sizes its SHM chunks correctly.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>Heterogeneous specs that mix <code class="docutils literal notranslate"><span class="pre">kv_size=1</span></code> and <code class="docutils literal notranslate"><span class="pre">kv_size=2</span></code> groups
+are fully supported in <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> mode -- each layer's
+rank (3 vs. 5) tells the detector which per-group KV format to
+use. In <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> mode the server registers a <em>single</em>
+SHM chunk shape per context, so a mixed spec falls back to the
+classical (non-MLA) layout; use <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> when you need
+true per-group MLA.</p>
+</div>
+</section>
+<section id="tensor-parallel-tp-1">
+<h4>Tensor Parallel (TP &gt; 1)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#tensor-parallel-tp-1"><span>#</span></a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">--tp-size</span> <span class="pre">N</span></code> (default: 1) simulates a TP world of <code class="docutils literal notranslate"><span class="pre">N</span></code> vLLM
+workers against a single LMCache server. Each rank registers its own
+KV cache under a distinct <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>, so the server holds one
+context per rank -- exactly the layout <code class="docutils literal notranslate"><span class="pre">LMCacheMPWorkerAdapter</span></code>
+creates in a real deployment. Fan-out for the store / retrieve /
+lookup ops mirrors <code class="docutils literal notranslate"><span class="pre">ParallelStrategy</span></code> from the vLLM adapter:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> fires exactly once per request (scheduler-scoped,
+<code class="docutils literal notranslate"><span class="pre">worker_id=None</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> fires on <strong>every</strong> rank -- each worker loads its own
+KV shard back.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">STORE</span></code> fires on <strong>KV writers only</strong>. Non-MLA: every rank is a
+writer. MLA: only rank 0 is a writer (the latent plane is shared
+across ranks; storing from every rank would just re-write identical
+bytes).</p></li>
+</ul>
+<p>Example: MLA + TP=2, exercising rank 0 STORE + both-rank RETRIEVE:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):bfloat16:8"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--tp-size<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+</div>
+<p>The bench's client-side checksum aggregates writer-rank bytes only,
+so a cold-vs-warm mismatch pinpoints the exact rank whose round trip
+went wrong -- useful for verifying that a new server-side change
+handles per-rank <code class="docutils literal notranslate"><span class="pre">instance_id</span></code> routing correctly.</p>
 <p>完整的解析规则和验证错误说明请参阅 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code>。</p>
+</section>
 </section>
 <section id="profiling-the-server">
 <h3>对服务器进行性能分析<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-the-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-the-server'"><span>#</span></a></h3>
@@ -1501,7 +1569,11 @@
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">快速开始</a></li>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">选项</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU 模式（无 GPU）</a></li>
-<li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV 缓存形状规格</a></li>
+<li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV 缓存形状规格</a><ul>
+<li><a :data-current="activeSection === '#mla-multi-head-latent-attention'" class="reference internal" href="#mla-multi-head-latent-attention">MLA (Multi-head Latent Attention)</a></li>
+<li><a :data-current="activeSection === '#tensor-parallel-tp-1'" class="reference internal" href="#tensor-parallel-tp-1">Tensor Parallel (TP &gt; 1)</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#profiling-the-server'" class="reference internal" href="#profiling-the-server">对服务器进行性能分析</a></li>
 <li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">输出</a></li>
 <li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">示例输出（进度）</a></li>
