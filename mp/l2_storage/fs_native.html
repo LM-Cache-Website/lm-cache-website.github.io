@@ -313,7 +313,8 @@ temporary files during writes (atomic rename on completion).</p></li>
 <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>.  Required to measure real disk bandwidth.  See alignment
 caveat below.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">read_ahead_size</span></code> (int, optional): Trigger filesystem readahead by
-issuing a warm-up read of this many bytes at open time.</p></li>
+issuing a warm-up read of this many bytes at open time.  This is skipped
+for reads that use <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> because direct I/O bypasses the page cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> (float, default <code class="docutils literal notranslate"><span class="pre">0</span></code>): Maximum L2 capacity in GB
 for client-side usage tracking.  Default <code class="docutils literal notranslate"><span class="pre">0</span></code> disables tracking.</p></li>
 </ul>
@@ -337,9 +338,9 @@ also be aligned (typically to 4096 bytes on local disks, or to the
 FS block size on parallel filesystems).  This is controlled by
 <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> (default <code class="docutils literal notranslate"><span class="pre">4096</span></code>) – raise it to match the
 FS block size when running on a filesystem with larger blocks.  If
-the buffer is misaligned, the underlying <code class="docutils literal notranslate"><span class="pre">read</span></code>/<code class="docutils literal notranslate"><span class="pre">write</span></code> syscall
-returns <code class="docutils literal notranslate"><span class="pre">EINVAL</span></code> (this is <strong>not</strong> caught by the length-fallback
-path above and will surface as a runtime error).</p></li>
+the buffer is misaligned, the connector reports a runtime error instead
+of silently falling back to buffered I/O.  This protects real-disk
+benchmark runs from accidentally measuring the page cache.</p></li>
 </ol>
 <p>If unsure, start with <code class="docutils literal notranslate"><span class="pre">use_odirect:</span> <span class="pre">false</span></code> and confirm correctness
 before enabling <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>.</p>
