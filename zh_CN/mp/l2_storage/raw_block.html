@@ -315,6 +315,27 @@ power of two.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code>: 通过 io_uring 命令接口启用 NVMe 直通以直接访问设备。需要 <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> 和 NVMe 字符设备节点（例如，<code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iouring_queue_depth</span></code>: <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> 的队列深度。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_data_transfer_size</span></code>: <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code> 的最大数据传输大小。大数据传输会被拆分成适合设备限制的小块。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fdp_enabled</span></code>: Enables NVMe Flexible Data Placement (FDP) discovery
+and non-zero placement identifier registration. <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> values with
+<code class="docutils literal notranslate"><span class="pre">":"</span></code> bucket prefixes use FDP placement by default. Requires
+<code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> and <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fdp_placement_ids</span></code>: Optional non-zero placement identifier list for KV
+data placement. If omitted, the adapter uses all device-reported non-zero
+identifiers except <code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fdp_data_placement_policy</span></code>: KV data placement policy. <code class="docutils literal notranslate"><span class="pre">"none"</span></code> omits
+FDP directives for KV data writes. <code class="docutils literal notranslate"><span class="pre">"cache_salt_prefix"</span></code> assigns
+case-insensitive <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> prefixes to FDP placement identifiers.
+<code class="docutils literal notranslate"><span class="pre">"cache_salt_rank"</span></code> keeps that bucket isolation and further separates
+rank-local write streams within each bucket when identifiers are available.
+The default is <code class="docutils literal notranslate"><span class="pre">"cache_salt_prefix"</span></code> when <code class="docutils literal notranslate"><span class="pre">fdp_enabled=true</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fdp_slot_reuse_policy</span></code>: Free-slot reuse policy. <code class="docutils literal notranslate"><span class="pre">"pid_affinity"</span></code>
+prefers a free slot last assigned to the same FDP placement identifier before
+falling back to any free slot. <code class="docutils literal notranslate"><span class="pre">"none"</span></code> disables affinity-based reuse. The
+default is <code class="docutils literal notranslate"><span class="pre">"pid_affinity"</span></code> when <code class="docutils literal notranslate"><span class="pre">fdp_enabled=true</span></code> and <code class="docutils literal notranslate"><span class="pre">"none"</span></code>
+otherwise.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code>: Optional non-zero placement identifier for
+metadata checkpoint payload/header writes. Omit it to keep checkpoint writes
+on default NVMe placement.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_store_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_lookup_workers</span></code> / <code class="docutils literal notranslate"><span class="pre">num_load_workers</span></code>: 每种操作类型的工作线程数量。</p></li>
 </ul>
 <p><strong>注意：</strong></p>
@@ -333,7 +354,57 @@ bounce buffer.</p></li>
 <li><p>For <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, <code class="docutils literal notranslate"><span class="pre">block_align</span></code> must be a multiple of the NVMe
 namespace LBA size. An incompatible value is rejected when the device opens.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code> 需要设置 <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code>。</p></li>
-<li><p>当 <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code> 时，NVMe 命名空间字符设备将忽略 <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>。</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> is ignored for NVMe namespace
+character devices. FDP examples set <code class="docutils literal notranslate"><span class="pre">use_odirect=false</span></code> because
+<code class="docutils literal notranslate"><span class="pre">io_uring_cmd</span></code> uses NVMe passthrough rather than the POSIX write path.</p></li>
+<li><p>FDP registers only non-zero placement identifiers. <code class="docutils literal notranslate"><span class="pre">fdp_placement_ids</span></code> is
+the KV data placement pool: if omitted, all discovered non-zero identifiers
+except <code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code> are used; if provided, every
+identifier must be reported by the device and must not contain 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code> must not overlap with <code class="docutils literal notranslate"><span class="pre">fdp_placement_ids</span></code>.
+Keeping metadata checkpoints and KV data on separate placement identifiers
+avoids mixing long-lived raw-block metadata with cache data buckets.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">fdp_data_placement_policy="cache_salt_prefix"</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> values
+containing <code class="docutils literal notranslate"><span class="pre">":"</span></code> are bucketed by the prefix before <code class="docutils literal notranslate"><span class="pre">":"</span></code>. The bucket name
+is case-insensitive, so <code class="docutils literal notranslate"><span class="pre">RAG:app1</span></code>, <code class="docutils literal notranslate"><span class="pre">rag:app2</span></code>, and <code class="docutils literal notranslate"><span class="pre">rag:</span></code> share the
+same bucket. Values without <code class="docutils literal notranslate"><span class="pre">":"</span></code> and values with an empty prefix use no
+FDP directive. Buckets are assigned exclusive FDP placement identifiers in
+first-seen order while identifiers are available.</p></li>
+<li><p>If the number of discovered cache-salt buckets exceeds the number of
+registered FDP placement identifiers, additional buckets continue to store
+with no FDP directive and the adapter emits one warning. <code class="docutils literal notranslate"><span class="pre">report_status()</span></code>
+exposes a fallback count and a bounded bucket sample instead of retaining the
+complete fallback bucket set. Empty <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> values also use default
+NVMe placement with no directive.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">fdp_data_placement_policy="cache_salt_rank"</span></code>, placement is keyed by
+the case-insensitive <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> bucket prefix and the local rank encoded
+in <code class="docutils literal notranslate"><span class="pre">kv_rank</span></code>. The suffix after <code class="docutils literal notranslate"><span class="pre">":"</span></code> remains part of the object key but
+does not affect FDP placement. For example, <code class="docutils literal notranslate"><span class="pre">batch:app-a</span></code> and
+<code class="docutils literal notranslate"><span class="pre">batch:app-b</span></code> share the <code class="docutils literal notranslate"><span class="pre">batch</span></code> bucket: local rank 0 from both
+applications shares one placement identifier, local rank 1 shares another,
+and so on. Each bucket can use at most the detected visible GPU count worth
+of placement identifiers. Extra ranks, or buckets that cannot obtain an
+identifier, store with no FDP directive.</p></li>
+<li><p>Sharing placement identifiers within a bucket can be intentional because the
+available FDP placement-identifier pool is finite. Operators can assign the
+same prefix to applications with similar cache lifetimes, or use a distinct
+prefix for each application when placement isolation is required. For
+example, <code class="docutils literal notranslate"><span class="pre">app01:&lt;suffix&gt;</span></code> through <code class="docutils literal notranslate"><span class="pre">app16:&lt;suffix&gt;</span></code> can provide 16
+application buckets with eight rank streams each, consuming up to 128
+placement identifiers when at least 128 identifiers are available and the
+adapter detects at least eight visible GPUs. Applications using the same
+prefix share the placement identifiers for equal local ranks instead of
+receiving separate sets.</p></li>
+<li><p>Bucket-to-placement assignments are process-local. Restart recovery does not
+need them for correctness because <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> is part of the object key,
+but first-seen FDP placement assignments may change after adapter restart.</p></li>
+<li><p>Slot affinity is process-local and is not stored in metadata checkpoints.
+After recovery, free slots have no recorded affinity until they are reused.</p></li>
+<li><p>Store and retrieve requests must use the same <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> to address the
+same object. This is the normal LMCache key identity rule; FDP placement is a
+write directive and is not used to locate data on reads.</p></li>
+<li><p>Metadata checkpoint writes use <code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code> when
+configured, otherwise they use default NVMe placement with no directive.</p></li>
 </ul>
 <p><strong>配置示例：</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Basic raw_block with posix I/O</span>
@@ -345,10 +416,34 @@ namespace LBA size. An incompatible value is rejected when the device opens.</p>
 </span><span id="line-7"><span class="c1"># With io_uring_cmd (NVMe passthrough)</span>
 </span><span id="line-8">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/ng0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "use_uring_cmd": true, "iouring_queue_depth": 256, "max_data_transfer_size": 131072, "use_odirect": false}'</span>
 </span><span id="line-9">
-</span><span id="line-10"><span class="c1"># With eviction</span>
-</span><span id="line-11">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "load_checkpoint_on_init": false, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
+</span><span id="line-10"><span class="c1"># With FDP discovery and cache_salt prefix placement enabled</span>
+</span><span id="line-11">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/ng0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "use_uring_cmd": true, "fdp_enabled": true, "use_odirect": false}'</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># With FDP discovery and cache_salt/rank placement enabled</span>
+</span><span id="line-14">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/ng0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "use_uring_cmd": true, "fdp_enabled": true, "fdp_data_placement_policy": "cache_salt_rank", "use_odirect": false}'</span>
+</span><span id="line-15">
+</span><span id="line-16"><span class="c1"># With FDP discovery only, keeping KV data writes on default NVMe placement</span>
+</span><span id="line-17">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/ng0n1", "slot_bytes": 1048576, "io_engine": "io_uring", "use_uring_cmd": true, "fdp_enabled": true, "fdp_data_placement_policy": "none", "use_odirect": false}'</span>
+</span><span id="line-18">
+</span><span id="line-19"><span class="c1"># With eviction</span>
+</span><span id="line-20">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "load_checkpoint_on_init": false, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
 </span></code></pre></div>
 </div>
+<p><strong>Hardware-gated FDP status validation:</strong></p>
+<p>FDP live-device validation is opt-in because it requires an FDP-capable NVMe
+namespace character device. The status probe opens the character device through
+the Rust raw-block binding and calls <code class="docutils literal notranslate"><span class="pre">fetch_fdp_status()</span></code> with a read-only file
+descriptor. It does not issue writes, initialize the MP adapter layout, write KV
+data, or verify the MP adapter's cache-salt placement policy.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_TEST_FDP_CHAR_DEVICE</span><span class="o">=</span>/dev/ng0n1<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>pytest<span class="w"> </span>-q<span class="w"> </span>tests/v1/storage_backend/test_raw_block_fdp_status_probe.py
+</span></code></pre></div>
+</div>
+<p>When the variable is not set, the test skips. If the configured device, kernel,
+or controller does not support the FDP status query, the test skips with the
+underlying capability error. A passing status probe only confirms that the live
+device can answer the FDP status query; full adapter initialization and KV write
+placement on hardware are separate validations.</p>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
