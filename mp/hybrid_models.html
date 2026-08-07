@@ -306,7 +306,7 @@ caching and KV reuse work the same way they do for plain models.</p>
 <li><p><a class="reference internal" href="#mamba-linear-attention-hybrids" id="id4">Mamba / Linear-Attention Hybrids</a></p>
 <ul>
 <li><p><a class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n" id="id5">Step 1 — find the model’s unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
-<li><p><a class="reference internal" href="#step-2-derive-the-three-required-flags-from-n" id="id6">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
+<li><p><a class="reference internal" href="#step-2-derive-the-required-flags-from-n" id="id6">Step 2 — derive the required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></p></li>
 <li><p><a class="reference internal" href="#caveats" id="id7">Caveats</a></p></li>
 </ul>
 </li>
@@ -418,25 +418,25 @@ back to a single unified group). You do not need
 </section>
 <section id="object-group-separation">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">Object-group separation</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#object-group-separation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#object-group-separation'"><span>#</span></a></h2>
-<p>At KV-cache registration LMCache buckets a hybrid model’s layers into <strong>object
-groups</strong> — the unit it stores and retrieves as one object. By default
-(<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>, on) each distinct cross-chunk attention window
-becomes its own object group: full-attention layers form one group, and each
-sliding-window size (mamba / GDN included) forms another. Pass
-<code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> to keep every layer in a single full-attention
-object group instead (the previous behavior).</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># default: one object group per attention window</span>
+<p>At KV-cache registration LMCache can bucket a hybrid model’s layers into
+<strong>object groups</strong> — the unit it stores and retrieves as one object. With
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> each distinct cross-chunk attention window becomes
+its own object group: full-attention layers form one group, and each
+sliding-window size (mamba / GDN included) forms another. The default is
+<strong>off</strong> — every layer shares a single full-attention object group.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># default: a single full-attention object group for all layers</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="c1"># opt out: a single full-attention object group for all layers</span>
-</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--no-separate-object-groups
+</span><span id="line-4"><span class="c1"># one object group per attention window (required for mamba / GDN hybrids)</span>
+</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--separate-object-groups
 </span></code></pre></div>
 </div>
-<p>The flag is transparent to correctness — prefix caching and KV reuse behave the
-same either way, and a non-hybrid model (a single attention behavior) always
-resolves to one object group regardless of the setting. Separation organizes
-storage by attention window so that each group’s cross-chunk window is tracked
-independently.</p>
+<p>For a non-hybrid model (a single attention behavior) the setting makes no
+difference — every layer resolves to one object group either way. For a
+<strong>Mamba / linear-attention hybrid it is required</strong> (see below): it gives the
+linear-attention layers their own cache objects so their recurrent state is
+stored and loaded independently of the full-attention layers — which is what
+lets <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> exceed twice the block size.</p>
 </section>
 <section id="mamba-linear-attention-hybrids">
 <h2><a class="toc-backref" href="#id4" role="doc-backlink">Mamba / Linear-Attention Hybrids</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mamba-linear-attention-hybrids" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mamba-linear-attention-hybrids'"><span>#</span></a></h2>
@@ -521,22 +521,29 @@ example:</p>
 </tbody>
 </table>
 </section>
-<section id="step-2-derive-the-three-required-flags-from-n">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-2-derive-the-three-required-flags-from-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-2-derive-the-three-required-flags-from-n'"><span>#</span></a></h3>
+<section id="step-2-derive-the-required-flags-from-n">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Step 2 — derive the required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-2-derive-the-required-flags-from-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-2-derive-the-required-flags-from-n'"><span>#</span></a></h3>
 <ol class="arabic">
-<li><p><strong>LMCache server</strong> <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> <strong>= N</strong> (or any multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>). This
-is the rule the connector enforces: LMCache’s chunk size must be a multiple
-of vLLM’s unified block size, or registration fails:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">784</span> <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
+<li><p><strong>LMCache server</strong> <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> <strong>= N</strong> (or any multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>) <strong>and</strong>
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>. The chunk-size rule is enforced by the
+connector (it must be a multiple of vLLM’s unified block size, or
+registration fails); <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> gives the
+linear-attention layers their own cache objects and is required for these
+hybrids:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">784</span> <span class="o">--</span><span class="n">separate</span><span class="o">-</span><span class="nb">object</span><span class="o">-</span><span class="n">groups</span> \
+</span><span id="line-2">    <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
 </span></code></pre></div>
 </div>
 </li>
-<li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> <strong>in [N, 2·N)</strong> — setting it equal to
-<code class="docutils literal notranslate"><span class="pre">N</span></code> is the simple, always-valid choice. Outside this range LMCache raises
-at engine startup. <code class="docutils literal notranslate"><span class="pre">align</span></code> mode snapshots the Mamba state only at the
-<em>end</em> of each scheduler step, so each prefill step must advance exactly one
-block; a larger budget would let a step skip block boundaries, leaving no
-snapshot for LMCache to store at those prefixes.</p></li>
+<li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> <strong>≥ N</strong> — a scheduler step must advance
+at least one whole block (<code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the Mamba state only at the
+<em>end</em> of each step, on a block boundary). Within <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2·N)</span></code> every step
+advances exactly one block, so LMCache snapshots every block boundary — the
+finest partial-prefix reuse, and <code class="docutils literal notranslate"><span class="pre">N</span></code> is the simplest always-valid choice.
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> additionally allows values <strong>≥ 2·N</strong>, which
+raise prefill throughput with larger steps but snapshot only the last block
+of each step (cached prefixes then align to step boundaries, not every
+block).</p></li>
 <li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span> <span class="pre">--enable-prefix-caching</span></code> — <code class="docutils literal notranslate"><span class="pre">align</span></code> is
 mandatory (GDN backends do not support the <code class="docutils literal notranslate"><span class="pre">all</span></code> mode):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">vllm</span> <span class="n">serve</span> <span class="o">&lt;</span><span class="n">model</span><span class="o">&gt;</span> \
@@ -548,9 +555,9 @@ mandatory (GDN backends do not support the <code class="docutils literal notrans
 </div>
 </li>
 </ol>
-<p>So for a freshly-probed model the whole derivation is just: read <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1),
-then pass <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> to the server and <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">N</span></code> to
-vLLM.</p>
+<p>So for a freshly-probed model the whole derivation is: read <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1), then
+pass <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span> <span class="pre">--separate-object-groups</span></code> to the server and
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">N</span></code> to vLLM.</p>
 <p>No <code class="docutils literal notranslate"><span class="pre">--no-disable-hybrid-kv-cache-manager</span></code> or attention-backend flag is needed;
 <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> advertises hybrid support and vLLM auto-selects the GDN
 backend.</p>
@@ -629,7 +636,7 @@ KV is <strong>retrieved</strong> from LMCache. The score should match the first 
 <li><a :data-current="activeSection === '#object-group-separation'" class="reference internal" href="#object-group-separation">Object-group separation</a></li>
 <li><a :data-current="activeSection === '#mamba-linear-attention-hybrids'" class="reference internal" href="#mamba-linear-attention-hybrids">Mamba / Linear-Attention Hybrids</a><ul>
 <li><a :data-current="activeSection === '#step-1-find-the-model-s-unified-block-size-n'" class="reference internal" href="#step-1-find-the-model-s-unified-block-size-n">Step 1 — find the model’s unified block size <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
-<li><a :data-current="activeSection === '#step-2-derive-the-three-required-flags-from-n'" class="reference internal" href="#step-2-derive-the-three-required-flags-from-n">Step 2 — derive the three required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
+<li><a :data-current="activeSection === '#step-2-derive-the-required-flags-from-n'" class="reference internal" href="#step-2-derive-the-required-flags-from-n">Step 2 — derive the required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a></li>
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">Caveats</a></li>
 </ul>
 </li>

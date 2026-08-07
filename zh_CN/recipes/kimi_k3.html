@@ -360,9 +360,10 @@ re-derive <code class="docutils literal notranslate"><span class="pre">--chunk-s
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">768</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU
+</span><span id="line-4"><span class="w">    </span>--separate-object-groups<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--max-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
 <div class="line-block">
@@ -397,14 +398,20 @@ re-derive <code class="docutils literal notranslate"><span class="pre">--chunk-s
 <strong>required</strong>. <code class="docutils literal notranslate"><span class="pre">align</span></code> is the only Mamba cache mode the KDA backend
 supports, and prefix caching must be on for LMCache to store and reuse
 the recurrent state.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> (server) is <strong>required</strong> for hybrid
+Mamba / linear-attention models: it gives the KDA layers their own
+cache objects and is what lets <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> exceed
+<code class="docutils literal notranslate"><span class="pre">2N</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) must be a multiple of the unified block size
 <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code> — <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> is the simplest choice. LMCache
 raises at engine startup if it is not.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be in <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code> — here
-<code class="docutils literal notranslate"><span class="pre">[768,</span> <span class="pre">1536)</span></code>; the validated value is <code class="docutils literal notranslate"><span class="pre">1500</span></code>. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots
-the KDA state only on a block boundary at the end of a scheduler step,
-so the per-step token budget must cover at least one block but stay
-below two. See <a class="reference internal" href="../mp/hybrid_models.html"><span class="doc">Hybrid Attention 模型</span></a> for the full rationale.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be <strong>at least</strong> <code class="docutils literal notranslate"><span class="pre">N</span></code> (= <code class="docutils literal notranslate"><span class="pre">768</span></code>); the
+validated value is <code class="docutils literal notranslate"><span class="pre">1500</span></code>. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the KDA state only on a
+block boundary at the end of a scheduler step. Within <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code> every
+step advances exactly one block, snapshotting every boundary (finest
+reuse); with <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> values <code class="docutils literal notranslate"><span class="pre">≥</span> <span class="pre">2N</span></code> are allowed
+too, trading coarser reuse for higher prefill throughput. See
+<a class="reference internal" href="../mp/hybrid_models.html"><span class="doc">Hybrid Attention 模型</span></a> for the full rationale.</p></li>
 <li><p>The server's <code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">6555</span></code> must match <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in the
 connector config.</p></li>
 </ul>

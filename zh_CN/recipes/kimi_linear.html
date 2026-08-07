@@ -342,8 +342,11 @@ for your own configuration:</p>
 </tbody>
 </table>
 <p>Set the LMCache server's <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> to that <code class="docutils literal notranslate"><span class="pre">N</span></code> (or a multiple of
-it), and vLLM's <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to <code class="docutils literal notranslate"><span class="pre">2N-1</span></code> (the largest
-value below <code class="docutils literal notranslate"><span class="pre">2N</span></code>).</p>
+it) and enable <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>, then set vLLM's
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to at least <code class="docutils literal notranslate"><span class="pre">N</span></code>. Keeping it below <code class="docutils literal notranslate"><span class="pre">2N</span></code>
+(e.g. <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>) snapshots the KDA state at every block boundary for the
+finest cache reuse; larger values raise prefill throughput at the cost of
+coarser reuse (see <em>Why these settings</em>).</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p><code class="docutils literal notranslate"><span class="pre">N</span></code> <strong>scales inversely with the tensor-parallel size</strong> for this
@@ -354,13 +357,14 @@ divided by the TP degree). vLLM picks <code class="docutils literal notranslate"
 least as large as a KDA state page, so a smaller per-rank KDA state
 yields a smaller <code class="docutils literal notranslate"><span class="pre">N</span></code> — and vice versa. Concretely, going from
 <strong>TP=2 → TP=1</strong> doubles the per-rank KDA state, so <code class="docutils literal notranslate"><span class="pre">N</span></code> doubles from
-<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code>; <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">N</span></code>) and
-<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> (<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">2N-1</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">3775</span></code>) both double to
+<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code>; <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">N</span></code>) and the recommended
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> (<code class="docutils literal notranslate"><span class="pre">2N-1</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">3775</span></code>) both double to
 match. Always re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from the startup log after changing the TP
 degree — do not scale it by hand.</p>
 </div>
 <p>Start the LMCache MP server (<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">944</span></code>):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">944</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">944</span><span class="w"> </span>--separate-object-groups<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
 </div>
 <div class="line-block">
@@ -387,20 +391,32 @@ degree — do not scale it by hand.</p>
 <strong>required</strong>. <code class="docutils literal notranslate"><span class="pre">align</span></code> is the only Mamba cache mode the KDA backend
 supports, and prefix caching must be on for LMCache to store and reuse
 the recurrent state.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> (server) is <strong>required</strong> for hybrid
+Mamba / linear-attention models: it gives the KDA layers their own
+cache objects so their recurrent state is stored and loaded
+independently of the MLA layers. It is what allows
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to exceed <code class="docutils literal notranslate"><span class="pre">2N</span></code>; without it the budget
+must stay in <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) must be a multiple of the unified block size
-<code class="docutils literal notranslate"><span class="pre">N</span></code> — <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> is the simplest choice. LMCache raises at
-engine startup if it is not.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be in <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code>. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots
-the KDA state only at the <em>end</em> of each scheduler step, on a block
-boundary, and the scheduler splits prefills into whole <code class="docutils literal notranslate"><span class="pre">N</span></code>-token
-blocks — so the per-step token budget must cover at least one block but
-stay below two (a larger budget could advance past a boundary and leave
-no snapshot for LMCache to store). Prefer the maximum, <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>: a
-single request still advances exactly one block per step, and the spare
-<code class="docutils literal notranslate"><span class="pre">N-1</span></code> budget lets decodes co-schedule with a prefill block instead of
-serializing behind it. Setting it to exactly <code class="docutils literal notranslate"><span class="pre">N</span></code> makes the per-step
-budget one block, so once any request is decoding no new request can
-start prefill.</p></li>
+<code class="docutils literal notranslate"><span class="pre">N</span></code> — <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> is the simplest choice and gives the finest
+cache granularity. LMCache raises at engine startup if it is not.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be <strong>at least</strong> <code class="docutils literal notranslate"><span class="pre">N</span></code>: a scheduler
+step must advance at least one whole block, since <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots
+the KDA state only at the <em>end</em> of each step, on a block boundary, and
+the scheduler splits prefills into whole <code class="docutils literal notranslate"><span class="pre">N</span></code>-token blocks. Two regimes:</p>
+<ul>
+<li><p><strong>``[N, 2N)`` (e.g. ``2N-1``)</strong> — every step advances exactly one
+block, so LMCache snapshots the state at <em>every</em> block boundary: the
+finest partial-prefix reuse. <code class="docutils literal notranslate"><span class="pre">2N-1</span></code> also leaves <code class="docutils literal notranslate"><span class="pre">N-1</span></code> spare budget
+so decodes co-schedule with a prefill block instead of serializing
+behind it (exactly <code class="docutils literal notranslate"><span class="pre">N</span></code> blocks new prefills once any request is
+decoding).</p></li>
+<li><p><strong>``≥ 2N``</strong> (requires <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>) — larger prefill
+steps raise throughput, but a step now spans several blocks and only
+its last block gets a snapshot, so reuse is coarser: cached prefixes
+align to step boundaries rather than to every block.</p></li>
+</ul>
+</li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--trust-remote-code</span></code> loads Kimi-Linear's custom modeling code.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">2</span></code> shards the weights across two GPUs. Adjust
 it to your hardware — but note it changes <code class="docutils literal notranslate"><span class="pre">N</span></code> and the two derived
