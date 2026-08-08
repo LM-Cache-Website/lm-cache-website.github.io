@@ -379,6 +379,53 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 </tbody>
 </table>
 </section>
+<section id="mtp-speculative-decoding-support">
+<h2>MTP (speculative decoding) support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mtp-speculative-decoding-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mtp-speculative-decoding-support'"><span>#</span></a></h2>
+<p>Gemma 4 supports MTP speculative decoding through separate <strong>assistant
+checkpoints</strong> (<code class="docutils literal notranslate"><span class="pre">google/gemma-4-&lt;size&gt;-it-assistant</span></code>), which vLLM loads as
+the draft model. The draft layers carry their own KV cache; LMCache detects
+them from vLLM’s <code class="docutils literal notranslate"><span class="pre">speculative_config</span></code> and stores/retrieves the draft-layer
+KV together with the target model’s – no extra LMCache flags are required.</p>
+<p><strong>Status:</strong> Validated with LMCache (vLLM MP connector):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">google/gemma-4-31B-it</span></code> + <code class="docutils literal notranslate"><span class="pre">google/gemma-4-31B-it-assistant</span></code> (2 GPUs)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">google/gemma-4-12B-it</span></code> + <code class="docutils literal notranslate"><span class="pre">google/gemma-4-12B-it-assistant</span></code> (1 GPU,
+needs <code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>; see below)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">google/gemma-4-E4B-it</span></code> + <code class="docutils literal notranslate"><span class="pre">google/gemma-4-E4B-it-assistant</span></code> (1 GPU)</p></li>
+</ul>
+<p>Add to the <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code> command shown above:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--speculative-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span><span class="s1">'{"method":"mtp","model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":1}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">--attention-backend<span class="w"> </span>TRITON_ATTN
+</span></code></pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">TRITON_ATTN</span></code> is <strong>required when MTP is enabled</strong>.
+The target model alone auto-selects the Triton backend (FlashAttention
+does not support Gemma 4’s 512-dim global-attention heads), but the
+assistant draft model’s backend selection picks FlashAttention and the
+engine crashes at startup with <em>“FlashAttention forward only supports
+head dimension at most 256”</em>. Pinning the backend explicitly covers both
+models.</p>
+</div>
+<p>Validation evidence (gsm8k store-vs-retrieve, 100 samples, exact score match
+required under <code class="docutils literal notranslate"><span class="pre">VLLM_BATCH_INVARIANT=1</span></code>): 31B scored 0.78 in both the
+computed and the LMCache-retrieved run with the MTP acceptance rate unchanged
+(0.911 vs 0.910); 12B scored 0.28 in both runs (acceptance 0.854 vs 0.853);
+E4B scored 0.69 in both runs with acceptance rate identical (0.807).
+Cold-vs-warm TTFT improved 3.7x (31B) / 1.7x (12B) / 1.4x (E4B) with MTP
+enabled throughout.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The 12B Unified assistant requires <code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code> on the vLLM
+nightly tested: its draft head applies a token-suppression list held in
+an unpinned CPU tensor (<code class="docutils literal notranslate"><span class="pre">gemma4_mtp.py</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_logits</span></code>), which
+aborts CUDA graph capture with <em>“Cannot copy between CPU and CUDA
+tensors during CUDA graph capture”</em>. This is an upstream vLLM issue,
+unrelated to LMCache; 31B and E4B assistants are unaffected.</p>
+</div>
+</section>
 <section id="caveats">
 <h2>Caveats<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#caveats'"><span>#</span></a></h2>
 <ul class="simple">
@@ -417,6 +464,7 @@ layers’ KV lives in the same blocks and is restored automatically.</p></li>
 <li><a :data-current="activeSection === '#validated-models'" class="reference internal" href="#validated-models">Validated models</a></li>
 <li><a :data-current="activeSection === '#cacheblend-support'" class="reference internal" href="#cacheblend-support">CacheBlend support</a></li>
 <li><a :data-current="activeSection === '#compression-support'" class="reference internal" href="#compression-support">Compression support</a></li>
+<li><a :data-current="activeSection === '#mtp-speculative-decoding-support'" class="reference internal" href="#mtp-speculative-decoding-support">MTP (speculative decoding) support</a></li>
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">Caveats</a></li>
 </ul>
 </div>

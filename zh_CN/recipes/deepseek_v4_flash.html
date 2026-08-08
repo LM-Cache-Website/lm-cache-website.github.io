@@ -369,6 +369,37 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 </tbody>
 </table>
 </section>
+<section id="mtp-speculative-decoding-support">
+<h2>MTP (speculative decoding) support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mtp-speculative-decoding-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mtp-speculative-decoding-support'"><span>#</span></a></h2>
+<p>DeepSeek-V4-Flash ships a native multi-token-prediction head
+(<code class="docutils literal notranslate"><span class="pre">num_nextn_predict_layers:</span> <span class="pre">1</span></code> in its config), which vLLM uses for
+speculative decoding. The MTP head has its own KV cache layer; LMCache
+detects it from vLLM's <code class="docutils literal notranslate"><span class="pre">speculative_config</span></code> and stores/retrieves the
+draft-layer KV together with the target model's -- no extra LMCache flags
+are required.</p>
+<p><strong>Status:</strong> Validated with LMCache (vLLM MP connector, TP4).</p>
+<p>Add the speculative config to the <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code> command shown above:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--speculative-config<span class="w"> </span><span class="s1">'{"method":"mtp","num_speculative_tokens":1}'</span>
+</span></code></pre></div>
+</div>
+<p>Validation evidence (gsm8k store-vs-retrieve, 100 samples): scores match
+within sampling stderr (0.95 computed vs 0.96 LMCache-retrieved), and the
+MTP acceptance rate is unchanged when the prefix KV is served by LMCache
+(0.947 store run vs 0.952 retrieve run) -- i.e. the draft-layer KV survives
+the store/retrieve round-trip intact. Cold-vs-warm TTFT improved 6.6x with
+MTP enabled throughout.</p>
+<p>MTP-specific caveats:</p>
+<ul class="simple">
+<li><p>Generation is <strong>not bit-exact</strong> between a cached and a fresh run: the
+MXFP4 MoE kernels do not support vLLM's batch-invariant mode. Expect
+score-level equivalence, not token-level.</p></li>
+<li><p>On the vLLM nightly tested, engine startup with CUDA graphs crashed for
+this model -- also with a vanilla <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code> (no LMCache, no MTP), so
+this is the dev-branch breakage warned about above, not an LMCache or MTP
+interaction. <code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code> was used for validation; on tagged vLLM
+releases (per the vLLM recipe) it should not be needed.</p></li>
+</ul>
+</section>
 <section id="caveats">
 <h2>注意事项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#caveats'"><span>#</span></a></h2>
 <ul class="simple">
@@ -400,6 +431,7 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 <li><a :data-current="activeSection === '#validated-models'" class="reference internal" href="#validated-models">验证过的模型</a></li>
 <li><a :data-current="activeSection === '#cacheblend-support'" class="reference internal" href="#cacheblend-support">CacheBlend 支持</a></li>
 <li><a :data-current="activeSection === '#compression-support'" class="reference internal" href="#compression-support">压缩支持</a></li>
+<li><a :data-current="activeSection === '#mtp-speculative-decoding-support'" class="reference internal" href="#mtp-speculative-decoding-support">MTP (speculative decoding) support</a></li>
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">注意事项</a></li>
 </ul>
 </div>

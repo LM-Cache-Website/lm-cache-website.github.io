@@ -362,6 +362,27 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 </tbody>
 </table>
 </section>
+<section id="mtp-speculative-decoding-support">
+<h2>MTP (speculative decoding) support<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mtp-speculative-decoding-support" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mtp-speculative-decoding-support'"><span>#</span></a></h2>
+<p><strong>Status:</strong> Not possible with the public checkpoints -- the MTP weights
+were not released.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">config.json</span></code> of
+<a class="reference external" href="https://huggingface.co/MiniMaxAI/MiniMax-M3">MiniMaxAI/MiniMax-M3</a> (BF16)
+declares a native multi-token-prediction head
+(<code class="docutils literal notranslate"><span class="pre">num_nextn_predict_layers:</span> <span class="pre">1</span></code>), but the checkpoint does not contain the
+MTP layer's weights, and neither does <code class="docutils literal notranslate"><span class="pre">MiniMaxAI/MiniMax-M3-MXFP8</span></code> (whose
+config omits the field entirely): both checkpoints hold decoder layers 0-59
+only, with no <code class="docutils literal notranslate"><span class="pre">mtp</span></code>/<code class="docutils literal notranslate"><span class="pre">nextn</span></code> tensors and no extra layer index. Enabling
+<code class="docutils literal notranslate"><span class="pre">--speculative-config</span> <span class="pre">'{"method":"mtp","num_speculative_tokens":1}'</span></code>
+fails at engine startup with vLLM's checkpoint-completeness check:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="ne">ValueError</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">load</span> <span class="n">MTP</span> <span class="n">layer</span> <span class="mi">0</span> <span class="n">weights</span> <span class="kn">from</span><span class="w"> </span><span class="nn">checkpoint.</span>
+</span></code></pre></div>
+</div>
+<p>This is a limitation of the released checkpoints, not of LMCache or vLLM.
+If MiniMax publishes the MTP head weights, the standard MTP spec-config
+above is expected to apply; LMCache accounts for MTP draft-layer KV caches
+automatically (validated on DeepSeek-V4-Flash and Gemma 4).</p>
+</section>
 <section id="caveats">
 <h2>注意事项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#caveats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#caveats'"><span>#</span></a></h2>
 <ul class="simple">
@@ -394,6 +415,7 @@ TRT-LLM</label><div class="sd-tab-content docutils">
 <li><a :data-current="activeSection === '#validated-models'" class="reference internal" href="#validated-models">验证过的模型</a></li>
 <li><a :data-current="activeSection === '#cacheblend-support'" class="reference internal" href="#cacheblend-support">CacheBlend 支持</a></li>
 <li><a :data-current="activeSection === '#compression-support'" class="reference internal" href="#compression-support">压缩支持</a></li>
+<li><a :data-current="activeSection === '#mtp-speculative-decoding-support'" class="reference internal" href="#mtp-speculative-decoding-support">MTP (speculative decoding) support</a></li>
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">注意事项</a></li>
 </ul>
 </div>
