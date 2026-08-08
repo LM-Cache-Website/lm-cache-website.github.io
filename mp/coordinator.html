@@ -334,13 +334,7 @@ the coordinator ties them together into one coordinated fleet.</p>
 <li><p><a class="reference internal" href="#post-cache-delete" id="id25"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cacheblend-fingerprint-directory" id="id26">CacheBlend fingerprint directory</a></p>
-<ul>
-<li><p><a class="reference internal" href="#post-blend-fingerprints" id="id27"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
-<li><p><a class="reference internal" href="#delete-blend-fingerprints" id="id28"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></p></li>
-<li><p><a class="reference internal" href="#post-blend-match" id="id29"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></p></li>
-</ul>
-</li>
+<li><p><a class="reference internal" href="#cacheblend-fragment-lookup" id="id26">CacheBlend fragment lookup</a></p></li>
 </ul>
 </nav>
 <section id="running-the-coordinator">
@@ -356,7 +350,8 @@ the coordinator ties them together into one coordinated fleet.</p>
 <p>The CLI accepts <code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, <code class="docutils literal notranslate"><span class="pre">--instance-timeout</span></code>,
 <code class="docutils literal notranslate"><span class="pre">--health-check-interval</span></code>, <code class="docutils literal notranslate"><span class="pre">--eviction-check-interval</span></code>,
 <code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">--trigger-watermark</span></code>, <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>,
-<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>;
+<code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>, <code class="docutils literal notranslate"><span class="pre">--enable-blend-lookup</span></code>, <code class="docutils literal notranslate"><span class="pre">--blend-probe-stride</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">--timeout-keep-alive</span></code>;
 any flag overrides the matching environment variable below. See
 <a class="reference internal" href="../cli/coordinator.html"><span class="doc">lmcache coordinator</span></a> for details.
 Equivalently, the coordinator can still be launched as a module with
@@ -424,12 +419,19 @@ resolve pin <code class="docutils literal notranslate"><span class="pre">token_i
 <code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>. <code class="docutils literal notranslate"><span class="pre">blake3</span></code> is self-contained; other algorithms
 require vLLM importable in the coordinator process.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_BLEND_LOOKUP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Index stored chunk content so <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/blend-lookup</span></code> can serve
+fleet CacheBlend reuse. Off by default: hashing content costs CPU on
+every store. Also requires the MP servers’
+<code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Positions between CacheBlend match probes. <code class="docutils literal notranslate"><span class="pre">1</span></code> probes every offset
-for full recall.</p></td>
+for full recall. Ignored unless blend lookup is on.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_TIMEOUT_KEEP_ALIVE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p>Seconds the HTTP server keeps idle connections open before closing
 them. Must be greater than the MP servers’ heartbeat interval
@@ -437,7 +439,7 @@ them. Must be greater than the MP servers’ heartbeat interval
 connection and fail with <code class="docutils literal notranslate"><span class="pre">Server</span> <span class="pre">disconnected</span> <span class="pre">without</span> <span class="pre">sending</span> <span class="pre">a</span>
 <span class="pre">response</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
 startup that paginates an MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and
@@ -446,18 +448,18 @@ usage/eviction trackers from existing L2 contents.
 Disable to start from empty trackers (handy for tests, or
 deployments that start the coordinator before any MP server).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Seconds between registry checks while waiting for the first
 MP server to register so startup resync can begin.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
 <td><p>Maximum seconds startup resync waits for an MP server before
 giving up. The coordinator keeps running with empty trackers
 until normal usage events fill them in.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> forwarded to the MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code>
 during resync. Larger values reduce RTT count; the server
@@ -533,9 +535,10 @@ budgets, usage accounting, and the usage-event ingest that drives fleet-wide
 eviction.</p></li>
 <li><p><strong>Cache control</strong> – the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
 named server (warm prefetch, pin/unpin, and delete, with more to come).</p></li>
-<li><p><strong>CacheBlend fingerprint directory</strong> – the <code class="docutils literal notranslate"><span class="pre">/blend</span></code> group: the fleet-wide
-fingerprint index blend-enabled MP servers publish to on STORE and query on
-LOOKUP. Server-to-coordinator only; not usually called by hand.</p></li>
+<li><p><strong>CacheBlend fragment lookup</strong> – <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/blend-lookup</span></code>: finds
+cached chunk content anywhere inside a query sequence, using the blend index
+derived from the key directory’s token bindings. Server-to-coordinator only;
+not usually called by hand.</p></li>
 </ul>
 <p>Each endpoint is documented below. Success is <code class="docutils literal notranslate"><span class="pre">200</span></code> unless noted, and
 <code class="docutils literal notranslate"><span class="pre">{cache_salt}</span></code> uses the <code class="docutils literal notranslate"><span class="pre">_default</span></code> sentinel for the empty salt. The wire
@@ -1424,21 +1427,21 @@ sequence returns <code class="docutils literal notranslate"><span class="pre">st
 </div>
 </section>
 </section>
-<section id="cacheblend-fingerprint-directory">
-<h2><a class="toc-backref" href="#id26" role="doc-backlink">CacheBlend fingerprint directory</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fingerprint-directory" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fingerprint-directory'"><span>#</span></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">/blend</span></code> group is the fleet-wide fingerprint index behind CacheBlend
-cross-request reuse. Blend-enabled MP servers publish chunk fingerprints on
-STORE (<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code>) and query them on LOOKUP
-(<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code>); the index is chunked at
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code> tokens and rolling-hash-matched at
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code>. These endpoints are
-server-to-coordinator; they are not usually called by hand.</p>
-<p>The wire types (<code class="docutils literal notranslate"><span class="pre">StoreRangeModel</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendFingerprintRequest</span></code>,
-<code class="docutils literal notranslate"><span class="pre">BlendMatchRequest</span></code>, <code class="docutils literal notranslate"><span class="pre">GlobalMatchModel</span></code> and their responses) live in
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_coordinator/schemas.py</span></code>.</p>
-<section id="post-blend-fingerprints">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-fingerprints'"><span>#</span></a></h3>
-<p>Register stored chunk fingerprints (idempotent).</p>
+<section id="cacheblend-fragment-lookup">
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">CacheBlend fragment lookup</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fragment-lookup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fragment-lookup'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/blend-lookup</span></code> is the fragment counterpart to
+<code class="docutils literal notranslate"><span class="pre">/directory/lookup</span></code>: the query need not be a prefix, and each match reports
+where the content sits in the query and where it sat when stored, so the caller
+can re-RoPE it.</p>
+<p>It is served from the blend index, derived from the key directory’s token
+bindings — the coordinator learns content from the cache-event stream, not from
+a separate publish call. Both feeds default to off and both are required: the
+coordinator needs <code class="docutils literal notranslate"><span class="pre">--enable-blend-lookup</span></code>, and every MP server whose chunks
+should be discoverable needs <code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code> (a server with a
+coordinator URL but no event reporting warns at startup and matches locally
+only). Matching is chunked at <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code> — which
+must equal the MP servers’ <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> — probing every
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code> positions.</p>
 <p><strong>Request body:</strong></p>
 <table class="docutils align-default">
 <colgroup>
@@ -1453,119 +1456,36 @@ server-to-coordinator; they are not usually called by hand.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ranges</span></code></p></td>
-<td><p>list</p></td>
-<td><p>Stored token ranges. Each entry carries <code class="docutils literal notranslate"><span class="pre">model_scope</span></code> (the reuse
-scope, typically the model name), <code class="docutils literal notranslate"><span class="pre">tokens</span></code> (the raw stored token
-ids), <code class="docutils literal notranslate"><span class="pre">object_keys</span></code> (the shared-L2 storage key per chunk, in order),
-and <code class="docutils literal notranslate"><span class="pre">old_st_base</span></code> (the token position of the range’s first token).
-The directory chunks <code class="docutils literal notranslate"><span class="pre">tokens</span></code> at the coordinator’s chunk size and
-hashes each chunk; chunk <code class="docutils literal notranslate"><span class="pre">i</span></code> maps to <code class="docutils literal notranslate"><span class="pre">object_keys[i]</span></code>.</p></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"inserted"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">inserted</span></code> reports how many fingerprints were newly registered (existing
-entries are left in place; re-publishing is safe).</p>
-<p><strong>HTTP status codes:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: fingerprints processed.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
-</ul>
-</section>
-<section id="delete-blend-fingerprints">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-blend-fingerprints" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-blend-fingerprints'"><span>#</span></a></h3>
-<p>Evict fingerprints by shared-L2 storage key (idempotent). MP servers call this
-when the underlying L2 objects are dropped, so the directory does not keep
-handing out stale matches.</p>
-<p><strong>Request body:</strong></p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 22.0%"/>
-<col style="width: 14.0%"/>
-<col style="width: 64.0%"/>
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Field</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">object_keys</span></code></p></td>
-<td><p>list[string]</p></td>
-<td><p>Storage keys whose fingerprint entries should be removed. Unknown keys
-are ignored.</p></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">removed</span></code> reports how many entries were actually evicted.</p>
-<p><strong>HTTP status codes:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: keys processed.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
-</ul>
-</section>
-<section id="post-blend-match">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-blend-match" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-blend-match'"><span>#</span></a></h3>
-<p>Match a request’s token buffer against the directory and return the reusable
-chunks.</p>
-<p><strong>Request body:</strong></p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 22.0%"/>
-<col style="width: 14.0%"/>
-<col style="width: 64.0%"/>
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Field</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_scope</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tokens_b64</span></code></p></td>
 <td><p>string</p></td>
-<td><p>Reuse scope to match within (typically the model name).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tokens_b64</span></code></p></td>
-<td><p>string</p></td>
-<td><p>Request tokens packed as base64 little-endian <code class="docutils literal notranslate"><span class="pre">uint32</span></code> (see
-<code class="docutils literal notranslate"><span class="pre">encode_tokens</span></code> / <code class="docutils literal notranslate"><span class="pre">decode_tokens</span></code> in <code class="docutils literal notranslate"><span class="pre">schemas.py</span></code>). The
-coordinator hashes them at
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_CHUNK_SIZE</span></code> positions striding by
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_BLEND_PROBE_STRIDE</span></code>.</p></td>
+<td><p>Query tokens packed as base64 little-endian <code class="docutils literal notranslate"><span class="pre">uint32</span></code> (see
+<code class="docutils literal notranslate"><span class="pre">encode_tokens</span></code> / <code class="docutils literal notranslate"><span class="pre">decode_tokens</span></code> in <code class="docutils literal notranslate"><span class="pre">schemas.py</span></code>).</p></td>
 </tr>
 </tbody>
 </table>
 <p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"matches"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-3"><span class="w">    </span><span class="p">{</span><span class="nt">"object_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ab12..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">    </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">},</span>
-</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"object_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cd34..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w">  </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">}</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span><span class="nt">"chunk_hash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ab12..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">   </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">},</span>
+</span><span id="line-4"><span class="w">    </span><span class="p">{</span><span class="nt">"chunk_hash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cd34..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"old_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span><span class="w"> </span><span class="nt">"cur_st"</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">}</span>
 </span><span id="line-5"><span class="w">  </span><span class="p">]</span>
 </span><span id="line-6"><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p>Each entry names one reusable chunk: <code class="docutils literal notranslate"><span class="pre">object_key</span></code> is the shared-L2 key,
-<code class="docutils literal notranslate"><span class="pre">old_st</span></code> is its token position in the stored sequence (re-RoPE source), and
-<code class="docutils literal notranslate"><span class="pre">cur_st</span></code> is the position in the request (re-RoPE target). Matches are sorted
-ascending by <code class="docutils literal notranslate"><span class="pre">cur_st</span></code>. An empty request or an unknown <code class="docutils literal notranslate"><span class="pre">model_scope</span></code>
-returns <code class="docutils literal notranslate"><span class="pre">{"matches":</span> <span class="pre">[]}</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chunk_hash</span></code> is the chunk’s content hash, which the caller expands to
+per-rank object keys with its own model, salt, and world size; <code class="docutils literal notranslate"><span class="pre">old_st</span></code> is
+its position in the stored sequence (re-RoPE source) and <code class="docutils literal notranslate"><span class="pre">cur_st</span></code> its
+position in the query (re-RoPE target). Matches are sorted ascending by
+<code class="docutils literal notranslate"><span class="pre">cur_st</span></code>, at most one per chunk, and may overlap — a caller that scatters
+them resolves overlaps itself. A query shorter than one chunk, or a coordinator
+without <code class="docutils literal notranslate"><span class="pre">--enable-blend-lookup</span></code>, returns <code class="docutils literal notranslate"><span class="pre">{"matches":</span> <span class="pre">[]}</span></code>.</p>
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: match completed (an empty match list is not an error).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: lookup completed (an empty match list is not an error).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: <code class="docutils literal notranslate"><span class="pre">tokens_b64</span></code> is not valid base64 or not a whole number of
 <code class="docutils literal notranslate"><span class="pre">uint32</span></code> tokens.</p></li>
 </ul>
-</section>
+<p>Index counts are reported under the <code class="docutils literal notranslate"><span class="pre">blend</span></code> key of <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/directory/stats</span></code>.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -1621,12 +1541,7 @@ returns <code class="docutils literal notranslate"><span class="pre">{"matches":
 <li><a :data-current="activeSection === '#post-cache-delete'" class="reference internal" href="#post-cache-delete"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></li>
 </ul>
 </li>
-<li><a :data-current="activeSection === '#cacheblend-fingerprint-directory'" class="reference internal" href="#cacheblend-fingerprint-directory">CacheBlend fingerprint directory</a><ul>
-<li><a :data-current="activeSection === '#post-blend-fingerprints'" class="reference internal" href="#post-blend-fingerprints"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/fingerprints</span></code></a></li>
-<li><a :data-current="activeSection === '#delete-blend-fingerprints'" class="reference internal" href="#delete-blend-fingerprints"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/blend/fingerprints</span></code></a></li>
-<li><a :data-current="activeSection === '#post-blend-match'" class="reference internal" href="#post-blend-match"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/blend/match</span></code></a></li>
-</ul>
-</li>
+<li><a :data-current="activeSection === '#cacheblend-fragment-lookup'" class="reference internal" href="#cacheblend-fragment-lookup">CacheBlend fragment lookup</a></li>
 </ul>
 </div>
 </aside>
