@@ -294,17 +294,17 @@
 <p>This guide explains how to add a <strong>new accelerator</strong> to LMCache in
 <strong>Multiprocess (MP) mode</strong>.</p>
 <p><strong>For basic users:</strong> read <a class="reference internal" href="#part-1-basic"><span class="std std-ref">Part 1</span></a> only — adding a
-<code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> is all you need to get your device working with the
-built-in Python fallback ops.</p>
+<code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> and a <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> subclass is all you need to get your
+device working with the built-in torch baseline ops.</p>
 <p><strong>For advanced users:</strong> continue to <a class="reference internal" href="#part-2-performance"><span class="std std-ref">Part 2</span></a>
 for native ops and advanced transfer modes.</p>
 <section id="part-1-basic-function-enabling">
 <span id="part-1-basic"></span><h2>Part 1 — Basic Function Enabling<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#part-1-basic-function-enabling" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#part-1-basic-function-enabling'"><span>#</span></a></h2>
-<p>For the majority of devices, a single <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> class is
-sufficient.  LMCache ships with a complete Python fallback ops
-(<code class="docutils literal notranslate"><span class="pre">lmcache/python_ops_fallback.py</span></code>) that works on any device
-supporting standard PyTorch tensor operations — <strong>no custom kernels
-required</strong>.</p>
+<p>For the majority of devices, a <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> class plus a minimal
+<code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> subclass are sufficient.  LMCache ships with a complete
+torch baseline ops layer (<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/torch_ops.py</span></code>) that
+works on any device supporting standard PyTorch tensor operations —
+<strong>no custom kernels required</strong>.</p>
 <section id="prerequisites">
 <h3>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
 <p>Your PyTorch backend should support:</p>
@@ -324,66 +324,120 @@ required</strong>.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">tensor.to(device)</span></code> / <code class="docutils literal notranslate"><span class="pre">tensor.cpu()</span></code> (host↔device transfers)</p></li>
 </ul>
 </section>
-<section id="add-a-foodevicespec">
-<h3>Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#add-a-foodevicespec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#add-a-foodevicespec'"><span>#</span></a></h3>
+<section id="step-1-add-a-foodevicespec">
+<h3>Step 1: Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-1-add-a-foodevicespec" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-1-add-a-foodevicespec'"><span>#</span></a></h3>
 <p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/__init__.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-</span><span id="line-2"><span class="sd">"""foo-specific platform primitives."""</span>
+</span><span id="line-2"><span class="sd">"""Foo-specific platform primitives."""</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSpec</span>
+</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span id="line-5">
-</span><span id="line-6">
-</span><span id="line-7"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
-</span><span id="line-8"><span class="w">    </span><span class="sd">"""foo device specification for LMCache registry discovery."""</span>
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSpec</span>
 </span><span id="line-9">
-</span><span id="line-10">    <span class="nd">@property</span>
-</span><span id="line-11">    <span class="k">def</span><span class="w"> </span><span class="nf">device_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="line-12">        <span class="k">return</span> <span class="s2">"foo"</span>
+</span><span id="line-10"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span id="line-11">    <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOps</span>
+</span><span id="line-12">
 </span><span id="line-13">
-</span><span id="line-14">    <span class="nd">@property</span>
-</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">torch_module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="line-16">        <span class="k">return</span> <span class="s2">"foo"</span>
-</span><span id="line-17">
-</span><span id="line-18">    <span class="nd">@property</span>
-</span><span id="line-19">    <span class="k">def</span><span class="w"> </span><span class="nf">ops_module</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-20">        <span class="k">return</span> <span class="kc">None</span>
-</span><span id="line-21">
-</span><span id="line-22">    <span class="k">def</span><span class="w"> </span><span class="nf">is_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="line-23"><span class="w">        </span><span class="sd">"""Check backend availability without importing lmcache.__init__."""</span>
-</span><span id="line-24">        <span class="k">try</span><span class="p">:</span>
-</span><span id="line-25">            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span id="line-26">
-</span><span id="line-27">            <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="s2">"foo"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">foo</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
-</span><span id="line-28">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span id="line-29">            <span class="k">return</span> <span class="kc">False</span>
+</span><span id="line-14"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
+</span><span id="line-15"><span class="w">    </span><span class="sd">"""Foo device specification for LMCache registry discovery."""</span>
+</span><span id="line-16">
+</span><span id="line-17">    <span class="nd">@property</span>
+</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">device_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-19">        <span class="k">return</span> <span class="s2">"foo"</span>
+</span><span id="line-20">
+</span><span id="line-21">    <span class="nd">@property</span>
+</span><span id="line-22">    <span class="k">def</span><span class="w"> </span><span class="nf">torch_module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="line-23">        <span class="k">return</span> <span class="s2">"foo"</span>
+</span><span id="line-24">
+</span><span id="line-25">    <span class="nd">@property</span>
+</span><span id="line-26">    <span class="k">def</span><span class="w"> </span><span class="nf">ops_cls</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">DeviceOps</span><span class="p">]:</span>
+</span><span id="line-27">        <span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.foo.device_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">FooDeviceOps</span>
+</span><span id="line-28">
+</span><span id="line-29">        <span class="k">return</span> <span class="n">FooDeviceOps</span>
+</span><span id="line-30">
+</span><span id="line-31">    <span class="k">def</span><span class="w"> </span><span class="nf">is_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="line-32"><span class="w">        </span><span class="sd">"""Check backend availability without importing lmcache.__init__."""</span>
+</span><span id="line-33">        <span class="k">try</span><span class="p">:</span>
+</span><span id="line-34">            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span id="line-35">
+</span><span id="line-36">            <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="s2">"foo"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">foo</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+</span><span id="line-37">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span id="line-38">            <span class="k">return</span> <span class="kc">False</span>
 </span></code></pre></div>
+</div>
+</section>
+<section id="step-2-add-a-foodeviceops">
+<h3>Step 2: Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceOps</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-2-add-a-foodeviceops" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-2-add-a-foodeviceops'"><span>#</span></a></h3>
+<p>Create <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/foo/device_ops.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+</span><span id="line-2"><span class="sd">"""Foo ops backend."""</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_logger</span>
+</span><span id="line-9"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.platform.base.device_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOps</span>
+</span><span id="line-10">
+</span><span id="line-11"><span class="n">logger</span> <span class="o">=</span> <span class="n">init_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="line-12">
+</span><span id="line-13">
+</span><span id="line-14"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceOps</span><span class="p">(</span><span class="n">DeviceOps</span><span class="p">):</span>
+</span><span id="line-15">    <span class="n">device_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"foo"</span>
+</span><span id="line-16">
+</span><span id="line-17">    <span class="k">def</span><span class="w"> </span><span class="nf">ensure_native</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-18">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native_bound</span><span class="p">:</span>
+</span><span id="line-19">            <span class="k">return</span>
+</span><span id="line-20">        <span class="bp">self</span><span class="o">.</span><span class="n">_native_bound</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="line-21">        <span class="k">try</span><span class="p">:</span>
+</span><span id="line-22">            <span class="kn">import</span><span class="w"> </span><span class="nn">foo_device.ops</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">native</span>
+</span><span id="line-23">        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="line-24">            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span id="line-25">                <span class="s2">"foo native ops not found; FooDeviceOps stays on "</span>
+</span><span id="line-26">                <span class="s2">"the torch baseline for all ops."</span>
+</span><span id="line-27">            <span class="p">)</span>
+</span><span id="line-28">            <span class="k">return</span>
+</span><span id="line-29">        <span class="bp">self</span><span class="o">.</span><span class="n">bind_native</span><span class="p">(</span><span class="n">native</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you have no native extension yet, simply leave <code class="docutils literal notranslate"><span class="pre">ensure_native</span></code>
+as a no-op (just <code class="docutils literal notranslate"><span class="pre">pass</span></code>).  The torch baseline handles everything.</p>
 </div>
 <p>Key properties:</p>
 <table class="docutils align-default">
 <thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
+<tr class="row-odd"><th class="head"><p>Property / Method</p></th>
 <th class="head"><p>Required</p></th>
 <th class="head"><p>Purpose</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">device_type</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.device_type</span></code></p></td>
 <td><p>yes</p></td>
-<td><p>Device type string (e.g. <code class="docutils literal notranslate"><span class="pre">"cuda"</span></code>, <code class="docutils literal notranslate"><span class="pre">"musa"</span></code>)</p></td>
+<td><p>Device type string (e.g. <code class="docutils literal notranslate"><span class="pre">"cuda"</span></code>, <code class="docutils literal notranslate"><span class="pre">"musa"</span></code>, <code class="docutils literal notranslate"><span class="pre">"xpu"</span></code>)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">torch_module_name</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.torch_module_name</span></code></p></td>
 <td><p>yes</p></td>
 <td><p>Attribute on the <code class="docutils literal notranslate"><span class="pre">torch</span></code> package (e.g. <code class="docutils literal notranslate"><span class="pre">"cuda"</span></code> →
 <code class="docutils literal notranslate"><span class="pre">torch.cuda</span></code>)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops_module</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.ops_cls</span></code></p></td>
 <td><p>no</p></td>
-<td><p>Ops module path; leave the base-class default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) for
-pure fallback, or override in <a class="reference internal" href="#part-2-performance"><span class="std std-ref">Part 2</span></a></p></td>
+<td><p>Returns the <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> subclass for this device.
+Base returns <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> itself (pure torch baseline).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">is_available()</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.is_available()</span></code></p></td>
 <td><p>yes</p></td>
 <td><p>Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> when the device is usable</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DeviceOps.ensure_native()</span></code></p></td>
+<td><p>no</p></td>
+<td><p>Called once on first use; override to bind native ops.
+Base is a no-op (e.g. <code class="docutils literal notranslate"><span class="pre">HpuDeviceOps</span></code> inherits it unchanged).</p></td>
 </tr>
 </tbody>
 </table>
@@ -395,13 +449,11 @@ when installed as a plug-in).  For accelerators shipped inside
 PyTorch itself (like <code class="docutils literal notranslate"><span class="pre">torch.cuda</span></code>) a plain
 <code class="docutils literal notranslate"><span class="pre">torch.foo.is_available()</span></code> is enough.</p>
 </div>
-<p>That’s it.  Defining this class is enough for auto-discovery — no
-global list or manual registration call is required.  All ops
-automatically route through <code class="docutils literal notranslate"><span class="pre">lmcache.python_ops_fallback</span></code>, which is
-not performant but is functionally applicable to any device that
-supports the standard PyTorch tensor surface.  Later, each device can
-provide its own ops (Python, C, CUDA, Rust, or any language exposing
-Python bindings) to override the fallback function-by-function.</p>
+<p>That’s it.  Defining these two classes is enough for auto-discovery —
+no global list or manual registration call is required.  All ops
+automatically route through the torch baseline in <code class="docutils literal notranslate"><span class="pre">torch_ops.py</span></code>,
+which is not performant but is functionally applicable to any device that
+supports the standard PyTorch tensor surface.</p>
 </section>
 <section id="verification">
 <h3>Verification<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verification" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verification'"><span>#</span></a></h3>
@@ -437,23 +489,22 @@ devices → engine-driven).  The example above explicitly sets
 additional capability checks.  For the <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> mode
 (IPC zero-copy), see <a class="reference internal" href="#part-2-performance"><span class="std std-ref">Advanced transfer mode</span></a>.</p>
 </div>
-<p>Check the LMCache logs — with <code class="docutils literal notranslate"><span class="pre">ops_module</span> <span class="pre">=</span> <span class="pre">None</span></code> you should see:</p>
+<p>Check the LMCache logs — without a native extension you should see:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">torch_dev</span><span class="o">=...</span><span class="p">,</span> <span class="n">torch_device_type</span><span class="o">=</span><span class="n">foo</span>
-</span><span id="line-2"><span class="n">Custom</span> <span class="n">ops</span> <span class="ow">not</span> <span class="n">supported</span> <span class="k">for</span> <span class="n">device</span><span class="p">:</span> <span class="n">foo</span><span class="p">,</span> <span class="n">using</span> <span class="n">fallback</span> <span class="n">ops</span><span class="o">.</span>
+</span><span id="line-2"><span class="n">foo</span> <span class="n">native</span> <span class="n">ops</span> <span class="ow">not</span> <span class="n">found</span><span class="p">;</span> <span class="n">FooDeviceOps</span> <span class="n">stays</span> <span class="n">on</span> <span class="n">the</span> <span class="n">torch</span> <span class="n">baseline</span> <span class="k">for</span> <span class="nb">all</span> <span class="n">ops</span><span class="o">.</span>
 </span></code></pre></div>
 </div>
-<p>This confirms your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> was discovered and the Python
-fallback is active.  (Once you set <code class="docutils literal notranslate"><span class="pre">ops_module</span></code> in
-<a class="reference internal" href="#part-2-performance"><span class="std std-ref">Part 2</span></a>, the second line becomes
-<code class="docutils literal notranslate"><span class="pre">Using</span> <span class="pre">backend:</span> <span class="pre">foo_device.ops</span></code> instead.)</p>
+<p>This confirms your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> was discovered and the torch
+baseline is active.  Once you provide a native extension and
+<code class="docutils literal notranslate"><span class="pre">ensure_native</span></code> succeeds, the warning disappears and ops call through
+your compiled kernels.</p>
 <p>Debugging checklist:</p>
 <ul class="simple">
 <li><p>[ ] <code class="docutils literal notranslate"><span class="pre">torch.foo.is_available()</span></code> returns <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 <li><p>[ ] Set <code class="docutils literal notranslate"><span class="pre">DEVICE_TYPE=foo</span></code> to force selection if not picked up
 automatically.</p></li>
-<li><p>[ ] Log shows either <code class="docutils literal notranslate"><span class="pre">Custom</span> <span class="pre">ops</span> <span class="pre">not</span> <span class="pre">supported</span> <span class="pre">for</span> <span class="pre">device:</span> <span class="pre">foo,</span>
-<span class="pre">using</span> <span class="pre">fallback</span> <span class="pre">ops.</span></code> (pure fallback) or
-<code class="docutils literal notranslate"><span class="pre">Using</span> <span class="pre">backend:</span> <span class="pre">foo_device.ops</span></code> (custom ops loaded).</p></li>
+<li><p>[ ] Log shows either the “stays on torch baseline” warning (no native
+ops) or silent success (native ops bound).</p></li>
 <li><p>[ ] Engine-driven transfer works end-to-end (check the LMCache logs
 to confirm whether the SHM or Pickle sub-path is chosen — both
 should succeed).</p></li>
@@ -466,48 +517,45 @@ should succeed).</p></li>
 <span id="part-2-performance"></span><h2>Part 2 — Performance Optimization<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#part-2-performance-optimization" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#part-2-performance-optimization'"><span>#</span></a></h2>
 <p>Once basic functionality is verified, add device-specific
 optimizations.</p>
-<section id="device-specific-ops">
-<h3>Device-specific ops<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#device-specific-ops" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#device-specific-ops'"><span>#</span></a></h3>
-<p>The generic ops interface is defined in
-<code class="docutils literal notranslate"><span class="pre">lmcache/python_ops_fallback.py</span></code>.  Each vendor may replace any
-subset of these functions with a device-specific implementation; the
-choice of language (C, CUDA, SYCL, Python, Rust, …) and packaging is
-entirely up to the vendor.  LMCache only cares that the resulting
-symbols are importable from Python.</p>
-<p><strong>How it works.</strong> At import time, <code class="docutils literal notranslate"><span class="pre">get_backend(device_type)</span></code> imports
-the module named by your <code class="docutils literal notranslate"><span class="pre">DeviceSpec.ops_module</span></code> and merges its
-symbols over <code class="docutils literal notranslate"><span class="pre">python_ops_fallback</span></code>:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">callers  →  lmcache.c_ops  →  foo_device.ops          (functions you defined)
-</span><span id="line-2">                           →  lmcache.python_ops_fallback  (everything else)
+<section id="device-specific-ops-via-bind-native">
+<h3>Device-specific ops via <code class="docutils literal notranslate"><span class="pre">bind_native</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#device-specific-ops-via-bind-native" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#device-specific-ops-via-bind-native'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> base class delegates every op to the torch baseline
+in <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/torch_ops.py</span></code>.  Each vendor may replace any
+subset of these functions with a device-specific implementation.</p>
+<p><strong>How it works.</strong> When <code class="docutils literal notranslate"><span class="pre">ensure_native()</span></code> calls
+<code class="docutils literal notranslate"><span class="pre">self.bind_native(native_module)</span></code>, the method walks the module’s
+public symbols and rebinds them as instance attributes — overriding the
+base-class methods that delegate to <code class="docutils literal notranslate"><span class="pre">torch_ops</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">callers  →  lmcache.c_ops (shim)  →  DeviceOps instance
+</span><span id="line-2">                                       │
+</span><span id="line-3">                                 bind_native() overlay:
+</span><span id="line-4">                                   ├── native.multi_layer_kv_transfer  ← vendor CUDA/SYCL kernel
+</span><span id="line-5">                                   ├── native.calculate_cdf            ← vendor kernel
+</span><span id="line-6">                                   └── (everything else)               ← torch_ops baseline
 </span></code></pre></div>
 </div>
 <section id="integration-contract">
 <h4>Integration contract<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#integration-contract"><span>#</span></a></h4>
 <p>Regardless of how you build your ops module, the following contract
 must hold:</p>
-<ul>
+<ul class="simple">
 <li><p><strong>Same symbol names.</strong> Every function you override must be exposed
-under the exact name used in <code class="docutils literal notranslate"><span class="pre">python_ops_fallback</span></code> (e.g.
+under the exact name used in <code class="docutils literal notranslate"><span class="pre">torch_ops.py</span></code> (e.g.
 <code class="docutils literal notranslate"><span class="pre">multi_layer_block_kv_transfer</span></code>).</p></li>
 <li><p><strong>Same call signature.</strong> Positional/keyword arguments, argument
-order and semantics must match the fallback; callers invoke the
-merged module without knowing which backend answered.</p></li>
-<li><p><strong>Importable Python module.</strong> <code class="docutils literal notranslate"><span class="pre">ops_module</span></code> is a fully-qualified
-Python module path (<code class="docutils literal notranslate"><span class="pre">importlib.import_module</span></code> must succeed).  How
-the module gets there — a pure-Python file, a pybind11 extension,
-a ctypes wrapper, a Rust <code class="docutils literal notranslate"><span class="pre">PyO3</span></code> module, etc. — is your choice.</p></li>
+order and semantics must match the baseline; callers invoke the
+<code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> instance without knowing which backend answered.</p></li>
+<li><p><strong>Importable Python module.</strong> Your native module must be importable
+via <code class="docutils literal notranslate"><span class="pre">import</span></code> (how it gets there — a pure-Python file, a pybind11
+extension, a ctypes wrapper, a Rust <code class="docutils literal notranslate"><span class="pre">PyO3</span></code> module, etc. — is your
+choice).</p></li>
 <li><p><strong>Partial override is allowed.</strong> You do not have to reimplement
-every function.  Anything you leave out keeps using the Python
-fallback, so incremental optimization is supported.</p></li>
-<li><p><strong>Point ``DeviceSpec.ops_module`` at the module</strong> once it is
-reachable on <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">class</span><span class="w"> </span><span class="nc">FooDeviceSpec</span><span class="p">(</span><span class="n">DeviceSpec</span><span class="p">):</span>
-</span><span id="line-2">    <span class="nd">@property</span>
-</span><span id="line-3">    <span class="k">def</span><span class="w"> </span><span class="nf">ops_module</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-4">        <span class="k">return</span> <span class="s2">"foo_device.ops"</span>   <span class="c1"># any importable module path</span>
-</span></code></pre></div>
-</div>
-</li>
+every function.  Anything you leave out keeps using the torch
+baseline, so incremental optimization is supported.</p></li>
+<li><p><strong>Types from the native module are also bound.</strong> <code class="docutils literal notranslate"><span class="pre">bind_native</span></code>
+also binds types (classes) — this is how native plan types like
+<code class="docutils literal notranslate"><span class="pre">StagingCopy</span></code>, <code class="docutils literal notranslate"><span class="pre">KernelGroupSpec</span></code>, etc. overlay the stubs in
+<code class="docutils literal notranslate"><span class="pre">ops_types.py</span></code>.</p></li>
 </ul>
 </section>
 <section id="implementation-notes">
@@ -515,19 +563,25 @@ reachable on <code class="docutils literal notranslate"><span class="pre">sys.pa
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">multi_layer_block_kv_transfer</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache_memcpy_async</span></code> are
 the hot entry points for both engine-driven and LMCache-driven
-transfer; other functions in <code class="docutils literal notranslate"><span class="pre">python_ops_fallback</span></code> can be
-overridden as needed.</p></li>
+transfer; other functions in <code class="docutils literal notranslate"><span class="pre">torch_ops.py</span></code> can be overridden as
+needed.</p></li>
 <li><p>If you fall back to the generic path from inside a device-specific
 wrapper (e.g. when inputs are unsupported), call the corresponding
-<code class="docutils literal notranslate"><span class="pre">lmcache.python_ops_fallback</span></code> function directly to preserve
+<code class="docutils literal notranslate"><span class="pre">lmcache.v1.platform.torch_ops</span></code> function directly to preserve
 semantics.</p></li>
-<li><p>Keep your ops module free of side effects at import time — it is
-imported eagerly during <code class="docutils literal notranslate"><span class="pre">get_backend()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ensure_native()</span></code> is called once when <code class="docutils literal notranslate"><span class="pre">DeviceSpec.get_ops()</span></code>
+first creates the singleton. It is safe to fail soft (log a warning
+and return without binding).</p></li>
 </ul>
-<p>For concrete reference implementations, see
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/</span></code>.
-Both are examples of what a vendor <em>may</em> do, not templates every new
-backend has to follow.</p>
+<p>For concrete reference implementations, see:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/device_ops.py</span></code> — binds the compiled
+<code class="docutils literal notranslate"><span class="pre">lmcache.c_ops</span></code> pybind11 extension.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/xpu/device_ops.py</span></code> — binds the SYCL
+<code class="docutils literal notranslate"><span class="pre">lmcache.xpu_ops</span></code> extension.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/device_ops.py</span></code> — method overrides
+without a separate native module.</p></li>
+</ul>
 </section>
 </section>
 <section id="advanced-transfer-mode">
@@ -547,7 +601,7 @@ setup.  There is currently no dedicated <code class="docutils literal notranslat
 <p>When the caller (or <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_TRANSFER_MODE</span></code>) explicitly requests
 <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code>, <code class="docutils literal notranslate"><span class="pre">_build_lmcache_driven_context</span></code> performs two hard
 checks — both must succeed, otherwise the factory raises
-<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> (no silent fallback):</p>
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> (no silent degradation):</p>
 <ol class="arabic simple">
 <li><p>Your <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> subclass must bind a <code class="docutils literal notranslate"><span class="pre">DeviceIPCWrapper</span></code>
 subclass (exposing a <code class="docutils literal notranslate"><span class="pre">wrap</span></code> classmethod) via
@@ -698,28 +752,43 @@ context — switch back to <code class="docutils literal notranslate"><span clas
 <tr class="row-even"><td><p>Device spec base</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/device_spec.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Event IPC base</p></td>
+<tr class="row-odd"><td><p>Device ops base</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/device_ops.py</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Torch ops baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/torch_ops.py</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Ops types and enums</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/ops_types.py</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Event IPC base</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/event_ipc.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Backend loading</p></td>
+<tr class="row-odd"><td><p>Backend loading (<code class="docutils literal notranslate"><span class="pre">resolve_device_ops</span></code> / <code class="docutils literal notranslate"><span class="pre">_detect_device</span></code>)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Python fallback</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/python_ops_fallback.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">c_ops</span></code> shim install (<code class="docutils literal notranslate"><span class="pre">_install_c_ops_shim</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Cache context base</p></td>
+<tr class="row-odd"><td><p>Cache context base</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/base/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Cache context factory</p></td>
+<tr class="row-even"><td><p>Cache context factory</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cache_context.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (engine-driven baseline)</p></td>
+<tr class="row-odd"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (CUDA)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/__init__.py</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> (LMCache-driven capable)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/__init__.py</span></code></p></td>
+<tr class="row-even"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> (CUDA, bind_native)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/cuda/device_ops.py</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Engine-driven call site</p></td>
+<tr class="row-odd"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> (XPU, bind_native)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/xpu/device_ops.py</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Reference <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> (MUSA, method overrides)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/musa/device_ops.py</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Engine-driven call site</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transfer_context/worker_transfer.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferContext</span></code>, <code class="docutils literal notranslate"><span class="pre">create_transfer_context</span></code>)</p></td>
 </tr>
@@ -749,12 +818,13 @@ context — switch back to <code class="docutils literal notranslate"><span clas
 <ul>
 <li><a :data-current="activeSection === '#part-1-basic-function-enabling'" class="reference internal" href="#part-1-basic-function-enabling">Part 1 — Basic Function Enabling</a><ul>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
-<li><a :data-current="activeSection === '#add-a-foodevicespec'" class="reference internal" href="#add-a-foodevicespec">Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code></a></li>
+<li><a :data-current="activeSection === '#step-1-add-a-foodevicespec'" class="reference internal" href="#step-1-add-a-foodevicespec">Step 1: Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code></a></li>
+<li><a :data-current="activeSection === '#step-2-add-a-foodeviceops'" class="reference internal" href="#step-2-add-a-foodeviceops">Step 2: Add a <code class="docutils literal notranslate"><span class="pre">FooDeviceOps</span></code></a></li>
 <li><a :data-current="activeSection === '#verification'" class="reference internal" href="#verification">Verification</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#part-2-performance-optimization'" class="reference internal" href="#part-2-performance-optimization">Part 2 — Performance Optimization</a><ul>
-<li><a :data-current="activeSection === '#device-specific-ops'" class="reference internal" href="#device-specific-ops">Device-specific ops</a><ul>
+<li><a :data-current="activeSection === '#device-specific-ops-via-bind-native'" class="reference internal" href="#device-specific-ops-via-bind-native">Device-specific ops via <code class="docutils literal notranslate"><span class="pre">bind_native</span></code></a><ul>
 <li><a :data-current="activeSection === '#integration-contract'" class="reference internal" href="#integration-contract">Integration contract</a></li>
 <li><a :data-current="activeSection === '#implementation-notes'" class="reference internal" href="#implementation-notes">Implementation notes</a></li>
 </ul>
