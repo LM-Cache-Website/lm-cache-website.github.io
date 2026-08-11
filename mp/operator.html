@@ -348,19 +348,28 @@ resource and the operator reconciles all underlying Kubernetes objects.</p>
 <li><p><a class="reference internal" href="#cacheblendengine-fields" id="id41">CacheBlendEngine Fields</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#lmcachecoordinator" id="id42">LMCacheCoordinator</a></p>
+<li><p><a class="reference internal" href="#pd-disaggregation" id="id42">PD Disaggregation</a></p>
 <ul>
-<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id43">Deploying a Coordinator</a></p></li>
-<li><p><a class="reference internal" href="#connecting-an-engine" id="id44">Connecting an Engine</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id45">Coordinator CRD Spec Reference</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-resources-created" id="id46">Coordinator Resources Created</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id47">Coordinator Status &amp; Conditions</a></p></li>
-<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id48">Coordinator Validation Rules</a></p></li>
+<li><p><a class="reference internal" href="#how-it-works" id="id43">How it works</a></p></li>
+<li><p><a class="reference internal" href="#pdspec-fields" id="id44">PDSpec Fields</a></p></li>
+<li><p><a class="reference internal" href="#deploying-a-pd-engine" id="id45">Deploying a PD Engine</a></p></li>
+<li><p><a class="reference internal" href="#opting-vllm-pods-in" id="id46">Opting vLLM Pods In</a></p></li>
+<li><p><a class="reference internal" href="#router" id="id47">Router</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id49">Operator vs Manual Deployment</a></p></li>
-<li><p><a class="reference internal" href="#security-considerations" id="id50">Security Considerations</a></p></li>
-<li><p><a class="reference internal" href="#development" id="id51">Development</a></p></li>
+<li><p><a class="reference internal" href="#lmcachecoordinator" id="id48">LMCacheCoordinator</a></p>
+<ul>
+<li><p><a class="reference internal" href="#deploying-a-coordinator" id="id49">Deploying a Coordinator</a></p></li>
+<li><p><a class="reference internal" href="#connecting-an-engine" id="id50">Connecting an Engine</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-crd-spec-reference" id="id51">Coordinator CRD Spec Reference</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-resources-created" id="id52">Coordinator Resources Created</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-status-conditions" id="id53">Coordinator Status &amp; Conditions</a></p></li>
+<li><p><a class="reference internal" href="#coordinator-validation-rules" id="id54">Coordinator Validation Rules</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#operator-vs-manual-deployment" id="id55">Operator vs Manual Deployment</a></p></li>
+<li><p><a class="reference internal" href="#security-considerations" id="id56">Security Considerations</a></p></li>
+<li><p><a class="reference internal" href="#development" id="id57">Development</a></p></li>
 </ul>
 </nav>
 <section id="why-use-the-operator">
@@ -1496,15 +1505,189 @@ inherited engine-image default is not a valid payload.</p></td>
 requires <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>).</p>
 </section>
 </section>
+<section id="pd-disaggregation">
+<span id="mp-operator-pd-disaggregation"></span><h2><a class="toc-backref" href="#id42" role="doc-backlink">PD Disaggregation</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#pd-disaggregation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#pd-disaggregation'"><span>#</span></a></h2>
+<p>The operator has first-class support for PD (Prefill-Decode) disaggregation.
+Adding a <code class="docutils literal notranslate"><span class="pre">pd</span></code> block to an <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> spec switches the engine’s
+connection ConfigMap to include <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> configs (<code class="docutils literal notranslate"><span class="pre">NixlConnector</span></code> +
+<code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>) alongside the standard bare connector, and tells the
+webhook to inject the NIXL side-channel environment variables into opted-in
+vLLM pods automatically.</p>
+<p>See <a class="reference internal" href="disaggregated_prefill.html#mp-disaggregated-prefill"><span class="std std-ref">Disaggregated Prefill</span></a> for background on what PD disaggregation is
+and how the pieces fit together.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PD disaggregation requires NIXL in the vLLM environment (<code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code>
+extra) and <a class="reference external" href="https://github.com/vllm-project/vllm/pull/46865">vllm-project/vllm#46865</a> merged.</p>
+</div>
+<section id="how-it-works">
+<h3><a class="toc-backref" href="#id43" role="doc-backlink">How it works</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-it-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-it-works'"><span>#</span></a></h3>
+<p>Deploy a <strong>single</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> CR with a <code class="docutils literal notranslate"><span class="pre">pd</span></code> block.  One DaemonSet
+instance per node serves both prefiller and decoder vLLM pods.  The operator:</p>
+<ol class="arabic simple">
+<li><p><strong>Builds a multi-key ConfigMap</strong> – the <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap
+emits three keys so the same engine can serve all pod types:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kv-transfer-config.json</span></code> – bare <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> (fallback for
+pods without a <code class="docutils literal notranslate"><span class="pre">pd-role</span></code> annotation; no NIXL).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kv-transfer-config-prefiller.json</span></code> – <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> with
+<code class="docutils literal notranslate"><span class="pre">kv_role=kv_producer</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kv-transfer-config-decoder.json</span></code> – <code class="docutils literal notranslate"><span class="pre">MultiConnector</span></code> with
+<code class="docutils literal notranslate"><span class="pre">kv_role=kv_consumer</span></code>.</p></li>
+</ul>
+</li>
+<li><p><strong>Injects the correct config via the webhook</strong> – the webhook reads the
+<code class="docutils literal notranslate"><span class="pre">lmcache.ai/pd-role</span></code> annotation on each vLLM pod and injects the
+matching ConfigMap key as <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code>.</p></li>
+<li><p><strong>Injects NIXL env vars</strong> – opted-in PD pods receive two extra env vars:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST</span></code> – set to the pod’s own IP via the
+downward API (<code class="docutils literal notranslate"><span class="pre">status.podIP</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> – taken from <code class="docutils literal notranslate"><span class="pre">spec.pd.nixlSideChannelPort</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">5558</span></code>).  If the pod pre-sets this env var, the webhook will
+leave it unchanged – useful when both roles run on the same host and
+need distinct ports (e.g. prefiller <code class="docutils literal notranslate"><span class="pre">5557</span></code>, decoder <code class="docutils literal notranslate"><span class="pre">5558</span></code>).</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="pdspec-fields">
+<h3><a class="toc-backref" href="#id44" role="doc-backlink">PDSpec Fields</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#pdspec-fields" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#pdspec-fields'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 50.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pd.nixlSideChannelPort</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5558</span></code></p></td>
+<td><p>Port the NIXL agent advertises for handshake negotiation.  Injected by
+the webhook unless the pod pre-sets <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code>.
+When using <code class="docutils literal notranslate"><span class="pre">hostNetwork:</span> <span class="pre">true</span></code>, set distinct values for prefiller and
+decoder directly in the pod env to avoid port conflicts.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pd.nixlLoadFailurePolicy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">fail</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">fail</span></code> – abort the request if the NIXL transfer fails.
+<code class="docutils literal notranslate"><span class="pre">ignore</span></code> – fall back to local prefill on failure.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pd.enforceHandshakeCompat</span></code></p></td>
+<td><p><em>(omitted)</em></p></td>
+<td><p>When set to <code class="docutils literal notranslate"><span class="pre">false</span></code>, disables strict NIXL version negotiation – useful
+when prefiller and decoder run different vLLM builds.  When omitted the
+key is not sent and NIXL uses its own default.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="deploying-a-pd-engine">
+<h3><a class="toc-backref" href="#id45" role="doc-backlink">Deploying a PD Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-pd-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-pd-engine'"><span>#</span></a></h3>
+<p>A single <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> handles both roles:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache.lmcache.ai/v1alpha1</span>
+</span><span id="line-2"><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LMCacheEngine</span>
+</span><span id="line-3"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache-engine</span>
+</span><span id="line-5"><span class="nt">spec</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">l1</span><span class="p">:</span>
+</span><span id="line-7"><span class="w">    </span><span class="nt">sizeGB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">server</span><span class="p">:</span>
+</span><span id="line-9"><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5555</span>
+</span><span id="line-10"><span class="w">    </span><span class="nt">chunkSize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">pd</span><span class="p">:</span>
+</span><span id="line-12"><span class="w">    </span><span class="nt">nixlLoadFailurePolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail</span>
+</span></code></pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>engine.yaml
+</span><span id="line-2">kubectl<span class="w"> </span>get<span class="w"> </span>lmc<span class="w">    </span><span class="c1"># wait for Running</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="opting-vllm-pods-in">
+<h3><a class="toc-backref" href="#id46" role="doc-backlink">Opting vLLM Pods In</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#opting-vllm-pods-in" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#opting-vllm-pods-in'"><span>#</span></a></h3>
+<p>Use the standard label + annotation pattern (see
+<a class="reference internal" href="#mp-operator-connection-injection"><span class="std std-ref">Connection Injection (Webhook)</span></a>), adding the <code class="docutils literal notranslate"><span class="pre">lmcache.ai/pd-role</span></code>
+annotation to select the prefiller or decoder config:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># prefiller vLLM pod template</span>
+</span><span id="line-2"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">    </span><span class="nt">lmcache.ai/lmcache-inject</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+</span><span id="line-5"><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">    </span><span class="nt">lmcache.ai/lmcache-engine</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-engine"</span>
+</span><span id="line-7"><span class="w">    </span><span class="nt">lmcache.ai/pd-role</span><span class="p">:</span><span class="w"> </span><span class="s">"prefiller"</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="c1"># decoder vLLM pod template</span>
+</span><span id="line-10"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-11"><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
+</span><span id="line-12"><span class="w">    </span><span class="nt">lmcache.ai/lmcache-inject</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+</span><span id="line-13"><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+</span><span id="line-14"><span class="w">    </span><span class="nt">lmcache.ai/lmcache-engine</span><span class="p">:</span><span class="w"> </span><span class="s">"lmcache-engine"</span>
+</span><span id="line-15"><span class="w">    </span><span class="nt">lmcache.ai/pd-role</span><span class="p">:</span><span class="w"> </span><span class="s">"decoder"</span>
+</span></code></pre></div>
+</div>
+<p>The webhook injects <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> (the role-specific MultiConnector
+JSON), <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">PYTHONHASHSEED=0</span></code>, <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_HOST</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> into each opted-in pod.  Do <strong>not</strong> mount
+the ConfigMap or add <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> yourself.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>NIXL RDMA and hostNetwork</strong> – NIXL’s UCX backend requires valid RDMA GIDs,
+which are derived from the host’s network interfaces.  Under standard overlay
+CNI (each pod has its own network namespace) the GID table inside the pod is
+empty and UCX backend initialization fails.  The recommended workarounds are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hostNetwork:</span> <span class="pre">true</span></code> + <code class="docutils literal notranslate"><span class="pre">dnsPolicy:</span> <span class="pre">ClusterFirstWithHostNet</span></code> (quick test).
+With hostNetwork both roles share the host IP, so set <strong>distinct</strong>
+<code class="docutils literal notranslate"><span class="pre">VLLM_NIXL_SIDE_CHANNEL_PORT</span></code> values per role (e.g. 5557 / 5558) in the
+pod env before the webhook runs – the webhook will not override a pre-set
+value.</p></li>
+<li><p>SR-IOV with Multus (production): assign each pod a dedicated VF with its
+own GID, no <code class="docutils literal notranslate"><span class="pre">hostNetwork</span></code> required.</p></li>
+</ul>
+</div>
+<p>Pods without a <code class="docutils literal notranslate"><span class="pre">lmcache.ai/pd-role</span></code> annotation that are bound to a PD engine
+fall back to the bare <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> config (no NIXL) – they still
+benefit from the LMCache KV cache without participating in disaggregation.</p>
+</section>
+<section id="router">
+<h3><a class="toc-backref" href="#id47" role="doc-backlink">Router</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#router" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#router'"><span>#</span></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">vllm-router</span></code> is <strong>not</strong> managed by the operator.  Deploy it as a plain
+Kubernetes <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> pointing at the prefiller and decoder vLLM Services:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm-router<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--policy<span class="w"> </span>round_robin<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--vllm-pd-disaggregation<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--prefill<span class="w"> </span>http://pd-prefiller.&lt;namespace&gt;.svc.cluster.local:8001<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--decode<span class="w">  </span>http://pd-decoder.&lt;namespace&gt;.svc.cluster.local:8002<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">30000</span>
+</span></code></pre></div>
+</div>
+<p>A ready-to-edit manifest is at
+<code class="docutils literal notranslate"><span class="pre">operator/config/samples/vllm_pd_disaggregation.yaml</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Name your prefiller and decoder vLLM Services with a prefix other than
+<code class="docutils literal notranslate"><span class="pre">vllm-</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">pd-prefiller</span></code>, <code class="docutils literal notranslate"><span class="pre">pd-decoder</span></code>).  Kubernetes injects
+<code class="docutils literal notranslate"><span class="pre">&lt;SERVICE_NAME&gt;_*</span></code> env vars into every pod in the namespace; a <code class="docutils literal notranslate"><span class="pre">vllm-</span></code>
+prefix generates <code class="docutils literal notranslate"><span class="pre">VLLM_*</span></code> vars that vLLM’s env-var validator flags as
+unknown.</p>
+</div>
+</section>
+</section>
 <section id="lmcachecoordinator">
-<h2><a class="toc-backref" href="#id42" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id48" role="doc-backlink">LMCacheCoordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcachecoordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lmcachecoordinator'"><span>#</span></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> CRD runs the <strong>mp coordinator</strong> – a fleet-wide HTTP
 service that tracks mp server instances, evicts those whose heartbeats lapse,
 performs L2 quota eviction, and hosts the global CacheBlend fingerprint
 directory.  It is a plain (non-GPU) <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> exposed through a ClusterIP
 Service; engines reach it via <code class="docutils literal notranslate"><span class="pre">coordinator.ref</span></code> or <code class="docutils literal notranslate"><span class="pre">coordinator.url</span></code>.</p>
 <section id="deploying-a-coordinator">
-<h3><a class="toc-backref" href="#id43" role="doc-backlink">Deploying a Coordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id49" role="doc-backlink">Deploying a Coordinator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#deploying-a-coordinator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#deploying-a-coordinator'"><span>#</span></a></h3>
 <p>A ready-to-edit manifest lives at
 <code class="docutils literal notranslate"><span class="pre">config/samples/lmcache_v1alpha1_lmcachecoordinator.yaml</span></code> in the operator
 repo.  A minimal coordinator:</p>
@@ -1521,7 +1704,7 @@ repo.  A minimal coordinator:</p>
 </div>
 </section>
 <section id="connecting-an-engine">
-<h3><a class="toc-backref" href="#id44" role="doc-backlink">Connecting an Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id50" role="doc-backlink">Connecting an Engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connecting-an-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connecting-an-engine'"><span>#</span></a></h3>
 <p>Point an <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> / <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> at the coordinator through its
 <code class="docutils literal notranslate"><span class="pre">coordinator</span></code> block.  Use <code class="docutils literal notranslate"><span class="pre">ref</span></code> to name a coordinator in the same namespace
 (the operator resolves it to the in-cluster Service URL), or <code class="docutils literal notranslate"><span class="pre">url</span></code> for an
@@ -1536,7 +1719,7 @@ explicit endpoint:</p>
 </div>
 </section>
 <section id="coordinator-crd-spec-reference">
-<h3><a class="toc-backref" href="#id45" role="doc-backlink">Coordinator CRD Spec Reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id51" role="doc-backlink">Coordinator CRD Spec Reference</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-crd-spec-reference" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-crd-spec-reference'"><span>#</span></a></h3>
 <section id="topology">
 <h4>Topology<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#topology"><span>#</span></a></h4>
 <table class="docutils align-default">
@@ -1742,7 +1925,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </section>
 </section>
 <section id="coordinator-resources-created">
-<h3><a class="toc-backref" href="#id46" role="doc-backlink">Coordinator Resources Created</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id52" role="doc-backlink">Coordinator Resources Created</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-resources-created" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-resources-created'"><span>#</span></a></h3>
 <p>For an <code class="docutils literal notranslate"><span class="pre">LMCacheCoordinator</span></code> named <code class="docutils literal notranslate"><span class="pre">my-coordinator</span></code>:</p>
 <table class="docutils align-default">
 <colgroup>
@@ -1780,7 +1963,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 <code class="docutils literal notranslate"><span class="pre">http://my-coordinator.default.svc:9300</span></code>).</p>
 </section>
 <section id="coordinator-status-conditions">
-<h3><a class="toc-backref" href="#id47" role="doc-backlink">Coordinator Status &amp; Conditions</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id53" role="doc-backlink">Coordinator Status &amp; Conditions</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-status-conditions" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-status-conditions'"><span>#</span></a></h3>
 <p>The status section includes:</p>
 <ul class="simple">
 <li><p><strong>phase</strong>: <code class="docutils literal notranslate"><span class="pre">Pending</span></code>, <code class="docutils literal notranslate"><span class="pre">Running</span></code>, <code class="docutils literal notranslate"><span class="pre">Degraded</span></code>, or <code class="docutils literal notranslate"><span class="pre">Failed</span></code>.</p></li>
@@ -1797,7 +1980,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </ul>
 </section>
 <section id="coordinator-validation-rules">
-<h3><a class="toc-backref" href="#id48" role="doc-backlink">Coordinator Validation Rules</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id54" role="doc-backlink">Coordinator Validation Rules</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#coordinator-validation-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#coordinator-validation-rules'"><span>#</span></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1835,7 +2018,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </section>
 </section>
 <section id="operator-vs-manual-deployment">
-<h2><a class="toc-backref" href="#id49" role="doc-backlink">Operator vs Manual Deployment</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id55" role="doc-backlink">Operator vs Manual Deployment</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#operator-vs-manual-deployment" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#operator-vs-manual-deployment'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1885,7 +2068,7 @@ added; <code class="docutils literal notranslate"><span class="pre">serviceMonit
 </table>
 </section>
 <section id="security-considerations">
-<h2><a class="toc-backref" href="#id50" role="doc-backlink">Security Considerations</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id56" role="doc-backlink">Security Considerations</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
 <p><strong>hostIPC</strong> exposes the host’s IPC namespace (System V IPC, POSIX message
 queues) to the container.  Any process in the container can interact with IPC
 resources from other processes on the same host.</p>
@@ -1901,7 +2084,7 @@ requires it.</p></li>
 </ul>
 </section>
 <section id="development">
-<h2><a class="toc-backref" href="#id51" role="doc-backlink">Development</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id57" role="doc-backlink">Development</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#development'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">make<span class="w"> </span>generate<span class="w">     </span><span class="c1"># Generate DeepCopy methods</span>
 </span><span id="line-2">make<span class="w"> </span>manifests<span class="w">    </span><span class="c1"># Generate CRD YAML + RBAC</span>
 </span><span id="line-3">make<span class="w"> </span>build<span class="w">        </span><span class="c1"># Compile operator binary</span>
@@ -1994,6 +2177,14 @@ requires it.</p></li>
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">Opting a vLLM Pod In</a></li>
 <li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">Verifying Injection</a></li>
 <li><a :data-current="activeSection === '#cacheblendengine-fields'" class="reference internal" href="#cacheblendengine-fields">CacheBlendEngine Fields</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#pd-disaggregation'" class="reference internal" href="#pd-disaggregation">PD Disaggregation</a><ul>
+<li><a :data-current="activeSection === '#how-it-works'" class="reference internal" href="#how-it-works">How it works</a></li>
+<li><a :data-current="activeSection === '#pdspec-fields'" class="reference internal" href="#pdspec-fields">PDSpec Fields</a></li>
+<li><a :data-current="activeSection === '#deploying-a-pd-engine'" class="reference internal" href="#deploying-a-pd-engine">Deploying a PD Engine</a></li>
+<li><a :data-current="activeSection === '#opting-vllm-pods-in'" class="reference internal" href="#opting-vllm-pods-in">Opting vLLM Pods In</a></li>
+<li><a :data-current="activeSection === '#router'" class="reference internal" href="#router">Router</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#lmcachecoordinator'" class="reference internal" href="#lmcachecoordinator">LMCacheCoordinator</a><ul>
