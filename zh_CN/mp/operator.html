@@ -1367,13 +1367,17 @@ volume in both if the init container needs to touch it.</p>
 </span><span id="line-25"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
 </span></code></pre></div>
 </div>
-<p>Webhook 注入插件初始化容器、<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>、<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>、私有镜像拉取密钥，以及所需的 CacheBlend vLLM 标志（<code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">CUSTOM</span></code>、<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> 来自引擎的连接 ConfigMap、<code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">64</span></code>、<code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>、<code class="docutils literal notranslate"><span class="pre">--no-async-scheduling</span></code>、<code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>）。您只需提供模型和非 CacheBlend 标志。</p>
+<p>The webhook injects the plugin init container, <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>, <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, the
+private-image pull secret, and the required CacheBlend vLLM flags
+(<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> from the engine's connection ConfigMap,
+<code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>).  You supply only the model and your non-CacheBlend flags.</p>
 </section>
 <section id="id4">
 <h3><a class="toc-backref" href="#id42" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id4" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id4'"><span>#</span></a></h3>
 <p>该 Webhook 变更的是 <strong>Pod</strong>，而非 Deployment，因此请检查 Pod：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-cacheblend<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|attention-backend|cacheblend-injected|skip-reason"</span>
+</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|kv-transfer-config|cacheblend-injected|skip-reason"</span>
 </span></code></pre></div>
 </div>
 <p>若未注入任何内容，请检查 Pod 的 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/cacheblend-skip-reason</span></code> 注解：<code class="docutils literal notranslate"><span class="pre">command-override</span></code>（使用了 <code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-c</span></code> 包装器）、<code class="docutils literal notranslate"><span class="pre">kv-transfer-config-present</span></code>（已自行设置了该配置）、<code class="docutils literal notranslate"><span class="pre">engine-not-found</span></code>（缺少 <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;-connection</span></code> ConfigMap）、<code class="docutils literal notranslate"><span class="pre">payload-image-unset</span></code>（引擎的 <code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code> 未设置仓库），或 <code class="docutils literal notranslate"><span class="pre">target-container-not-found</span></code>（所请求的 <code class="docutils literal notranslate"><span class="pre">targetContainer</span></code> / <code class="docutils literal notranslate"><span class="pre">cacheblend-container</span></code> 注解指向了 Pod 中不存在的容器）。在 <code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code> 的情况下，Webhook 或证书问题也会使 Pod 静默地保持未变更 —— 请确认操作符 Pod 处于 <code class="docutils literal notranslate"><span class="pre">Running</span></code> 状态，且 <code class="docutils literal notranslate"><span class="pre">MutatingWebhookConfiguration</span></code> 已存在。</p>
@@ -1402,25 +1406,33 @@ volume in both if the init container needs to touch it.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.15</span></code></p></td>
 <td><p>非前缀命中 Token 被重新计算的比例（<code class="docutils literal notranslate"><span class="pre">cb.recomp_ratio</span></code>）。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blend.partialBucket</span></code></p></td>
+<td><p>unset</p></td>
+<td><p>Pads PARTIAL row counts to a multiple of this bucket
+(<code class="docutils literal notranslate"><span class="pre">cb.partial_bucket</span></code>).  Needed on fp8-MoE models, where every distinct
+row count is a fresh M shape and the Triton autotuner re-tunes all MoE
+layers per CB step without it.  Unset omits the key (padding disabled).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code></p></td>
 <td><p>必需</p></td>
 <td><p>（私有）cacheblend-plugin 初始化容器镜像（<code class="docutils literal notranslate"><span class="pre">repository</span></code> / <code class="docutils literal notranslate"><span class="pre">tag</span></code> / <code class="docutils literal notranslate"><span class="pre">pullPolicy</span></code>）。必须设置 <code class="docutils literal notranslate"><span class="pre">repository</span></code>——继承自引擎镜像的默认值并非有效的负载镜像。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.imagePullSecrets</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.imagePullSecrets</span></code></p></td>
 <td><p>--</p></td>
 <td><p>追加到 vLLM Pod 的私有负载镜像拉取密钥。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.targetContainer</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.targetContainer</span></code></p></td>
 <td><p>第一个容器</p></td>
 <td><p>要注入的 vLLM 容器的名称。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.cudagraph</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.cudagraph</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code> | <code class="docutils literal notranslate"><span class="pre">piecewise</span></code> | <code class="docutils literal notranslate"><span class="pre">full_decode_only</span></code>（不可使用 <code class="docutils literal notranslate"><span class="pre">full</span></code>）。</p></td>
 </tr>
 </tbody>
 </table>
-<p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> 的默认值为 <code class="docutils literal notranslate"><span class="pre">256</span></code>，并且必须等于 256（混合匹配器要求 <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>）。</p>
+<p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">256</span></code> and must equal 256 (the blend matcher
+requires it).</p>
 </section>
 </section>
 <section id="pd-disaggregation">

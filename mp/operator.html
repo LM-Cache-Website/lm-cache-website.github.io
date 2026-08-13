@@ -1495,16 +1495,15 @@ not reach <code class="docutils literal notranslate"><span class="pre">vllm</spa
 </div>
 <p>The webhook injects the plugin init container, <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>, <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, the
 private-image pull secret, and the required CacheBlend vLLM flags
-(<code class="docutils literal notranslate"><span class="pre">--attention-backend</span> <span class="pre">CUSTOM</span></code>, <code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> from the engine’s
-connection ConfigMap, <code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">64</span></code>, <code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>,
-<code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-async-scheduling</span></code>, <code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>).
-You supply only the model and your non-CacheBlend flags.</p>
+(<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> from the engine’s connection ConfigMap,
+<code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--enforce-eager</span></code>).  You supply only the model and your non-CacheBlend flags.</p>
 </section>
 <section id="id3">
 <h3><a class="toc-backref" href="#id41" role="doc-backlink">Verifying Injection</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>The webhook mutates <strong>Pods</strong>, not the Deployment, so inspect a pod:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-cacheblend<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|attention-backend|cacheblend-injected|skip-reason"</span>
+</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"initContainers|cb-plugin|PYTHONPATH|kv-transfer-config|cacheblend-injected|skip-reason"</span>
 </span></code></pre></div>
 </div>
 <p>If nothing was injected, check the pod’s <code class="docutils literal notranslate"><span class="pre">lmcache.ai/cacheblend-skip-reason</span></code>
@@ -1543,28 +1542,35 @@ Spec Reference above) and adds:</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.15</span></code></p></td>
 <td><p>Fraction of non-prefix-hit tokens recomputed (<code class="docutils literal notranslate"><span class="pre">cb.recomp_ratio</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blend.partialBucket</span></code></p></td>
+<td><p>unset</p></td>
+<td><p>Pads PARTIAL row counts to a multiple of this bucket
+(<code class="docutils literal notranslate"><span class="pre">cb.partial_bucket</span></code>).  Needed on fp8-MoE models, where every distinct
+row count is a fresh M shape and the Triton autotuner re-tunes all MoE
+layers per CB step without it.  Unset omits the key (padding disabled).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.payloadImage</span></code></p></td>
 <td><p><em>required</em></p></td>
 <td><p>The (private) cacheblend-plugin init-container image
 (<code class="docutils literal notranslate"><span class="pre">repository</span></code> / <code class="docutils literal notranslate"><span class="pre">tag</span></code> / <code class="docutils literal notranslate"><span class="pre">pullPolicy</span></code>).  Set <code class="docutils literal notranslate"><span class="pre">repository</span></code> – the
 inherited engine-image default is not a valid payload.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.imagePullSecrets</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.imagePullSecrets</span></code></p></td>
 <td><p>–</p></td>
 <td><p>Pull secrets appended to the vLLM pod for the private payload image.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.targetContainer</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.targetContainer</span></code></p></td>
 <td><p>first container</p></td>
 <td><p>Name of the vLLM container to inject into.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">injection.cudagraph</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">injection.cudagraph</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">eager</span></code> | <code class="docutils literal notranslate"><span class="pre">piecewise</span></code> | <code class="docutils literal notranslate"><span class="pre">full_decode_only</span></code> (never <code class="docutils literal notranslate"><span class="pre">full</span></code>).</p></td>
 </tr>
 </tbody>
 </table>
 <p><code class="docutils literal notranslate"><span class="pre">server.chunkSize</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">256</span></code> and must equal 256 (the blend matcher
-requires <code class="docutils literal notranslate"><span class="pre">chunk_size</span> <span class="pre">==</span> <span class="pre">vLLM</span> <span class="pre">--block-size</span> <span class="pre">*</span> <span class="pre">4</span></code>).</p>
+requires it).</p>
 </section>
 </section>
 <section id="pd-disaggregation">
