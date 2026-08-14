@@ -373,7 +373,10 @@
 <h2><a class="toc-backref" href="#id5" role="doc-backlink">为什么使用 Operator</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-use-the-operator" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-use-the-operator'"><span>#</span></a></h2>
 <p>手动 DaemonSet 方式可以正常工作，但存在一些操作符已消除的陷阱：</p>
 <ul class="simple">
-<li><p><strong>自动注入的 Pod 设置</strong> -- 操作符始终设置 <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code>。在手动编写的清单中忘记 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> 会导致难以调试的静默 CUDA IPC 失败 （<code class="docutils literal notranslate"><span class="pre">cudaErrorMapBufferObjectFailed</span></code>）。</p></li>
+<li><p><strong>Auto-injected pod settings</strong> -- The operator always mounts the host's
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> (hostPath) and sets <code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code>.  Forgetting the shared
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> in a hand-written manifest causes silent CUDA IPC failures
+(<code class="docutils literal notranslate"><span class="pre">cudaErrorMapBufferObjectFailed</span></code>) that are hard to debug.</p></li>
 <li><p><strong>节点本地服务发现</strong> -- 操作符创建一个 ClusterIP 服务，并设置 <code class="docutils literal notranslate"><span class="pre">internalTrafficPolicy=Local</span></code>，同时生成一个连接用 ConfigMap，vLLM Pod 直接挂载即可。无需 <code class="docutils literal notranslate"><span class="pre">hostNetwork</span></code>，无需 Downward API，也无需 shell 变量替换。</p></li>
 <li><p><strong>自动计算资源规格</strong> -- 内存请求和限制由 <code class="docutils literal notranslate"><span class="pre">l1.sizeGB</span></code> 推算得出，避免因资源不足导致 OOM 被杀或因资源过剩浪费节点容量。</p></li>
 <li><p><strong>声明式 Prometheus 集成</strong> -- 设置 <code class="docutils literal notranslate"><span class="pre">prometheus.serviceMonitor.enabled:</span> <span class="pre">true</span></code>，操作符会创建一个 <code class="docutils literal notranslate"><span class="pre">ServiceMonitor</span></code> CR，Prometheus 操作符会自动发现它。</p></li>
@@ -424,7 +427,8 @@
 <p>操作符自动：</p>
 <ul class="simple">
 <li><p>在每个匹配的节点上创建一个运行 LMCache 服务器 Pod 的 DaemonSet</p></li>
-<li><p>设置 <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> 并将 <code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code> 传递给服务器</p></li>
+<li><p>Mounts the host's <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> (hostPath) for CUDA IPC and passes
+<code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code> to the server</p></li>
 <li><p>为 vLLM 发现创建一个节点本地的 ClusterIP 服务</p></li>
 <li><p>创建一个连接 ConfigMap (<code class="docutils literal notranslate"><span class="pre">my-cache-connection</span></code>)，其中包含 vLLM 所需的 <code class="docutils literal notranslate"><span class="pre">kv-transfer-config</span></code> JSON。</p></li>
 <li><p>自动计算 L1 缓存大小的资源请求/限制</p></li>
@@ -453,42 +457,53 @@
 </span><span id="line-12"><span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
 </span><span id="line-13"><span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm</span>
 </span><span id="line-14"><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
-</span><span id="line-15"><span class="w">      </span><span class="c1"># Required for CUDA IPC between vLLM and LMCache</span>
-</span><span id="line-16"><span class="w">      </span><span class="nt">hostIPC</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="line-17"><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
-</span><span id="line-18"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm</span>
-</span><span id="line-19"><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache/vllm-openai:latest</span>
-</span><span id="line-20"><span class="w">          </span><span class="nt">env</span><span class="p">:</span>
-</span><span id="line-21"><span class="w">            </span><span class="c1"># Deterministic hashing required by LMCache</span>
-</span><span id="line-22"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PYTHONHASHSEED</span>
-</span><span id="line-23"><span class="w">              </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"0"</span>
-</span><span id="line-24"><span class="w">          </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"/bin/sh"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-c"</span><span class="p p-Indicator">]</span>
-</span><span id="line-25"><span class="w">          </span><span class="nt">args</span><span class="p">:</span>
-</span><span id="line-26"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">|</span>
-</span><span id="line-27"><span class="w">              </span><span class="no">exec python3 -m vllm.entrypoints.openai.api_server \</span>
-</span><span id="line-28"><span class="w">                </span><span class="no">--model &lt;your-model&gt; \</span>
-</span><span id="line-29"><span class="w">                </span><span class="no">--port 8000 \</span>
-</span><span id="line-30"><span class="w">                </span><span class="no">--gpu-memory-utilization 0.8 \</span>
-</span><span id="line-31"><span class="w">                </span><span class="no">--kv-transfer-config "$(cat /etc/lmcache/kv-transfer-config.json)"</span>
-</span><span id="line-32"><span class="w">          </span><span class="nt">ports</span><span class="p">:</span>
-</span><span id="line-33"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
-</span><span id="line-34"><span class="w">              </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-</span><span id="line-35"><span class="w">          </span><span class="nt">volumeMounts</span><span class="p">:</span>
-</span><span id="line-36"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kv-transfer-config</span>
-</span><span id="line-37"><span class="w">              </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/lmcache</span>
-</span><span id="line-38"><span class="w">              </span><span class="nt">readOnly</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="line-39"><span class="w">          </span><span class="nt">resources</span><span class="p">:</span>
-</span><span id="line-40"><span class="w">            </span><span class="nt">limits</span><span class="p">:</span>
-</span><span id="line-41"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
-</span><span id="line-42"><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
-</span><span id="line-43"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kv-transfer-config</span>
-</span><span id="line-44"><span class="w">          </span><span class="nt">configMap</span><span class="p">:</span>
-</span><span id="line-45"><span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-cache-connection</span><span class="w">  </span><span class="c1"># &lt;engine-name&gt;-connection</span>
+</span><span id="line-15"><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+</span><span id="line-16"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm</span>
+</span><span id="line-17"><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache/vllm-openai:latest</span>
+</span><span id="line-18"><span class="w">          </span><span class="nt">env</span><span class="p">:</span>
+</span><span id="line-19"><span class="w">            </span><span class="c1"># Deterministic hashing required by LMCache</span>
+</span><span id="line-20"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PYTHONHASHSEED</span>
+</span><span id="line-21"><span class="w">              </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"0"</span>
+</span><span id="line-22"><span class="w">          </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"/bin/sh"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-c"</span><span class="p p-Indicator">]</span>
+</span><span id="line-23"><span class="w">          </span><span class="nt">args</span><span class="p">:</span>
+</span><span id="line-24"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="line-25"><span class="w">              </span><span class="no">exec python3 -m vllm.entrypoints.openai.api_server \</span>
+</span><span id="line-26"><span class="w">                </span><span class="no">--model &lt;your-model&gt; \</span>
+</span><span id="line-27"><span class="w">                </span><span class="no">--port 8000 \</span>
+</span><span id="line-28"><span class="w">                </span><span class="no">--gpu-memory-utilization 0.8 \</span>
+</span><span id="line-29"><span class="w">                </span><span class="no">--kv-transfer-config "$(cat /etc/lmcache/kv-transfer-config.json)"</span>
+</span><span id="line-30"><span class="w">          </span><span class="nt">ports</span><span class="p">:</span>
+</span><span id="line-31"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+</span><span id="line-32"><span class="w">              </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+</span><span id="line-33"><span class="w">          </span><span class="nt">volumeMounts</span><span class="p">:</span>
+</span><span id="line-34"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kv-transfer-config</span>
+</span><span id="line-35"><span class="w">              </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/lmcache</span>
+</span><span id="line-36"><span class="w">              </span><span class="nt">readOnly</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-37"><span class="w">            </span><span class="c1"># Required for CUDA IPC between vLLM and LMCache: both pods</span>
+</span><span id="line-38"><span class="w">            </span><span class="c1"># must see the same /dev/shm tmpfs</span>
+</span><span id="line-39"><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache-dev-shm</span>
+</span><span id="line-40"><span class="w">              </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/shm</span>
+</span><span id="line-41"><span class="w">          </span><span class="nt">resources</span><span class="p">:</span>
+</span><span id="line-42"><span class="w">            </span><span class="nt">limits</span><span class="p">:</span>
+</span><span id="line-43"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
+</span><span id="line-44"><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
+</span><span id="line-45"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kv-transfer-config</span>
+</span><span id="line-46"><span class="w">          </span><span class="nt">configMap</span><span class="p">:</span>
+</span><span id="line-47"><span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-cache-connection</span><span class="w">  </span><span class="c1"># &lt;engine-name&gt;-connection</span>
+</span><span id="line-48"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache-dev-shm</span>
+</span><span id="line-49"><span class="w">          </span><span class="nt">hostPath</span><span class="p">:</span>
+</span><span id="line-50"><span class="w">            </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/shm</span>
+</span><span id="line-51"><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Directory</span>
 </span></code></pre></div>
 </div>
 <p>vLLM Pod 的关键要求：</p>
 <ul class="simple">
-<li><p><strong>hostIPC: true</strong> -- CUDA IPC (<code class="docutils literal notranslate"><span class="pre">cudaIpcOpenMemHandle</span></code>) 需要在 vLLM 和 LMCache 之间共享 IPC 命名空间。</p></li>
+<li><p><strong>Shared /dev/shm</strong> -- CUDA IPC (<code class="docutils literal notranslate"><span class="pre">cudaIpcOpenMemHandle</span></code>) needs vLLM and
+LMCache to see the same <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> tmpfs (PyTorch's CUDA IPC handles
+reference a shared-memory ref-counter file there).  Mount the host's
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> via hostPath as above, or set <code class="docutils literal notranslate"><span class="pre">spec.hostIPC:</span> <span class="pre">true</span></code> on the
+engine and <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> on the vLLM pod to share the host IPC
+namespace instead.</p></li>
 <li><p><strong>PYTHONHASHSEED=0</strong> -- 确保 Token 哈希的确定性，使 vLLM 与 LMCache 生成一致的缓存键。</p></li>
 <li><p><strong>ConfigMap 挂载</strong> -- <code class="docutils literal notranslate"><span class="pre">$(cat</span> <span class="pre">...)</span></code> 模式以内联方式读取连接 JSON。ConfigMap 名称始终为 <code class="docutils literal notranslate"><span class="pre">&lt;LMCacheEngine</span> <span class="pre">name&gt;-connection</span></code>。</p></li>
 <li><p><strong>无需 hostNetwork</strong> -- 操作符的节点本地服务通过 <code class="docutils literal notranslate"><span class="pre">internalTrafficPolicy=Local</span></code> 处理路由。</p></li>
@@ -500,15 +515,23 @@
 <p>当在一个已选择的 pod 上调用且存在 <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap 时，webhook 会在入场时修改 pod 以添加：</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span> <span class="pre">&lt;JSON&gt;</span></code> -- <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> 配置，逐字读取自引擎的 <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap，并内联到 vLLM 容器的 <code class="docutils literal notranslate"><span class="pre">args</span></code> 中（无需卷挂载）；</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> 在 pod 规格中（与节点本地服务器的 CUDA IPC）；</p></li>
+<li><p>a hostPath mount of the host's <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> (CUDA IPC with the node-local
+server; <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> instead when the engine sets <code class="docutils literal notranslate"><span class="pre">spec.hostIPC</span></code>);</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">PYTHONHASHSEED=0</span></code> 在 vLLM 容器环境中，<strong>仅在缺失时设置</strong> -- 它保留您已经设置的值。</p></li>
 </ul>
-<p>与 CacheBlend 注入器不同，它**不**咨询引擎 CR：整个连接器配置位于连接 ConfigMap 中，<code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> 没有注入子规范。它在失败时保持开放（<code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code>），并且是幂等的（携带 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-injected</span></code> 标记的重新接纳 Pod 允许保持不变）。</p>
+<p>The connector config lives in the connection ConfigMap; the webhook also
+reads the <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> CR (when present) to mirror its <code class="docutils literal notranslate"><span class="pre">spec.hostIPC</span></code>
+mode and its optional injection sub-spec.  It fails open
+(<code class="docutils literal notranslate"><span class="pre">failurePolicy:</span> <span class="pre">Ignore</span></code>) and is idempotent (re-admitted pods carrying the
+<code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-injected</span></code> stamp are allowed unchanged).</p>
 <section id="id2">
 <h3><a class="toc-backref" href="#id11" role="doc-backlink">前提条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p><strong>cert-manager</strong> + <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy``（不是</span> <span class="pre">``make</span> <span class="pre">run</span></code>，后者仅限控制器并通过 <code class="docutils literal notranslate"><span class="pre">ENABLE_WEBHOOKS=false</span></code> 禁用 webhook）-- 与 CacheBlend webhook 相同；每个集群安装一次（请参见 <a class="reference internal" href="#mp-operator-cacheblend"><span class="std std-ref">CacheBlend</span></a> "附加先决条件"）。</p></li>
-<li><p><strong>Pod 安全标准</strong> -- 注入的 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> 被 <code class="docutils literal notranslate"><span class="pre">baseline</span></code> / <code class="docutils literal notranslate"><span class="pre">restricted</span></code> PSS 配置文件拒绝，因此 vLLM pod 的命名空间必须标记为 <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>。</p></li>
+<li><p><strong>Pod Security Standards</strong> -- the injected hostPath <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> mount (and
+<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, when the engine opts in) is rejected by the <code class="docutils literal notranslate"><span class="pre">baseline</span></code> /
+<code class="docutils literal notranslate"><span class="pre">restricted</span></code> PSS profiles, so the vLLM pod's namespace must be labeled
+<code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>.</p></li>
 <li><p><strong>引擎在同一命名空间中协调</strong> -- webhook 直接读取 <code class="docutils literal notranslate"><span class="pre">&lt;engine&gt;-connection</span></code> ConfigMap，因此 <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> 必须已经存在于 vLLM pod 的命名空间中。</p></li>
 </ul>
 </section>
@@ -535,9 +558,9 @@
 </span><span id="line-18"><span class="w">        </span><span class="c1"># lmcache.ai/lmcache-container: "vllm"</span>
 </span><span id="line-19"><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
 </span><span id="line-20"><span class="w">      </span><span class="nt">runtimeClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
-</span><span id="line-21"><span class="w">      </span><span class="c1"># Do NOT set hostIPC here or mount an emptyDir at /dev/shm -- the</span>
-</span><span id="line-22"><span class="w">      </span><span class="c1"># webhook injects hostIPC=true; an emptyDir would shadow the host's</span>
-</span><span id="line-23"><span class="w">      </span><span class="c1"># /dev/shm and break cudaIpcOpenMemHandle.</span>
+</span><span id="line-21"><span class="w">      </span><span class="c1"># Do NOT mount an emptyDir at /dev/shm -- the webhook injects a</span>
+</span><span id="line-22"><span class="w">      </span><span class="c1"># hostPath mount of the host's /dev/shm; an emptyDir would shadow the</span>
+</span><span id="line-23"><span class="w">      </span><span class="c1"># host's /dev/shm and break cudaIpcOpenMemHandle.</span>
 </span><span id="line-24"><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
 </span><span id="line-25"><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vllm</span>
 </span><span id="line-26"><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache/vllm-openai:latest</span>
@@ -559,7 +582,7 @@
 <h3><a class="toc-backref" href="#id13" role="doc-backlink">验证注入</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#verifying-injection" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#verifying-injection'"><span>#</span></a></h3>
 <p>该 webhook 修改的是 <strong>Pods</strong>，而不是 Deployment，因此请检查一个 pod（而不是 Deployment 规格）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>vllm-lmcache<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"hostIPC|kv-transfer-config|lmcache-injected|lmcache-skip-reason"</span>
+</span><span id="line-2"><span class="w">  </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">"lmcache-dev-shm|hostIPC|kv-transfer-config|lmcache-injected|lmcache-skip-reason"</span>
 </span></code></pre></div>
 </div>
 <p>如果没有任何内容被注入，请检查 Pod 的 <code class="docutils literal notranslate"><span class="pre">lmcache.ai/lmcache-skip-reason</span></code> 注解：</p>
@@ -872,7 +895,17 @@ Only <code class="docutils literal notranslate"><span class="pre">hkdf</span></c
 <td><p><code class="docutils literal notranslate"><span class="pre">nvidia</span></code></p></td>
 <td><p>GPU 供应商：<code class="docutils literal notranslate"><span class="pre">nvidia``（使用</span> <span class="pre">``nvidia</span></code> RuntimeClass）或 <a href="#id1"><span class="problematic" id="id2">``</span></a>amd``（在默认运行时上运行）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">privileged</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">hostIPC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Run the pod in the host IPC namespace instead of mounting the host's
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> via hostPath. Cross-pod CUDA IPC needs only the shared
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> tmpfs, so the default hostPath mount suffices on NVIDIA
+clusters; set <code class="docutils literal notranslate"><span class="pre">true</span></code> where hostPath volumes are blocked by an
+admission policy, or for <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code> (the HIP IPC path is
+unverified without it). The injection webhook mirrors this setting on
+opted-in vLLM pods.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">privileged</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>在特权模式下运行引擎容器。在大多数集群中，<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> 已经可以在没有它的情况下授予 GPU 可见性；仅在引擎无法看到 GPU 的情况下设置为 <code class="docutils literal notranslate"><span class="pre">true</span></code>。对于 <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code> 是必需的（没有 RuntimeClass 设备注入，因此特权是访问 <code class="docutils literal notranslate"><span class="pre">/dev/kfd</span></code>/<code class="docutils literal notranslate"><span class="pre">/dev/dri</span></code> 的唯一途径）。启用它需要命名空间允许 <code class="docutils literal notranslate"><span class="pre">privileged</span></code> Pod 安全标准。</p></td>
 </tr>
@@ -986,9 +1019,14 @@ pre-sizing a <code class="docutils literal notranslate"><span class="pre">raw_bl
 </section>
 <section id="auto-injected-pod-settings">
 <h3><a class="toc-backref" href="#id27" role="doc-backlink">自动注入的 Pod 设置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#auto-injected-pod-settings" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#auto-injected-pod-settings'"><span>#</span></a></h3>
-<p>操作符始终将这些注入到 Pod 规格中（它们无法通过 CRD 配置）：</p>
+<p>The operator always injects these into the pod spec:</p>
 <ul class="simple">
-<li><p><strong>hostIPC: true</strong> -- 这是在 LMCache 和 vLLM 之间进行 CUDA IPC 所必需的。</p></li>
+<li><p><strong>Host /dev/shm mount (hostPath)</strong> -- Required for CUDA IPC between LMCache
+and vLLM: both processes must see the same <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> tmpfs (PyTorch's CUDA
+IPC handles reference a shared-memory ref-counter file there).  Set
+<code class="docutils literal notranslate"><span class="pre">spec.hostIPC:</span> <span class="pre">true</span></code> to share the host IPC namespace instead (needed on
+clusters that block hostPath volumes, and for <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code>); the mount
+is then omitted.</p></li>
 <li><p><strong>--host 0.0.0.0</strong> -- 将服务器绑定到所有接口，以便节点本地服务可以路由到它。</p></li>
 <li><p><strong>NVIDIA_VISIBLE_DEVICES=all</strong> -- 确保 GPU 可用于基于 IPC 的内存传输。</p></li>
 <li><p><strong>NVIDIA_DRIVER_CAPABILITIES=all</strong> -- 将所有驱动程序功能（计算、实用程序等）暴露给容器。</p></li>
@@ -996,7 +1034,9 @@ pre-sizing a <code class="docutils literal notranslate"><span class="pre">raw_bl
 </ul>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>操作符<strong>不</strong>在 <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> 挂载 emptyDir。使用 <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> 时，容器直接访问主机的 <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>。挂载 emptyDir 会用私有 tmpfs 进行遮蔽，从而破坏 CUDA IPC。</p>
+<p>The operator never mounts an emptyDir at <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>.  Mounting an emptyDir
+there would shadow the host's <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> with a private tmpfs and break
+CUDA IPC.</p>
 </div>
 </section>
 <section id="resources-created">
@@ -1296,7 +1336,13 @@ volume in both if the init container needs to touch it.</p>
 <p>CacheBlend 通过重新计算一小部分 Token 来复用偏移（非前缀）位置的缓存 KV。该操作符将其作为第二个 CRD <code class="docutils literal notranslate"><span class="pre">CacheBlendEngine</span></code> 进行管理，并通过一个 <strong>变更准入 Webhook</strong> 将纯 Python 的 <code class="docutils literal notranslate"><span class="pre">lmcache-cacheblend</span></code> vLLM 插件注入到您的服务 Pod 中，因此您 <strong>无需</strong> 重新构建 vLLM 镜像。有关该技术的详细信息，请参见 <a class="reference internal" href="../kv_cache_optimizations/blending.html"><span class="doc">混合</span></a>。</p>
 <p>它由两个部分组成，操作符同时管理它们：</p>
 <ul class="simple">
-<li><p>一个驻留在 GPU 上的 CacheBlend V3 引擎 (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>)，作为 DaemonSet 部署，<strong>与</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code> <strong>相同的 GPU 型号</strong> (<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>，当设置了 <code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> 时加上 <code class="docutils literal notranslate"><span class="pre">privileged</span></code>，并且**没有** <code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> 声明)，以便共享同设备的 CUDA IPC 的 vLLM GPU；并且</p></li>
+<li><p>a GPU-resident CacheBlend V3 engine (<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--engine-type</span> <span class="pre">blend</span></code>),
+deployed as a DaemonSet with the <strong>same GPU model as</strong> <code class="docutils literal notranslate"><span class="pre">LMCacheEngine</span></code>
+(<code class="docutils literal notranslate"><span class="pre">runtimeClassName:</span> <span class="pre">nvidia</span></code> + <code class="docutils literal notranslate"><span class="pre">NVIDIA_VISIBLE_DEVICES=all</span></code> + the host
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> mount -- or <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> when <code class="docutils literal notranslate"><span class="pre">spec.hostIPC</span></code> is set -- plus
+<code class="docutils literal notranslate"><span class="pre">privileged</span></code> when <code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> is set, and <strong>no</strong>
+<code class="docutils literal notranslate"><span class="pre">nvidia.com/gpu</span></code> claim) so it shares the vLLM GPU for same-device CUDA IPC;
+and</p></li>
 <li><p>vLLM 侧插件，由 Webhook 注入到已选择启用的 Pod 中。</p></li>
 </ul>
 <section id="additional-prerequisites">
@@ -1310,7 +1356,10 @@ volume in both if the init container needs to touch it.</p>
 </div>
 </li>
 <li><p><strong>使用 Webhook 部署</strong> -- 使用 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">deploy</span></code>（而不是 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>，后者仅为控制器并通过 <code class="docutils literal notranslate"><span class="pre">ENABLE_WEBHOOKS=false</span></code> 禁用 Webhook）。</p></li>
-<li><p><strong>Pod 安全标准</strong> -- webhook 注入 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>/<code class="docutils literal notranslate"><span class="pre">privileged</span></code>，而 <code class="docutils literal notranslate"><span class="pre">baseline</span></code>/<code class="docutils literal notranslate"><span class="pre">restricted</span></code> 配置文件会拒绝这些，因此将引擎和 vLLM pod 的命名空间标记为 <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>。</p></li>
+<li><p><strong>Pod Security Standards</strong> -- the webhook injects a hostPath <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>
+mount (or <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>/<code class="docutils literal notranslate"><span class="pre">privileged</span></code> when the engine opts in), which the
+<code class="docutils literal notranslate"><span class="pre">baseline</span></code>/<code class="docutils literal notranslate"><span class="pre">restricted</span></code> profiles reject, so label the engine's and the
+vLLM pod's namespaces <code class="docutils literal notranslate"><span class="pre">pod-security.kubernetes.io/enforce=privileged</span></code>.</p></li>
 </ul>
 </section>
 <section id="deploying-a-cacheblendengine">
@@ -1367,7 +1416,8 @@ volume in both if the init container needs to touch it.</p>
 </span><span id="line-25"><span class="w">              </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
 </span></code></pre></div>
 </div>
-<p>The webhook injects the plugin init container, <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>, <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>, the
+<p>The webhook injects the plugin init container, <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>, the <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>
+mount, the
 private-image pull secret, and the required CacheBlend vLLM flags
 (<code class="docutils literal notranslate"><span class="pre">--kv-transfer-config</span></code> from the engine's connection ConfigMap,
 <code class="docutils literal notranslate"><span class="pre">--pipeline-parallel-size</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">--no-enable-chunked-prefill</span></code>,
@@ -1944,9 +1994,9 @@ unknown.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>hostIPC</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> sharing (CUDA IPC)</p></td>
 <td><p>必须手动设置</p></td>
-<td><p>自动注入</p></td>
+<td><p>Auto-injected (hostPath mount; <code class="docutils literal notranslate"><span class="pre">spec.hostIPC</span></code> opt-in)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">0.0.0.0</span></code></p></td>
 <td><p>必须手动设置</p></td>
@@ -1981,10 +2031,17 @@ unknown.</p>
 </section>
 <section id="security-considerations">
 <h2><a class="toc-backref" href="#id58" role="doc-backlink">安全注意事项</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#security-considerations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#security-considerations'"><span>#</span></a></h2>
-<p><strong>hostIPC</strong> 将主机的 IPC 命名空间（System V IPC，POSIX 消息队列）暴露给容器。容器中的任何进程都可以与同一主机上其他进程的 IPC 资源进行交互。</p>
+<p>The <strong>hostPath /dev/shm mount</strong> exposes the host's shared-memory tmpfs to the
+container -- a narrower grant than the whole host IPC namespace, but still
+host-level access.  <code class="docutils literal notranslate"><span class="pre">spec.hostIPC:</span> <span class="pre">true</span></code> (opt-in, default <code class="docutils literal notranslate"><span class="pre">false</span></code>) instead
+exposes the host's IPC namespace (System V IPC, POSIX message queues): any
+process in the container can interact with IPC resources from other processes
+on the same host.</p>
 <ul class="simple">
 <li><p>仅在受信任的环境中部署。</p></li>
-<li><p>使用 Pod 安全标准的集群必须为 LMCache 命名空间开启 <code class="docutils literal notranslate"><span class="pre">privileged</span></code> 配置文件——<code class="docutils literal notranslate"><span class="pre">baseline</span></code> 和 <code class="docutils literal notranslate"><span class="pre">restricted</span></code> 配置文件均会拒绝 <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>。</p></li>
+<li><p>Clusters using Pod Security Standards must allow the <code class="docutils literal notranslate"><span class="pre">privileged</span></code> profile
+for the LMCache namespace -- the <code class="docutils literal notranslate"><span class="pre">baseline</span></code> and <code class="docutils literal notranslate"><span class="pre">restricted</span></code> profiles
+reject hostPath volumes and <code class="docutils literal notranslate"><span class="pre">hostIPC</span></code> alike.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">spec.privileged</span></code> 默认为 <code class="docutils literal notranslate"><span class="pre">false</span></code>。启用后（对于 <code class="docutils literal notranslate"><span class="pre">gpuVendor:</span> <span class="pre">amd</span></code> 是必需的），引擎容器将以特权模式运行，授予其完全的设备访问权限——仅在 GPU 可见性需要时启用。</p></li>
 </ul>
 </section>
