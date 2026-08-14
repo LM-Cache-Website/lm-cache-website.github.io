@@ -473,11 +473,19 @@
 <h2><a class="toc-backref" href="#id11" role="doc-backlink">传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
 <p>LMCache 支持两条工作节点 → 服务器传输路径：一种是 <strong>lmcache 驱动</strong> 路径（服务器通过 CUDA IPC 或 CPU SHM 拉取/推送，用于 STORE/RETRIEVE），另一种是 <strong>引擎驱动</strong> 路径（PREPARE/COMMIT，仅由 CPU 或非 CUDA 加速器工作节点使用）。服务器通过 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 选择加载哪些路径：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">auto</span></code> (默认) -- 同时加载两条路径。任意设备类型的工作节点均可直接连接，无需手动配置；服务器无需预先知晓所连接工作节点的设备类型。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> -- 仅加载服务器驱动的传输路径。支持 CUDA 设备（IPC）和 CPU 设备（SHM）。用于跳过分配引擎驱动的准备/提交资源（pickle 编解码器）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> <em>(default)</em> -- load only the server-driven
+transfer path.  Supports CUDA devices (IPC) and CPU devices (SHM),
+and skips allocating the engine-driven prepare/commit resources
+(pickle codec).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> -- 仅加载引擎驱动路径。适用于仅使用 CPU 或非 CUDA 加速器的工作节点场景。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">auto</span></code> -- load both paths.  Workers of either device
+type can connect without manual configuration; the server has no
+upfront knowledge of the connecting worker's device.</p></li>
 </ul>
-<p>当加载引擎驱动路径（<code class="docutils literal notranslate"><span class="pre">auto</span></code> 或 <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>）时，LMCache 默认会为服务器与 vLLM 工作节点之间的 KV 传输创建一个共享内存（SHM）池。<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> 选项让您可以控制此行为：</p>
+<p>When the engine-driven path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>),
+KV transfers between the server and vLLM workers use a pickle-based
+path by default.  Pass <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> with a segment name to create a
+shared-memory (SHM) pool instead:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -489,23 +497,26 @@
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>(未设置) (默认)</p></td>
-<td><p>自动分配一个 SHM 池（当前默认行为）。</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">""</span></code> (empty string, default)</p></td>
+<td><p>No SHM pool; KV transfer uses the pickle-based path.  Works
+when <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> is unavailable or when running without
+<code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> in Docker.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">""</span></code> (空字符串)</p></td>
-<td><p>完全禁用 SHM 池并回退到基于 pickle 的传输路径。当 <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> 不可用或在 Docker 中未使用 <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> 时非常有用。</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">"my_pool"</span></code>（任何非空名称）</p></td>
-<td><p>将该名称用作 SHM 段名，而非自动生成的名称。当您需要使用固定且易读的段名称以方便监控或调试时，此选项非常实用。</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">"my_pool"</span></code>（任何非空名称）</p></td>
+<td><p>Create a SHM pool with that exact segment name and use it for
+KV transfers.  The deterministic, human-readable name also
+helps with monitoring and debugging.</p></td>
 </tr>
 </tbody>
 </table>
 <p><strong>示例：</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Force pickle (no SHM):</span>
-</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">""</span>
-</span><span id="line-3">
-</span><span id="line-4"><span class="c1"># Named SHM segment:</span>
-</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">"lmcache_pool"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Engine-driven path with pickle transfer (no SHM) -- the default:</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Engine-driven path with a named SHM segment:</span>
+</span><span id="line-6">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">"lmcache_pool"</span>
 </span></code></pre></div>
 </div>
 </section>
