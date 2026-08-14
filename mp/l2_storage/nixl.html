@@ -399,12 +399,33 @@ cache can grow beyond OS open-file-descriptor limits.</p></li>
 <code class="docutils literal notranslate"><span class="pre">HF3FS</span></code>.</p></li>
 </ul>
 <p><strong>Backend-specific parameters (``backend_params``):</strong></p>
-<ul class="simple">
+<ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">file_path</span></code>: Directory path for storing L2 data files.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_direct_io</span></code>: <code class="docutils literal notranslate"><span class="pre">"true"</span></code> or <code class="docutils literal notranslate"><span class="pre">"false"</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code>: Maximum storage capacity in GB. The adapter
 rejects stores when this limit is reached. Required for the eviction
 controller to compute usage.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code>: <code class="docutils literal notranslate"><span class="pre">"true"</span></code> or <code class="docutils literal notranslate"><span class="pre">"false"</span></code> (default <code class="docutils literal notranslate"><span class="pre">"false"</span></code>). When
+<code class="docutils literal notranslate"><span class="pre">"true"</span></code>, data files are spread across a two-level subdirectory tree
+under <code class="docutils literal notranslate"><span class="pre">file_path</span></code> instead of all living in one flat directory. The two
+levels are the first four hex characters of the chunk hash, matching the
+hash prefix already embedded in the filename
+(for example <code class="docutils literal notranslate"><span class="pre">834ebc79...</span></code> is stored as <code class="docutils literal notranslate"><span class="pre">83/4e/&lt;filename&gt;</span></code>), giving a
+fanout of up to 256 × 256 subdirectories. Leaving it unset preserves the
+original flat layout.</p>
+<p>Large flat directories slow down metadata operations on many filesystems,
+so sharding helps once a single cache directory holds a large number of
+files. Subdirectories are created lazily on first use and cached in
+memory, so the store hot path issues at most one <code class="docutils literal notranslate"><span class="pre">makedirs</span></code> per bucket.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code> changes where files are located, and lookup does not
+fall back to the other layout. Toggling it against an existing cache
+directory makes previously written files unreachable (they are not
+deleted, just no longer found). Choose the layout when the cache
+directory is first created, or clear it when changing the setting.</p>
+</div>
+</li>
 </ul>
 <p><strong>Optional fields (for persist):</strong></p>
 <ul class="simple">
@@ -423,6 +444,9 @@ populates the in-memory index when a file is found.</p>
 </span><span id="line-6">
 </span><span id="line-7"><span class="c1"># With eviction</span>
 </span><span id="line-8">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store_dynamic", "backend": "GDS", "backend_params": {"file_path": "/data/nvme/l2", "use_direct_io": "true", "max_capacity_gb": "50"}, "eviction": {"eviction_policy": "LRU", "trigger_watermark": 0.9, "eviction_ratio": 0.1}}'</span>
+</span><span id="line-9">
+</span><span id="line-10"><span class="c1"># Shard data files across a two-level subdirectory tree</span>
+</span><span id="line-11">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store_dynamic", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false", "max_capacity_gb": "10", "shard_dirs": "true"}}'</span>
 </span></code></pre></div>
 </div>
 <p><strong>Persist / secondary lookup behaviour:</strong></p>
