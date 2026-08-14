@@ -439,32 +439,6 @@ them. Must be greater than the MP servers’ heartbeat interval
 connection and fail with <code class="docutils literal notranslate"><span class="pre">Server</span> <span class="pre">disconnected</span> <span class="pre">without</span> <span class="pre">sending</span> <span class="pre">a</span>
 <span class="pre">response</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
-<td><p>When <code class="docutils literal notranslate"><span class="pre">True</span></code>, the coordinator runs a one-shot L2 resync on
-startup that paginates an MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and
-backfills the key directory’s L2 placements plus the
-usage/eviction trackers from existing L2 contents.
-Disable to start from empty trackers (handy for tests, or
-deployments that start the coordinator before any MP server).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_POLL_INTERVAL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
-<td><p>Seconds between registry checks while waiting for the first
-MP server to register so startup resync can begin.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
-<td><p>Maximum seconds startup resync waits for an MP server before
-giving up. The coordinator keeps running with empty trackers
-until normal usage events fill them in.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_PAGE_SIZE</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">page_size</span></code> forwarded to the MP server’s <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code>
-during resync. Larger values reduce RTT count; the server
-clamps to its own ceiling.</p></td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -747,7 +721,7 @@ cycle):</p>
 </div>
 <p>When MP servers enable <code class="docutils literal notranslate"><span class="pre">--coordinator-event-reporting</span></code>, they stream cache
 <code class="docutils literal notranslate"><span class="pre">store</span></code>, <code class="docutils literal notranslate"><span class="pre">access</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> events to the coordinator’s
-<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>. Applied <code class="docutils literal notranslate"><span class="pre">l2</span></code> batches also feed the quota side:
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>. Applied <code class="docutils literal notranslate"><span class="pre">l2</span></code> batches also feed the quota side:
 the coordinator aggregates per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> usage, enforces quotas, and
 selects LRU keys to evict. Each batch carries the server’s <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>,
 <code class="docutils literal notranslate"><span class="pre">incarnation</span></code>, and a monotonically increasing sequence number (<code class="docutils literal notranslate"><span class="pre">seq</span></code>)
@@ -762,20 +736,18 @@ server. Because all MP servers share the same backing L2 (e.g. one S3
 bucket), one dispatch evicts the keys for the whole fleet. The MP
 server’s L2 adapter fires <code class="docutils literal notranslate"><span class="pre">on_l2_keys_deleted</span></code> listeners after the
 delete completes; those listeners ship <code class="docutils literal notranslate"><span class="pre">delete</span></code> events back through
-<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>, which is what updates the coordinator’s LRU +
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>, which is what updates the coordinator’s LRU +
 per-salt totals. Dispatch failures or no-instances-registered fall
 through to the next cycle — at-least-once semantics, safe because the
 S3 delete is idempotent.</p>
-<p><strong>Startup resync.</strong> On boot, the coordinator waits up to
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_RESYNC_MAX_WAIT</span></code> seconds for the first MP
-server to register, then paginates its
-<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cache/objects</span></code> and seeds the key directory and the usage +
-eviction trackers with whatever is already resident in L2 — so a fresh
-coordinator does not start from zero usage. Set
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_COORDINATOR_ENABLE_STARTUP_RESYNC=False</span></code> to skip this
-phase. Best-effort: resync failures are logged and the manager gives
-up; the ongoing usage-event stream from MP servers eventually corrects
-any initial blind spots.</p>
+<p><strong>Cold start.</strong> The coordinator’s trackers are in-memory and are built
+only from the cache-event stream, so after a restart per-salt usage
+starts at zero even though the bytes are still resident in L2. Quotas
+under-report until enough events accumulate. Unquota’d salts are exempt
+from eviction until the quota controller sets a default limit, so a cold
+coordinator cannot mass-evict — but it can under-evict, and an operator
+re-arming quotas right after a restart should expect the usage numbers
+to climb toward the true value rather than start at it.</p>
 <section id="put-quota-config-get-quota-config">
 <h3><a class="toc-backref" href="#id12" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/quota/config</span></code> / <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/quota/config</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#put-quota-config-get-quota-config" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#put-quota-config-get-quota-config'"><span>#</span></a></h3>
 <p>Set / read the default limit applied to salts with no explicit quota entry.</p>
@@ -941,7 +913,7 @@ entry has the same fields as the <code class="docutils literal notranslate"><spa
 </span></code></pre></div>
 </div>
 <p>Usage events arrive on the fleet cache-event stream
-(<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/events</span></code>); there is no separate quota ingestion
+(<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>); there is no separate quota ingestion
 endpoint. See <code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_coordinator/cache_events.md</span></code> for the
 batch format and routing semantics.</p>
 </section>
