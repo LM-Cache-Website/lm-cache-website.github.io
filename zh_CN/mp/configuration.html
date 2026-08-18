@@ -584,9 +584,41 @@ size.</p></td>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <p>选择加入。设置 <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> 将 L1 媒介从固定 DRAM 切换到通过 GPUDirect Storage DMA 访问的 NVMe 块文件。然后禁用 CPU 固定 DRAM 层，并且 <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> 设置块的大小。当此选项开启时，禁用字节数组 L2 适配器（GDS 层不提供 L1 内存缓冲区供它们注册）。</p>
 <p>DMA 路径由平台自动选择：NVIDIA 上使用 <strong>cuFile</strong> (<code class="docutils literal notranslate"><span class="pre">libcufile.so</span></code>)，而 AMD ROCm 上使用 <strong>hipFile</strong> (<code class="docutils literal notranslate"><span class="pre">libhipfile.so</span></code>，<a class="reference external" href="https://github.com/ROCm/hipFile">ROCm/hipFile</a>)。这两个平台适用相同的标志；切换供应商无需更改配置。</p>
+<p><strong>uGDS</strong> (<code class="docutils literal notranslate"><span class="pre">libugds.so</span></code>) is a third, opt-in backend selected with
+<code class="docutils literal notranslate"><span class="pre">--gds-l1-backend</span> <span class="pre">ugds</span></code>. It is a user-space GPUDirect Storage library that
+builds NVMe commands and rings doorbells from user space, so its IO path issues
+no syscall. LMCache can use uGDS on either NVIDIA CUDA or AMD ROCm. Each
+deployment must use a <code class="docutils literal notranslate"><span class="pre">libugds.so</span></code> built for its active platform. Unlike
+cuFile and hipFile, uGDS does not use a filesystem: the slab is mapped directly
+onto a raw character device, and <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> must name that device (for
+example <code class="docutils literal notranslate"><span class="pre">/dev/ugds_drv0</span></code>) rather than a directory. The first
+<code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> bytes of the device are the slab, so the device must be at
+least that large and must not hold anything else.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>AMD hipFile 需要 ROCm &gt;= 7.2.0。零拷贝 GPUDirect 快速路径还需要一个使用 <code class="docutils literal notranslate"><span class="pre">CONFIG_PCI_P2PDMA</span></code> 构建的内核、<code class="docutils literal notranslate"><span class="pre">amdgpu-dkms</span> <span class="pre">&gt;=</span> <span class="pre">30.20.1</span></code>，以及在本地 NVMe ext4/xfs 文件系统上的 slab；如果这些不可用，hipFile 会透明地回退到主机跳跃兼容路径（正确，但不是零拷贝）。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>uGDS requires its kernel module loaded and the NVMe device bound to it, and
+a platform-matching <code class="docutils literal notranslate"><span class="pre">libugds.so</span></code> reachable through the loader
+(<code class="docutils literal notranslate"><span class="pre">LD_LIBRARY_PATH</span></code> or <code class="docutils literal notranslate"><span class="pre">ldconfig</span></code>). Because the device is claimed by
+<code class="docutils literal notranslate"><span class="pre">ugds_drv</span></code> rather than the kernel NVMe driver, it carries no filesystem
+and cannot be shared with any other consumer while in use. Follow the
+<a class="reference external" href="https://github.com/ScaleX-IO/uGDS/blob/main/docs/installation.md">uGDS installation guide</a>
+to build and load the kernel module, bind the NVMe device, build
+<code class="docutils literal notranslate"><span class="pre">libugds.so</span></code>, and verify the installation.</p>
+<p>At startup LMCache queries the namespace capacity through
+<code class="docutils literal notranslate"><span class="pre">uGDSGetDeviceCapacity</span></code> and rejects an aligned <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> value larger
+than the device. The installed <code class="docutils literal notranslate"><span class="pre">libugds.so</span></code> must provide this API; LMCache
+fails closed with an upgrade message when an older library cannot report
+capacity.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>uGDS requires an <strong>entire dedicated SSD whose contents may be destroyed</strong>.
+Ensure the SSD is not used for any other purpose and that its contents are
+not critical.</p>
 </div>
 <table class="docutils align-default">
 <colgroup>
@@ -603,11 +635,20 @@ size.</p></td>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code></p></td>
 <td><p>未设置</p></td>
-<td><p>GDS L1 slab 的 NVMe 目录。设置此项将启用 GDS L1 层；每个进程共享一个位于 <code class="docutils literal notranslate"><span class="pre">&lt;path&gt;/lmcache_gds_slab.bin</span></code> 的 slab。</p></td>
+<td><p>NVMe directory for the GDS L1 slab, or the raw device path when
+<code class="docutils literal notranslate"><span class="pre">--gds-l1-backend</span> <span class="pre">ugds</span></code> is used. Setting this enables the GDS L1
+tier; with cuFile or hipFile one shared slab per process lives at
+<code class="docutils literal notranslate"><span class="pre">&lt;path&gt;/lmcache_gds_slab.bin</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--gds-l1-use-direct-io</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-gds-l1-use-direct-io</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--gds-l1-backend</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
+<td><p>GDS implementation: <code class="docutils literal notranslate"><span class="pre">auto</span></code>, <code class="docutils literal notranslate"><span class="pre">cufile</span></code>, <code class="docutils literal notranslate"><span class="pre">hipfile</span></code>, or <code class="docutils literal notranslate"><span class="pre">ugds</span></code>.
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> selects cuFile on CUDA and hipFile on ROCm.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gds-l1-use-direct-io</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-gds-l1-use-direct-io</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
-<td><p>使用 <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> 打开 slab（在 ext4 上的 GDS DMA 快速路径所需）。</p></td>
+<td><p>Open the slab with <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> (required for the GDS DMA fast path on
+ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">ugds</span></code>, whose IO bypasses the kernel entirely.</p></td>
 </tr>
 </tbody>
 </table>
