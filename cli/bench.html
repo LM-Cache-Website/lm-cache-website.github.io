@@ -327,7 +327,7 @@ exercise different KV-cache reuse patterns.</p></td>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">engine</span></code> command runs sustained performance benchmarks
 against an inference engine (e.g., vLLM). It supports multiple workload types
 that exercise different caching patterns and reports TTFT, decoding speed, and
-throughput metrics.</p>
+throughput metrics. One workload, <a class="reference internal" href="#bench-rag-qa-quality"><span class="std std-ref">rag-qa-quality</span></a>, measures answer <em>correctness</em> instead of speed.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
@@ -428,8 +428,8 @@ Set <code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY<
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--workload</span> <span class="pre">TYPE</span></code></p></td>
 <td><p>Yes</p></td>
 <td><p>Workload type: <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>,
-<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>, or
-<code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>,
+<code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>, or <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span> <span class="pre">N</span></code></p></td>
 <td><p>*</p></td>
@@ -775,6 +775,121 @@ to actually run.  Without that sleep, fast benchmarks complete before
 any eviction fires.</p>
 </div>
 </section>
+<section id="rag-qa-quality">
+<span id="bench-rag-qa-quality"></span><h4>rag-qa-quality<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#rag-qa-quality"><span>#</span></a></h4>
+<p>Measures <strong>answer quality</strong> rather than speed: every other workload reports an
+unchanged number if the cache returns subtly wrong KV. Answers are scored
+against gold answers from a real QA dataset.</p>
+<p>Each document is prefilled on its own during warmup; the measured request then
+composes them:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">[</span><span class="n">system</span> <span class="n">prompt</span><span class="p">][</span><span class="n">doc_a</span><span class="p">][</span><span class="n">doc_b</span><span class="p">]</span><span class="o">...</span><span class="p">[</span><span class="n">doc_n</span><span class="p">][</span><span class="n">question</span><span class="p">]</span>
+</span></code></pre></div>
+</div>
+<p>so every document is reused at a position it was never cached at – the RAG
+serving pattern, with no artificial perturbation.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rag-dataset</span></code></p></td>
+<td><p><em>required</em></p></td>
+<td><p>A known dataset name (<code class="docutils literal notranslate"><span class="pre">musique</span></code>, <code class="docutils literal notranslate"><span class="pre">hotpotqa</span></code>) or a path to a local
+<code class="docutils literal notranslate"><span class="pre">.json</span></code>, <code class="docutils literal notranslate"><span class="pre">.jsonl</span></code>, or <code class="docutils literal notranslate"><span class="pre">.parquet</span></code> QA file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rag-num-samples</span></code></p></td>
+<td><p>50</p></td>
+<td><p>Questions to measure, taken in dataset order.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rag-max-output-length</span></code></p></td>
+<td><p>1024</p></td>
+<td><p>Token budget per answer. Must fit a reasoning model’s thinking block
+as well as the answer tags.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rag-template-kwargs</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Chat-template variables as <code class="docutils literal notranslate"><span class="pre">KEY=VALUE</span></code>, repeatable. Unset, the
+model’s own template default applies.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rag-output</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;output-dir&gt;/rag_qa_quality.json</span></code></p></td>
+<td><p>Per-sample results file.</p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">--kv-cache-volume</span></code> is unused, but <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>) is still required. A tokenizer is required too, for chunk
+alignment: pass <code class="docutils literal notranslate"><span class="pre">--model</span></code>, or let it auto-detect from <code class="docutils literal notranslate"><span class="pre">/v1/models</span></code>.</p>
+<p><strong>Datasets</strong> are not vendored. Named ones download from the HuggingFace Hub on
+first use and cache under <code class="docutils literal notranslate"><span class="pre">HF_HOME</span></code>; any other value is a local path.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%"/>
+<col style="width: 30.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Source</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">musique</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dgslibisey/MuSiQue</span></code></p></td>
+<td><p>JSONL, 20 passages per question, ~2.1k tokens.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">hotpotqa</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hotpotqa/hotpot_qa</span></code></p></td>
+<td><p>Parquet (distractor/validation); requires <code class="docutils literal notranslate"><span class="pre">pyarrow</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Local files load unchanged if their records carry passages, a question, and
+gold answers – <code class="docutils literal notranslate"><span class="pre">ctxs[].{title,text}</span></code>, <code class="docutils literal notranslate"><span class="pre">paragraphs[].paragraph_text</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">context</span></code>. Records missing any of the three are skipped.</p>
+<p><strong>Comparing two stacks.</strong> The workload reports one arm; run it twice and diff
+the files by <code class="docutils literal notranslate"><span class="pre">sample_id</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">ARGS</span><span class="o">=</span><span class="s2">"--workload rag-qa-quality --tokens-per-gb-kvcache 6000 \</span>
+</span><span id="line-2"><span class="s2">      --rag-dataset musique --rag-num-samples 20"</span>
+</span><span id="line-3">
+</span><span id="line-4">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="nv">$ARGS</span><span class="w"> </span>--rag-output<span class="w"> </span>a.json
+</span><span id="line-5">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span>--engine-url<span class="w"> </span>http://localhost:8001<span class="w"> </span><span class="nv">$ARGS</span><span class="w"> </span>--rag-output<span class="w"> </span>b.json
+</span></code></pre></div>
+</div>
+<p>The files are comparable <strong>only when their ``run_fingerprint`` values match</strong>.
+It covers dataset, sample ids, budget, template kwargs, model, and chunk
+alignment, so a mismatch means the diff would report an input delta as a
+quality delta.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Start each run from a clean cache – restart the server, or
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">kvcache</span> <span class="pre">clear</span> <span class="pre">--url</span> <span class="pre">&lt;mp-url&gt;</span></code> – or the second run hits the
+first run’s cached composites instead of measuring per-document reuse.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>No cache-hit metrics are reported; quality is measured from the responses
+alone. To tell “quality unchanged” apart from “LMCache never engaged”,
+check the engine’s own counters around a run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">curl</span> <span class="o">-</span><span class="n">s</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span><span class="o">/</span><span class="n">metrics</span> <span class="o">|</span> <span class="n">grep</span> <span class="n">lookup_</span><span class="o">.*</span><span class="n">_tokens_total</span>
+</span></code></pre></div>
+</div>
+</div>
+<p><strong>Reasoning models.</strong> <code class="docutils literal notranslate"><span class="pre">--rag-template-kwargs</span></code> has no default: disabling
+thinking can lower multi-hop QA quality, and the right setting is
+model-specific (<code class="docutils literal notranslate"><span class="pre">enable_thinking=true</span></code>, <code class="docutils literal notranslate"><span class="pre">reasoning_effort=high</span></code>). Too
+small a budget cuts generation off before the closing tag, so the sample
+does not parse and drops out of the score – watch <code class="docutils literal notranslate"><span class="pre">Parse</span> <span class="pre">rate</span></code>.</p>
+</section>
 <section id="random-prefill">
 <h4>random-prefill<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#random-prefill"><span>#</span></a></h4>
 <p>Fires all requests simultaneously with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> to measure pure
@@ -846,27 +961,28 @@ text and number prompts accept typed input with defaults shown in brackets.</p>
 </span><span id="line-14">    multi-round-chat       Multi-turn chat with stateful sessions
 </span><span id="line-15">    long-doc-permutator    Permutations of context documents
 </span><span id="line-16">    prefix-suffix-tuner    Two-pass tiered KV-cache demonstrator
-</span><span id="line-17">    random-prefill         Prefill-only requests fired simultaneously
-</span><span id="line-18">
-</span><span id="line-19">LMCache Server
-</span><span id="line-20">  Do you have a running LMCache server?
-</span><span id="line-21">  It can auto-detect KV cache size information.
-</span><span id="line-22">  [default: Y] (Y/n) &gt;
-</span><span id="line-23">
-</span><span id="line-24">...
-</span><span id="line-25">
-</span><span id="line-26">──────────────────────────────────────────────────
-</span><span id="line-27"> Configuration Summary
-</span><span id="line-28">──────────────────────────────────────────────────
-</span><span id="line-29">  Workload:             long-doc-qa
-</span><span id="line-30">  Model:                Qwen/Qwen3-14B
-</span><span id="line-31">  Tokens per GB:        6553
-</span><span id="line-32">  ...
-</span><span id="line-33">──────────────────────────────────────────────────
-</span><span id="line-34">
-</span><span id="line-35">What would you like to do?
-</span><span id="line-36">  * Start benchmark
-</span><span id="line-37">    Export configuration for later use and exit
+</span><span id="line-17">    rag-qa-quality         Answer quality (F1) on real QA data
+</span><span id="line-18">    random-prefill         Prefill-only requests fired simultaneously
+</span><span id="line-19">
+</span><span id="line-20">LMCache Server
+</span><span id="line-21">  Do you have a running LMCache server?
+</span><span id="line-22">  It can auto-detect KV cache size information.
+</span><span id="line-23">  [default: Y] (Y/n) &gt;
+</span><span id="line-24">
+</span><span id="line-25">...
+</span><span id="line-26">
+</span><span id="line-27">──────────────────────────────────────────────────
+</span><span id="line-28"> Configuration Summary
+</span><span id="line-29">──────────────────────────────────────────────────
+</span><span id="line-30">  Workload:             long-doc-qa
+</span><span id="line-31">  Model:                Qwen/Qwen3-14B
+</span><span id="line-32">  Tokens per GB:        6553
+</span><span id="line-33">  ...
+</span><span id="line-34">──────────────────────────────────────────────────
+</span><span id="line-35">
+</span><span id="line-36">What would you like to do?
+</span><span id="line-37">  * Start benchmark
+</span><span id="line-38">    Export configuration for later use and exit
 </span></code></pre></div>
 </div>
 <p>When you choose “Export configuration”, all auto-detected values (model name,
@@ -944,6 +1060,50 @@ average TTFT, decode speed, and throughput. Suppress it with <code class="docuti
 </span><span id="line-22">======================================================
 </span></code></pre></div>
 </div>
+<p>A workload may append sections of its own after the shared ones.
+<code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code> adds <strong>Answer Quality</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">-------------------- Answer Quality --------------------
+</span><span id="line-2">Samples measured:                                     20
+</span><span id="line-3">Samples scored:                                       20
+</span><span id="line-4">Parse rate:                                         1.00
+</span><span id="line-5">Mean F1 (scored only):                              0.31
+</span><span id="line-6">Run fingerprint:                        61709aae928fdba8
+</span></code></pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%"/>
+<col style="width: 75.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Samples</span> <span class="pre">measured</span></code></p></td>
+<td><p>Questions sent.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Samples</span> <span class="pre">scored</span></code></p></td>
+<td><p>Of those, how many produced a complete <code class="docutils literal notranslate"><span class="pre">&lt;final_answer&gt;</span></code> region.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Parse</span> <span class="pre">rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">scored</span> <span class="pre">/</span> <span class="pre">measured</span></code>. A low value means the output budget is too
+small or the model is ignoring the answer tags – fix that before
+reading the F1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Mean</span> <span class="pre">F1</span> <span class="pre">(scored</span> <span class="pre">only)</span></code></p></td>
+<td><p>SQuAD-normalized token-overlap F1, best over the gold answers,
+averaged over <strong>scored samples only</strong>. Always read it together with
+the parse rate: a high F1 over a third of the samples is a different
+result from the same F1 over all of them.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Run</span> <span class="pre">fingerprint</span></code></p></td>
+<td><p>Digest of everything determining the prompts. Two runs are comparable
+only when these match.</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 <section id="csv-and-json">
 <h4>CSV and JSON<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#csv-and-json"><span>#</span></a></h4>
@@ -954,6 +1114,29 @@ token counts). Written by default; skip with <code class="docutils literal notra
 metadata. Opt-in with <code class="docutils literal notranslate"><span class="pre">--json</span></code>.</p></li>
 </ul>
 <p>Both files are written to <code class="docutils literal notranslate"><span class="pre">--output-dir</span></code> (default: current directory).</p>
+</section>
+<section id="per-sample-quality-results">
+<h4>Per-sample quality results<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#per-sample-quality-results"><span>#</span></a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code> additionally writes its own file to <code class="docutils literal notranslate"><span class="pre">--rag-output</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"run_fingerprint"</span><span class="p">:</span><span class="w"> </span><span class="s2">"61709aae928fdba8"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-8B-Instruct"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">  </span><span class="nt">"config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"dataset"</span><span class="p">:</span><span class="w"> </span><span class="s2">"musique"</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="nt">"max_output_length"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">             </span><span class="nt">"template_kwargs"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="nt">"output_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a.json"</span><span class="p">},</span>
+</span><span id="line-6"><span class="w">  </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"num_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_parsed"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="nt">"parse_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">              </span><span class="nt">"f1_mean"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.3144</span><span class="p">},</span>
+</span><span id="line-8"><span class="w">  </span><span class="nt">"per_sample"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-9"><span class="w">    </span><span class="p">{</span><span class="nt">"sample_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2hop__481349_302087"</span><span class="p">,</span><span class="w"> </span><span class="nt">"f1"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.6667</span><span class="p">,</span><span class="w"> </span><span class="nt">"parsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">     </span><span class="nt">"answer"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bombardier Aerospace"</span><span class="p">,</span><span class="w"> </span><span class="nt">"ttft"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1624</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_output_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">26</span><span class="p">},</span>
+</span><span id="line-11"><span class="w">    </span><span class="p">{</span><span class="nt">"sample_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2hop__697790_864352"</span><span class="p">,</span><span class="w"> </span><span class="nt">"f1"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"parsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-12"><span class="w">     </span><span class="nt">"answer"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w"> </span><span class="nt">"ttft"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1701</span><span class="p">,</span><span class="w"> </span><span class="nt">"num_output_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">}</span>
+</span><span id="line-13"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-14"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>An unparsed sample’s <code class="docutils literal notranslate"><span class="pre">f1</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code>, <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">0.0</span></code> – so a cross-run
+diff can pair by <code class="docutils literal notranslate"><span class="pre">sample_id</span></code> and skip what either run failed to score,
+rather than averaging a parsing failure in as a wrong answer.</p>
 </section>
 </section>
 <section id="exit-codes">
@@ -1819,6 +2002,7 @@ toolchain is unavailable.</p></td>
 <li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
 <li><a :data-current="activeSection === '#long-doc-permutator'" class="reference internal" href="#long-doc-permutator">long-doc-permutator</a></li>
 <li><a :data-current="activeSection === '#prefix-suffix-tuner'" class="reference internal" href="#prefix-suffix-tuner">prefix-suffix-tuner</a></li>
+<li><a :data-current="activeSection === '#rag-qa-quality'" class="reference internal" href="#rag-qa-quality">rag-qa-quality</a></li>
 <li><a :data-current="activeSection === '#random-prefill'" class="reference internal" href="#random-prefill">random-prefill</a></li>
 </ul>
 </li>
@@ -1828,6 +2012,7 @@ toolchain is unavailable.</p></td>
 <li><a :data-current="activeSection === '#terminal-real-time-progress'" class="reference internal" href="#terminal-real-time-progress">Terminal (real-time progress)</a></li>
 <li><a :data-current="activeSection === '#terminal-final-summary'" class="reference internal" href="#terminal-final-summary">Terminal (final summary)</a></li>
 <li><a :data-current="activeSection === '#csv-and-json'" class="reference internal" href="#csv-and-json">CSV and JSON</a></li>
+<li><a :data-current="activeSection === '#per-sample-quality-results'" class="reference internal" href="#per-sample-quality-results">Per-sample quality results</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#exit-codes'" class="reference internal" href="#exit-codes">Exit Codes</a></li>
