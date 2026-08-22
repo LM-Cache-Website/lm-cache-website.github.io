@@ -335,7 +335,13 @@ the coordinator ties them together into one coordinated fleet.</p>
 <li><p><a class="reference internal" href="#post-cache-delete" id="id26"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#cacheblend-fragment-lookup" id="id27">CacheBlend fragment lookup</a></p></li>
+<li><p><a class="reference internal" href="#fleet-memory" id="id27">Fleet memory</a></p>
+<ul>
+<li><p><a class="reference internal" href="#get-instances-usage" id="id28"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/usage</span></code></a></p></li>
+<li><p><a class="reference internal" href="#get-instances-instance-id-usage" id="id29"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/{instance_id}/usage</span></code></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#cacheblend-fragment-lookup" id="id30">CacheBlend fragment lookup</a></p></li>
 </ul>
 </nav>
 <section id="running-the-coordinator">
@@ -545,6 +551,9 @@ budgets, usage accounting, and the usage-event ingest that drives fleet-wide
 eviction.</p></li>
 <li><p><strong>Cache control</strong> – the <code class="docutils literal notranslate"><span class="pre">/cache</span></code> group: cache operations dispatched to a
 named server (warm prefetch, pin/unpin, and delete, with more to come).</p></li>
+<li><p><strong>Fleet memory</strong> – the <code class="docutils literal notranslate"><span class="pre">/instances/usage</span></code> endpoints: how full each
+server’s memory compartments are, joining event-derived usage against the
+capacity each server declares on the same event stream. Read-only.</p></li>
 <li><p><strong>CacheBlend fragment lookup</strong> – <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/blend-lookup</span></code>: finds
 cached chunk content anywhere inside a query sequence, using the blend index
 derived from the key directory’s token bindings. Server-to-coordinator only;
@@ -1442,8 +1451,105 @@ sequence returns <code class="docutils literal notranslate"><span class="pre">st
 </div>
 </section>
 </section>
+<section id="fleet-memory">
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">Fleet memory</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#fleet-memory" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#fleet-memory'"><span>#</span></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">/instances/usage</span></code> endpoints report how full each MP server’s memory
+compartments are. A <strong>compartment</strong> is one thing that owns bytes: the L1 pool
+of a backing medium, or one L2 adapter. It is identified by
+<code class="docutils literal notranslate"><span class="pre">(tier,</span> <span class="pre">backend)</span></code> – the same pair cache events tag placements with.</p>
+<p>Two inputs are joined, and both ride the cache-event stream. <strong>Usage</strong> is
+derived from the events the servers already publish. <strong>Capacity</strong> arrives as
+a capacity report on the same stream – once at startup, then whenever an
+adapter is added, removed, or reconfigured. Both are automatic; there is
+nothing to configure beyond pointing servers at a coordinator and leaving
+event reporting enabled.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Capacity travels on the event stream, so disabling event reporting
+disables both halves together: every <code class="docutils literal notranslate"><span class="pre">usage_ratio</span></code> reads <code class="docutils literal notranslate"><span class="pre">null</span></code>
+(<em>unknown</em>) rather than a ratio against a stale declaration.</p>
+</div>
+<p>These endpoints are read-only. The coordinator never evicts or throttles based
+on them.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">usage_ratio</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> whenever the server declared no capacity for a
+compartment, and this is common: the <code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncake</span></code>, <code class="docutils literal notranslate"><span class="pre">p2p</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">sagemaker</span></code> adapters expose no capacity setting at all, and <code class="docutils literal notranslate"><span class="pre">s3</span></code> /
+<code class="docutils literal notranslate"><span class="pre">raw_block</span></code> report one only when you set <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code> /
+<code class="docutils literal notranslate"><span class="pre">capacity_bytes</span></code>. A <code class="docutils literal notranslate"><span class="pre">null</span></code> means <em>unknown</em>, never <em>empty</em> – do not
+treat it as <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<p>Ratios above <code class="docutils literal notranslate"><span class="pre">1.0</span></code> are reported as-is rather than capped. A compartment
+holding more than its declared capacity means the declaration is wrong, and
+that is worth seeing.</p>
+</div>
+<section id="get-instances-usage">
+<h3><a class="toc-backref" href="#id28" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/usage</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-instances-usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-instances-usage'"><span>#</span></a></h3>
+<p>The whole fleet: every server’s compartments, plus the shared pools.</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"instances"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">"instance_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"server-1"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">      </span><span class="nt">"registered"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">      </span><span class="nt">"declared_capacity"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">      </span><span class="nt">"modules"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-8"><span class="w">        </span><span class="p">{</span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dram"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shared"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">         </span><span class="nt">"used_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">10737418240</span><span class="p">,</span><span class="w"> </span><span class="nt">"capacity_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">42949672960</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">         </span><span class="nt">"usage_ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.25</span><span class="p">},</span>
+</span><span id="line-11"><span class="w">        </span><span class="p">{</span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"fs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shared"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-12"><span class="w">         </span><span class="nt">"used_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">7516192768</span><span class="p">,</span><span class="w"> </span><span class="nt">"capacity_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-13"><span class="w">         </span><span class="nt">"usage_ratio"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">}</span>
+</span><span id="line-14"><span class="w">      </span><span class="p">]</span>
+</span><span id="line-15"><span class="w">    </span><span class="p">}</span>
+</span><span id="line-16"><span class="w">  </span><span class="p">],</span>
+</span><span id="line-17"><span class="w">  </span><span class="nt">"shared_modules"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-18"><span class="w">    </span><span class="p">{</span><span class="nt">"tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l2"</span><span class="p">,</span><span class="w"> </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shared"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-19"><span class="w">     </span><span class="nt">"used_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">4398046511104</span><span class="p">,</span><span class="w"> </span><span class="nt">"capacity_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">17592186044416</span><span class="p">,</span>
+</span><span id="line-20"><span class="w">     </span><span class="nt">"usage_ratio"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.25</span><span class="p">}</span>
+</span><span id="line-21"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-22"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">shared_modules</span></code> holds storage several servers mount – one S3 bucket, one
+CXL region. These are counted <strong>once for the fleet</strong> and appear in no
+instance’s <code class="docutils literal notranslate"><span class="pre">modules</span></code>. Summing them per mounting server would multiply both
+the bytes and the capacity by the number of mounts.</p>
+<p>A server appears when it is registered, when it still holds bytes, or when it
+declared capacity. <code class="docutils literal notranslate"><span class="pre">registered:</span> <span class="pre">false</span></code> therefore means a departed server
+whose L2 data outlived it; its L1 bytes are dropped when it goes.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Which servers are most heavily loaded?</span>
+</span><span id="line-2">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/instances/usage<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'</span>
+</span><span id="line-3"><span class="s1">  .instances[] | .instance_id as $i | .modules[]</span>
+</span><span id="line-4"><span class="s1">  | select(.usage_ratio != null)</span>
+</span><span id="line-5"><span class="s1">  | "\($i) \(.tier)/\(.backend) \((.usage_ratio*100|floor))%"'</span>
+</span><span id="line-6"><span class="c1"># -&gt; server-1 l1/dram 25%</span>
+</span><span id="line-7"><span class="c1"># -&gt; server-2 l1/dram 81%</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="get-instances-instance-id-usage">
+<h3><a class="toc-backref" href="#id29" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/{instance_id}/usage</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-instances-instance-id-usage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-instances-instance-id-usage'"><span>#</span></a></h3>
+<p>One server’s compartments, in the same shape as an entry of <code class="docutils literal notranslate"><span class="pre">instances</span></code>
+above.</p>
+<p><strong>HTTP status codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: found.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: the coordinator knows nothing about this id – it is not
+registered, holds no bytes, and declared no capacity.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:9300/instances/server-1/usage
+</span></code></pre></div>
+</div>
+<p>A server whose L1 pool uses the default lazy allocator grows its heap on
+demand. Capacity here is the <strong>configured</strong> size, not the grown heap, so a
+freshly started server correctly reads near <code class="docutils literal notranslate"><span class="pre">0</span></code>% rather than near full.</p>
+</section>
+</section>
 <section id="cacheblend-fragment-lookup">
-<h2><a class="toc-backref" href="#id27" role="doc-backlink">CacheBlend fragment lookup</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fragment-lookup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fragment-lookup'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id30" role="doc-backlink">CacheBlend fragment lookup</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cacheblend-fragment-lookup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cacheblend-fragment-lookup'"><span>#</span></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/blend-lookup</span></code> is the fragment counterpart to
 <code class="docutils literal notranslate"><span class="pre">/directory/lookup</span></code>: the query need not be a prefix, and each match reports
 where the content sits in the query and where it sat when stored, so the caller
@@ -1555,6 +1661,11 @@ without <code class="docutils literal notranslate"><span class="pre">--enable-bl
 <li><a :data-current="activeSection === '#post-cache-pins'" class="reference internal" href="#post-cache-pins"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a></li>
 <li><a :data-current="activeSection === '#delete-cache-pins'" class="reference internal" href="#delete-cache-pins"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a></li>
 <li><a :data-current="activeSection === '#post-cache-delete'" class="reference internal" href="#post-cache-delete"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/delete</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#fleet-memory'" class="reference internal" href="#fleet-memory">Fleet memory</a><ul>
+<li><a :data-current="activeSection === '#get-instances-usage'" class="reference internal" href="#get-instances-usage"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/usage</span></code></a></li>
+<li><a :data-current="activeSection === '#get-instances-instance-id-usage'" class="reference internal" href="#get-instances-instance-id-usage"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/instances/{instance_id}/usage</span></code></a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#cacheblend-fragment-lookup'" class="reference internal" href="#cacheblend-fragment-lookup">CacheBlend fragment lookup</a></li>
