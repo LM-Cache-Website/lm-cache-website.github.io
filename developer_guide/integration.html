@@ -332,6 +332,41 @@ VLLM-&gt;&gt;Cache: **Store** new KV chunk(s) (async background put)
 <p><strong>Inference with Cache</strong>: vLLM proceeds with inference. For any parts of the prompt where no cache was available (cache miss), the model computes new KV values as usual. Cached segments (e.g. previously seen text) are skipped in computation, significantly reducing the time-to-first-token (TTFT) and saving GPU cycles.</p>
 <p><strong>Async Cache Write</strong>: After processing the prompt, any newly generated KV cache chunks (corresponding to this prompt’s content) are handed off to LMCache for storage. This put operation is done asynchronously (in the background) so it doesn’t delay the response. The response is returned to the user promptly, and LMCache’s background tasks will offload the new KV data to CPU, disk, or other backends for future reuse.</p>
 </section>
+<section id="sglang-on-musa">
+<h2>SGLang on MUSA<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sglang-on-musa" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sglang-on-musa'"><span>#</span></a></h2>
+<p>LMCache supports SGLang on Moore Threads MUSA devices. In-process transfers
+use TorchMUSA <code class="docutils literal notranslate"><span class="pre">index_select</span></code> and <code class="docutils literal notranslate"><span class="pre">index_copy_</span></code> and support:</p>
+<ul class="simple">
+<li><p>non-layerwise MHA with separate K/V layer pools;</p></li>
+<li><p>non-layerwise MLA; and</p></li>
+<li><p>layerwise MHA.</p></li>
+</ul>
+<p>Layerwise MLA and multiprocess MLA are not supported. For in-process mode,
+configure LMCache without <code class="docutils literal notranslate"><span class="pre">mp_host</span></code>/<code class="docutils literal notranslate"><span class="pre">mp_port</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="line-3"><span class="nt">max_local_cpu_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</span><span id="line-4"><span class="nt">use_layerwise</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># MHA only; use false for non-layerwise MHA or MLA</span>
+</span></code></pre></div>
+</div>
+<p>When SGLang passes a slot mapping for only the uncached suffix, LMCache applies
+the prefix offset before gathering or scattering rows.</p>
+<p>The multiprocess MUSA path supports MHA with separate K and V pools. It uses
+TorchMUSA memory/event IPC and the Torch block-transfer fallback. The handle
+path is opt-in and fail-closed; set this variable in both the SGLang worker and
+LMCache server environments:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_MUSA_HANDLE_TRANSFER</span><span class="o">=</span><span class="m">1</span>
+</span></code></pre></div>
+</div>
+<p>Then configure the standalone server address as usual:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">mp_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
+</span><span id="line-2"><span class="nt">mp_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5556</span>
+</span></code></pre></div>
+</div>
+<p>Startup fails with a capability error when the installed TorchMUSA does not
+provide compatible tensor IPC and event IPC APIs. LMCache does not substitute
+CUDA IPC wrappers for MUSA tensors.</p>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -355,6 +390,7 @@ VLLM-&gt;&gt;Cache: **Store** new KV chunk(s) (async background put)
 <ul>
 <li><a :data-current="activeSection === '#supported-engines'" class="reference internal" href="#supported-engines">Supported Engines</a></li>
 <li><a :data-current="activeSection === '#integration-with-vllm'" class="reference internal" href="#integration-with-vllm">Integration with vLLM</a></li>
+<li><a :data-current="activeSection === '#sglang-on-musa'" class="reference internal" href="#sglang-on-musa">SGLang on MUSA</a></li>
 </ul>
 </div>
 </aside>
