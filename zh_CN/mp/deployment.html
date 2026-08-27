@@ -297,18 +297,19 @@
 <nav class="contents local" id="id1">
 <ul class="simple">
 <li><p><a class="reference internal" href="#docker" id="id2">Docker</a></p></li>
-<li><p><a class="reference internal" href="#kubernetes" id="id3">Kubernetes</a></p>
+<li><p><a class="reference internal" href="#isolated-ipc-toward-removing-ipc-host" id="id3">Isolated IPC (toward removing <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#kubernetes" id="id4">Kubernetes</a></p>
 <ul>
-<li><p><a class="reference internal" href="#prerequisites" id="id4">先决条件</a></p></li>
-<li><p><a class="reference internal" href="#step-by-step" id="id5">逐步指南</a></p></li>
-<li><p><a class="reference internal" href="#architecture-notes" id="id6">架构说明</a></p></li>
-<li><p><a class="reference internal" href="#health-checking-http-server" id="id7">健康检查 (HTTP 服务器)</a></p></li>
-<li><p><a class="reference internal" href="#monitoring-integration" id="id8">监控集成</a></p></li>
-<li><p><a class="reference internal" href="#cleanup" id="id9">清理</a></p></li>
+<li><p><a class="reference internal" href="#prerequisites" id="id5">先决条件</a></p></li>
+<li><p><a class="reference internal" href="#step-by-step" id="id6">逐步指南</a></p></li>
+<li><p><a class="reference internal" href="#architecture-notes" id="id7">架构说明</a></p></li>
+<li><p><a class="reference internal" href="#health-checking-http-server" id="id8">健康检查 (HTTP 服务器)</a></p></li>
+<li><p><a class="reference internal" href="#monitoring-integration" id="id9">监控集成</a></p></li>
+<li><p><a class="reference internal" href="#cleanup" id="id10">清理</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#production-best-practices" id="id10">生产最佳实践</a></p></li>
-<li><p><a class="reference internal" href="#transfer-mode-supported-transfer-mode-shm-name" id="id11">传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#production-best-practices" id="id11">生产最佳实践</a></p></li>
+<li><p><a class="reference internal" href="#transfer-mode-supported-transfer-mode-shm-name" id="id12">传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a></p></li>
 </ul>
 </nav>
 <section id="docker">
@@ -335,7 +336,9 @@
 <p>所需的 Docker 标志：</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">host</span></code> -- 允许 vLLM 容器访问本地主机上的 LMCache。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> -- 容器间 CUDA IPC 共享内存传输所必需。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> -- Required for CUDA IPC shared memory transfers between
+containers (see <em>Isolated IPC</em> below for the plan to remove this
+requirement).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--runtime</span> <span class="pre">nvidia</span> <span class="pre">--gpus</span> <span class="pre">all</span></code> -- 通过 NVIDIA 容器运行时访问 GPU。</p></li>
 </ul>
 <p><strong>HTTP 服务器变体：</strong></p>
@@ -349,12 +352,62 @@
 </span></code></pre></div>
 </div>
 </section>
+<section id="isolated-ipc-toward-removing-ipc-host">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Isolated IPC (toward removing <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#isolated-ipc-toward-removing-ipc-host" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#isolated-ipc-toward-removing-ipc-host'"><span>#</span></a></h2>
+<p>CUDA IPC in MP mode has two legs with different sharing requirements:</p>
+<ul class="simple">
+<li><p><strong>KV-cache memory sharing</strong> works through CUDA IPC <em>memory</em> handles,
+which rendezvous in the kernel driver. The current registration path
+still keeps a reference-counter file in <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>, so the containers
+must share it for now.</p></li>
+<li><p><strong>Event ordering</strong> (the per-STORE/RETRIEVE device events) uses CUDA
+interprocess <em>event</em> handles by default, which only resolve when both
+containers share a <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> tmpfs -- this is what <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> /
+<code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> really provides.</p></li>
+</ul>
+<p>The <strong>isolated IPC</strong> setting removes the second dependency: when enabled,
+LMCache orders transfers with timeline-semaphore events carried over CUDA
+IPC memory handles (see
+<code class="docutils literal notranslate"><span class="pre">docs/design/v1/platform/cuda/timeline_semaphore_event_ipc.md</span></code>), which
+work across containers that share nothing -- no host IPC namespace, no
+common <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>. It must be enabled on <strong>both</strong> sides of a deployment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache server</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--isolated-ipc<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span><span id="line-3">
+</span><span id="line-4"><span class="c1"># vLLM</span>
+</span><span id="line-5">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both",</span>
+</span><span id="line-7"><span class="s1">      "kv_connector_extra_config": {"lmcache.mp.port": 6555,</span>
+</span><span id="line-8"><span class="s1">                                    "lmcache.mp.isolated_ipc": true}}'</span>
+</span></code></pre></div>
+</div>
+<p>The two event mechanisms exchange incompatible handles, so a half-enabled
+deployment fails loudly at event import (the vLLM side crashes
+immediately; the server side logs the error and the worker times out
+after <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mq_timeout</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>Keep <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> (or the shared <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> mount) for now even
+with isolated IPC enabled: the KV-cache <em>memory</em> registration path
+still requires it. Once registration moves to raw CUDA IPC memory
+handles, the flag combination will allow dropping <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> /
+<code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> entirely.</p>
+</div>
+<p>Current limitations:</p>
+<ul class="simple">
+<li><p>Supported by the <strong>vLLM MP connector only</strong>. SGLang, TensorRT-LLM,
+CacheBlend, and qstore still create raw CUDA interprocess events and
+require isolated IPC to stay off (the default).</p></li>
+<li><p>Requires the <code class="docutils literal notranslate"><span class="pre">cuda-python</span></code> package on both sides (included in the
+CUDA requirement files).</p></li>
+</ul>
+</section>
 <section id="kubernetes">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Kubernetes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kubernetes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kubernetes'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Kubernetes</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kubernetes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kubernetes'"><span>#</span></a></h2>
 <p>LMCache 设计为 <strong>DaemonSet + Deployment</strong> 模式：每个节点一个 LMCache 服务器（DaemonSet），由多个 vLLM pod（Deployment）共享。</p>
 <p>在 <code class="docutils literal notranslate"><span class="pre">examples/multi_process/</span></code> 中提供了示例 YAML 文件。</p>
 <section id="prerequisites">
-<h3><a class="toc-backref" href="#id4" role="doc-backlink">先决条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">先决条件</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p>支持 GPU 的 Kubernetes 集群（安装了 NVIDIA GPU Operator）</p></li>
 <li><p>每个节点至少需要 4 个 GPU</p></li>
@@ -362,7 +415,7 @@
 </ul>
 </section>
 <section id="step-by-step">
-<h3><a class="toc-backref" href="#id5" role="doc-backlink">逐步指南</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-by-step" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-by-step'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">逐步指南</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-by-step" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-by-step'"><span>#</span></a></h3>
 <p><strong>步骤 1：创建命名空间</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>multi-process
 </span></code></pre></div>
@@ -416,10 +469,12 @@
 </div>
 </section>
 <section id="architecture-notes">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">架构说明</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-notes'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">架构说明</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#architecture-notes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#architecture-notes'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p><strong>DaemonSet 使用 ``hostNetwork: true``</strong> 以便 vLLM pod 通过 <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code> 发现 LMCache 服务器。</p></li>
-<li><p><strong>两个容器从主机挂载 ``/dev/shm``</strong> 以启用 CUDA IPC 内存共享。</p></li>
+<li><p><strong>Both containers mount ``/dev/shm``</strong> from the host to enable CUDA IPC
+memory sharing (see <em>Isolated IPC</em> above for the plan to remove this
+requirement).</p></li>
 <li><p><strong>DaemonSet 不申请 GPU 资源</strong> -- 这样 GPU 可以完全专属分配给 vLLM pod。NVIDIA 容器运行时会自动为基于 IPC 的内存传输提供 GPU 访问权限。</p></li>
 <li><p><strong>多个 vLLM pod</strong> 在同一节点上会自动连接到同一个 LMCache DaemonSet 实例。</p></li>
 </ul>
@@ -429,7 +484,7 @@
 </div>
 </section>
 <section id="health-checking-http-server">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink">健康检查 (HTTP 服务器)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#health-checking-http-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#health-checking-http-server'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">健康检查 (HTTP 服务器)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#health-checking-http-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#health-checking-http-server'"><span>#</span></a></h3>
 <p>若要配置 Kubernetes 存活探针/就绪探针，请部署 HTTP 服务器变体，并使用 <code class="docutils literal notranslate"><span class="pre">/healthcheck</span></code> 端点：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">livenessProbe</span><span class="p">:</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
@@ -447,11 +502,11 @@
 </div>
 </section>
 <section id="monitoring-integration">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink">监控集成</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#monitoring-integration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#monitoring-integration'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">监控集成</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#monitoring-integration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#monitoring-integration'"><span>#</span></a></h3>
 <p>默认情况下，Prometheus 指标在 9090 端口启用。添加 <code class="docutils literal notranslate"><span class="pre">ServiceMonitor</span></code> 或 Prometheus 抓取注释以收集 LMCache DaemonSet Pod 的指标。有关指标详细信息，请参见 <a class="reference internal" href="observability/index.html"><span class="doc">可观察性</span></a>。</p>
 </section>
 <section id="cleanup">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink">清理</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cleanup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cleanup'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">清理</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cleanup" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cleanup'"><span>#</span></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/vllm-deployment.yaml
 </span><span id="line-2">kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>examples/multi_process/lmcache-daemonset.yaml
 </span><span id="line-3">kubectl<span class="w"> </span>delete<span class="w"> </span>namespace<span class="w"> </span>multi-process
@@ -460,7 +515,7 @@
 </section>
 </section>
 <section id="production-best-practices">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">生产最佳实践</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-best-practices" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-best-practices'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">生产最佳实践</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#production-best-practices" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#production-best-practices'"><span>#</span></a></h2>
 <p><strong>工作线程数 (``--max-workers``, ``--max-gpu-workers``, ``--max-cpu-workers``):</strong> <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code> 同时设置 GPU 亲和性池和 CPU 普通池的大小（默认值为 1）。使用 <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> 可单独覆盖 GPU 池大小——建议将其设置为至少等于共享同一缓存服务器的 vLLM 实例数量，以便每个实例拥有专属的工作线程。使用 <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code> 可覆盖用于查找及其他非 GPU 操作的 CPU 池大小。</p>
 <p><strong>L1 内存大小 (``--l1-size-gb``):</strong> 在考虑操作系统和 vLLM 后，分配尽可能多的 CPU 内存。更大的 L1 缓存意味着更少的 L2 往返。</p>
 <p><strong>逐出调优:</strong></p>
@@ -472,7 +527,7 @@
 <p><strong>日志记录:</strong> 在初始设置期间使用 <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEVEL=DEBUG</span></code> 来验证 L2 存储/加载活动。 在生产中切换到 <code class="docutils literal notranslate"><span class="pre">INFO</span></code>（默认）以减少日志量。</p>
 </section>
 <section id="transfer-mode-supported-transfer-mode-shm-name">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">传输模式 (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
 <p>LMCache 支持两条工作节点 → 服务器传输路径：一种是 <strong>lmcache 驱动</strong> 路径（服务器通过 CUDA IPC 或 CPU SHM 拉取/推送，用于 STORE/RETRIEVE），另一种是 <strong>引擎驱动</strong> 路径（PREPARE/COMMIT，仅由 CPU 或非 CUDA 加速器工作节点使用）。服务器通过 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 选择加载哪些路径：</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> <em>(default)</em> -- load only the server-driven
@@ -544,6 +599,7 @@ helps with monitoring and debugging.</p></td>
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
 <li><a :data-current="activeSection === '#docker'" class="reference internal" href="#docker">Docker</a></li>
+<li><a :data-current="activeSection === '#isolated-ipc-toward-removing-ipc-host'" class="reference internal" href="#isolated-ipc-toward-removing-ipc-host">Isolated IPC (toward removing <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code>)</a></li>
 <li><a :data-current="activeSection === '#kubernetes'" class="reference internal" href="#kubernetes">Kubernetes</a><ul>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">先决条件</a></li>
 <li><a :data-current="activeSection === '#step-by-step'" class="reference internal" href="#step-by-step">逐步指南</a></li>

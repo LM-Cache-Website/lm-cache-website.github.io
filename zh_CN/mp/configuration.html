@@ -385,19 +385,33 @@ so workers of either device type can connect without manual
 configuration.
 Choices: <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code>, <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>, <code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--isolated-ipc</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-isolated-ipc</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Assume engine workers and this server run in containers that share
+no host IPC namespace (<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>) and no common <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>, and
+use IPC mechanisms that work there: on CUDA, timeline-semaphore
+events (over CUDA IPC <em>memory</em> handles) instead of CUDA
+interprocess <em>event</em> handles. Must match the workers'
+<code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code> setting -- the two mechanisms exchange
+incompatible event handles, and a mismatch fails at event import
+on whichever side receives the foreign handle. Currently supported
+by the vLLM MP connector only; the default stays <code class="docutils literal notranslate"><span class="pre">false</span></code> until
+the integrations that still create raw CUDA interprocess events
+(SGLang, TensorRT-LLM, CacheBlend, qstore) migrate.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-locations</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td><p>零个或多个路径，用于运行时插件脚本或目录，以便与服务器一起启动。插件由 <code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> 生成，并通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_RUNTIME_PLUGIN_CONFIG</span></code> 环境变量接收完整的服务器配置。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-config</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--runtime-plugin-config</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">"{}"</span></code></p></td>
 <td><p>通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_RUNTIME_PLUGIN_EXTRA_CONFIG</span></code> 转发到运行时插件的额外键值配置的 JSON 字符串。示例：<code class="docutils literal notranslate"><span class="pre">'{\"plugin.frontend.heartbeat_url\":</span> <span class="pre">\"http://localhost:5000/heartbeat\"}'</span></code>。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td><p>允许在 HTTP <code class="docutils literal notranslate"><span class="pre">/run_script</span></code> 端点发布的脚本导入的以空格分隔的 Python 模块名称列表。示例：<code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span> <span class="pre">numpy</span> <span class="pre">pandas</span></code>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
 <td><p>SHM segment name for non-GPU KV transfer (only used when the
 non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
@@ -406,25 +420,25 @@ non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span cl
 the pickle path.  Any other value: create a SHM pool and use
 that exact name for its segment.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">120.0</span></code></p></td>
 <td><p>工作线程发送至少一个心跳 PING 后进入静默状态的最长容忍时间（秒），超时后将回收其 KV Cache 注册，并释放泄漏的 GPU 上下文和 CUDA IPC 句柄。<code class="docutils literal notranslate"><span class="pre">0</span></code> 表示禁用回收。建议将此值保持在引擎适配器 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.heartbeat_interval</span></code>（默认 10 秒）的至少 3 倍，以免少量心跳丢失导致活跃工作线程被误回收；若未同步调大此值而单独调大心跳间隔，适配器将在启动时发出警告。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-registration-grace-seconds</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-registration-grace-seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">3600.0</span></code></p></td>
 <td><p>针对已注册但从未发送 PING 的工作线程（仍在预热或在首次请求前已崩溃）的静默容忍时间（秒）。必须大于或等于 <code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code>。默认值较宽松，以避免将缓慢的模型预热误判为工作线程已宕机。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-segmented-prefix</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-segmented-prefix</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p>CacheBlend (<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code>) 仅适用：在中间前缀 L2 检索失败时，保留缺口前缀，以便缺口后的块保持在 L1 中驻留，只有丢失的缺口被重计算，而不是在缺口处截断前缀。对其他引擎没有影响。有关如何使用它，请参见 <a class="reference internal" href="l2_storage/fault_inject.html"><span class="doc">故障注入</span></a>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-dedup-content</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-dedup-content</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> only: skip fingerprint registration for a chunk
 whose content is already indexed, so the same text stored behind two
 prefixes is indexed once. No effect for other engines.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p>Split a hybrid model's kernel groups into one object group per
 cross-chunk attention window (full attention, each sliding-window
@@ -1025,6 +1039,16 @@ lazy-offload threshold is met.</p></td>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
 <td><p>工作进程与服务器传输上下文的路由模式。可以是 <code class="docutils literal notranslate"><span class="pre">auto``（CUDA</span> <span class="pre">-&gt;</span> <span class="pre">lmcache_driven，其他</span> <span class="pre">-&gt;</span> <span class="pre">engine_driven）、``lmcache_driven``（强制使用</span> <span class="pre">IPC</span> <span class="pre">/</span> <span class="pre">SHM</span> <span class="pre">零拷贝句柄路径</span> <span class="pre">—</span> <span class="pre">LMCache</span> <span class="pre">服务器通过设备句柄拉取数据）或</span> <span class="pre">``engine_driven``（强制使用工作进程端的收集/分散拷贝路径）。当设置时，会覆盖</span> <span class="pre">``LMCACHE_MP_TRANSFER_MODE</span></code> 环境变量。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Assume the vLLM workers and the LMCache server run in containers
+that share no host IPC namespace (<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>) and no common
+<code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code>, and use IPC mechanisms that work there: on CUDA,
+timeline-semaphore events (over CUDA IPC <em>memory</em> handles) instead
+of CUDA interprocess <em>event</em> handles. Set it together with the
+server's <code class="docutils literal notranslate"><span class="pre">--isolated-ipc</span></code> flag -- a mismatch fails at event
+import on whichever side receives the foreign handle.</p></td>
 </tr>
 </tbody>
 </table>
