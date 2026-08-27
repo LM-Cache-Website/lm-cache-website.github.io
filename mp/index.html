@@ -430,30 +430,21 @@ based on <code class="docutils literal notranslate"><span class="pre">--engine-t
 and/or <code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code> depending on
 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> — <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> (default) or
 <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> loads just one,
-<code class="docutils literal notranslate"><span class="pre">auto</span></code> loads both — plus a CacheBlend module when
-<code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> is set: <code class="docutils literal notranslate"><span class="pre">blend</span></code> appends <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code> (the
-current paged-aware implementation), and <code class="docutils literal notranslate"><span class="pre">blend_legacy</span></code> appends
-<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> (the original)). Starts a <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code>,
+<code class="docutils literal notranslate"><span class="pre">auto</span></code> loads both — plus the blend module when
+<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> is set). Starts a <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code>,
 registers handlers for every <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> exposed by the loaded
 modules, and blocks in a keep-alive loop.</p>
-<p><strong>``modules/blend.py``</strong> – Defines <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> and <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>,
-which add the original CacheBlend operations (<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_KV_CACHE</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_PRE_COMPUTED</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code> and their V2
-variants). Enables non-prefix KV cache reuse across document
-paragraphs. Selected by passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend_legacy</span></code> to
-<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>.</p>
-<p><strong>``modules/blend_v3.py``</strong> – Defines <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>, the
-paged-aware CacheBlend V3 pipeline that runs on the sparse-prefetch
-path. Adds the V3 RPCs (<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_ROPE_V3</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_ROPE_V3</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED_V3</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CB_UNIFIED_LOOKUP</span></code>) and reuses the existing
-<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code> and <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>. Selected by
-passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to
-<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>.</p>
-<p>Both blend variants require <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be
-<code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code> and will refuse to load when it is
-<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>.</p>
+<p><strong>``modules/blend.py``</strong> – Defines <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>, the paged-aware
+blend pipeline that enables non-prefix KV cache reuse (e.g. across
+document paragraphs) on the sparse-prefetch path. KV-cache registration
+rides the standard <code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code>; the module adds only the CB RPCs
+(<code class="docutils literal notranslate"><span class="pre">CB_REGISTER_ROPE</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_ROPE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code>, <code class="docutils literal notranslate"><span class="pre">CB_UNIFIED_LOOKUP</span></code>) and wraps
+<code class="docutils literal notranslate"><span class="pre">STORE</span></code> to register chunk fingerprints, reusing the existing
+<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code> and <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>. Selected by passing
+<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> to <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>; requires
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> to be <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code> and
+refuses to load when it is <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>.</p>
 <p><strong>``http_server.py``</strong> – Wraps <code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> (from <code class="docutils literal notranslate"><span class="pre">server.py</span></code>)
 inside a FastAPI application.  Endpoints are contributed by modules under
 <code class="docutils literal notranslate"><span class="pre">http_apis/</span></code> and auto-registered via <code class="docutils literal notranslate"><span class="pre">HTTPAPIRegistry</span></code>: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code> (basic
@@ -590,59 +581,24 @@ allocation events to the observability subsystem.</p></td>
 <td><p>SYNC</p></td>
 <td><p>Debug heartbeat – returns a confirmation string.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_REGISTER_KV_CACHE</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_REGISTER_ROPE</span></code></p></td>
 <td><p>SYNC</p></td>
-<td><p>(Blend) Register CacheBlend KV buffer.</p></td>
+<td><p>(Blend) Share the RoPE cos/sin cache onto a context already
+registered via <code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_KV_CACHE</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_ROPE</span></code></p></td>
 <td><p>SYNC</p></td>
-<td><p>(Blend) Unregister CacheBlend KV buffer.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_STORE_PRE_COMPUTED</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend) Store pre-computed paragraph chunks.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend) Lookup pre-computed paragraph chunks.</p></td>
+<td><p>(Blend) Drop the RoPE state (paged KV cache lives on; use
+<code class="docutils literal notranslate"><span class="pre">UNREGISTER_KV_CACHE</span></code> to release that).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Blend) Retrieve pre-computed paragraph chunks to GPU.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_STORE_FINAL</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend) Store final blended chunks.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED_V2</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend V2) Lookup pre-computed chunks; returns
-<code class="docutils literal notranslate"><span class="pre">CBMatchResult</span></code> entries (with old/cur ranges and per-chunk hashes)
-so the retrieve step can skip re-hashing.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED_V2</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend V2) Retrieve pre-computed chunks using the
-<code class="docutils literal notranslate"><span class="pre">CBMatchResult</span></code> list returned by <code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_PRE_COMPUTED_V2</span></code>.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_REGISTER_ROPE_V3</span></code></p></td>
-<td><p>SYNC</p></td>
-<td><p>(Blend V3) Share the RoPE cos/sin cache onto a context already
-registered via <code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE</span></code>.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_UNREGISTER_ROPE_V3</span></code></p></td>
-<td><p>SYNC</p></td>
-<td><p>(Blend V3) Drop the RoPE state (paged KV cache lives on; use
-<code class="docutils literal notranslate"><span class="pre">UNREGISTER_KV_CACHE</span></code> to release that).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CB_RETRIEVE_PRE_COMPUTED_V3</span></code></p></td>
-<td><p>BLOCKING</p></td>
-<td><p>(Blend V3) Scatter all matched chunks (prefix- and non-prefix-hit)
+<td><p>(Blend) Scatter all matched chunks (prefix- and non-prefix-hit)
 into paged KV by per-token block ID; re-RoPE only the shifted subset.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CB_UNIFIED_LOOKUP</span></code></p></td>
 <td><p>BLOCKING</p></td>
-<td><p>(Blend V3) Sole live lookup path: one RPC runs prefix + non-prefix
+<td><p>(Blend) Sole lookup path: one RPC runs prefix + non-prefix
 match, reconciles, issues one sparse-coalesced prefetch, and
 classifies per-TP-rank. Returns <code class="docutils literal notranslate"><span class="pre">CBUnifiedLookupResult</span></code> (or
 <code class="docutils literal notranslate"><span class="pre">None</span></code> while the prefetch is still in flight).</p></td>
@@ -698,9 +654,8 @@ results have already been consumed.</p></td>
 <code class="docutils literal notranslate"><span class="pre">add_http_frontend_args()</span></code> and <code class="docutils literal notranslate"><span class="pre">add_coordinator_args()</span></code> for the
 <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> CLI. CacheBlend is no longer a separate entry point —
 it is opted into at runtime by passing <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> to
-<code class="docutils literal notranslate"><span class="pre">server.py</span></code> (or <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>). <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> appends
-<code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code> (the current paged-aware implementation), while
-<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend_legacy</span></code> appends <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> (the original).</p>
+<code class="docutils literal notranslate"><span class="pre">server.py</span></code> (or <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>): <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> appends
+<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>.</p>
 </section>
 <section id="distributed-storage">
 <h2><a class="toc-backref" href="#id8" role="doc-backlink">Distributed Storage</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#distributed-storage" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#distributed-storage'"><span>#</span></a></h2>
@@ -911,10 +866,9 @@ CLI flag if needed.</p></li>
 <li><p>Add a new member to <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> in <code class="docutils literal notranslate"><span class="pre">protocols/base.py</span></code>.</p></li>
 <li><p>Create a <code class="docutils literal notranslate"><span class="pre">ProtocolDefinition</span></code> in the appropriate <code class="docutils literal notranslate"><span class="pre">protocols/*.py</span></code> file
 (<code class="docutils literal notranslate"><span class="pre">engine</span></code>, <code class="docutils literal notranslate"><span class="pre">controller</span></code>, <code class="docutils literal notranslate"><span class="pre">observability</span></code>, <code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>,
-<code class="docutils literal notranslate"><span class="pre">blend_v2</span></code>, <code class="docutils literal notranslate"><span class="pre">blend_v3</span></code>, or <code class="docutils literal notranslate"><span class="pre">p2p</span></code>) and add the request name to that
-module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
+or <code class="docutils literal notranslate"><span class="pre">p2p</span></code>) and add the request name to that module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
 <li><p>Implement the handler method on the appropriate <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
-(e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>) and
+(e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>) and
 expose it as a <code class="docutils literal notranslate"><span class="pre">HandlerSpec</span></code> from that module’s <code class="docutils literal notranslate"><span class="pre">get_handlers()</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">run_cache_server()</span></code> registers every <code class="docutils literal notranslate"><span class="pre">HandlerSpec</span></code> returned by the
 loaded modules via <code class="docutils literal notranslate"><span class="pre">add_handler_helper()</span></code> — no manual registration
@@ -952,11 +906,9 @@ step is needed.</p></li>
 <td><p>Engine module implementations: <code class="docutils literal notranslate"><span class="pre">lookup.py</span></code> (<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>),
 <code class="docutils literal notranslate"><span class="pre">management.py</span></code> (<code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code>), <code class="docutils literal notranslate"><span class="pre">lmcache_driven_transfer.py</span></code>
 (<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">engine_driven_transfer.py</span></code>
-(<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code>), <code class="docutils literal notranslate"><span class="pre">blend.py</span></code>
-(<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code> / <code class="docutils literal notranslate"><span class="pre">BlendEngineV2</span></code>, selected by
-<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend_legacy</span></code>), and <code class="docutils literal notranslate"><span class="pre">blend_v3.py</span></code>
-(<code class="docutils literal notranslate"><span class="pre">BlendV3Module</span></code>, the paged-aware CacheBlend V3 pipeline
-selected by <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code>).</p></td>
+(<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code>), and <code class="docutils literal notranslate"><span class="pre">blend.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>, the paged-aware blend pipeline selected by
+<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/http_server.py</span></code></p></td>
 <td><p>FastAPI wrapper with health check and many other useful APIs</p></td>
