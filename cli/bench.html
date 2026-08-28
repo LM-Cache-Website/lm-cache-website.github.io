@@ -471,6 +471,11 @@ is auto-detected from the server.</p></td>
 <td><p>No</p></td>
 <td><p>Suppress the real-time progress display.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-warmup</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Skip the warmup phase and start measuring immediately.
+See <a class="reference internal" href="#bench-warmup"><span class="std std-ref">Warmup Phase</span></a>.</p></td>
+</tr>
 </tbody>
 </table>
 <section id="finding-tokens-per-gb-kvcache">
@@ -488,6 +493,44 @@ startup log:</p>
 </span></code></pre></div>
 </div>
 </section>
+</section>
+<section id="warmup-phase">
+<span id="bench-warmup"></span><h3>Warmup Phase<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#warmup-phase" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#warmup-phase'"><span>#</span></a></h3>
+<p>Most workloads run a warmup phase before the measured run. What it sends is
+workload-specific – <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code> prefills each document, <code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>
+prefills each document behind the system block, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code> sends a
+full pass over its prefix pool, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code> primes each session, and
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code> sends a single dummy request. <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code> has no
+warmup at all. Warmup requests are sent with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> and their stats
+are discarded, so they never appear in the reported numbers.</p>
+<p>Warmup serves two purposes: it absorbs the engine’s one-time first-request cost
+(<code class="docutils literal notranslate"><span class="pre">torch.compile</span></code>, CUDA-graph capture, weight paging), and – for the workloads
+that prefill their data – it puts the KV cache in the state the measured run is
+designed to exercise.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--no-warmup</span></code> skips the phase entirely and starts measuring immediately:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>long-doc-qa<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--no-warmup
+</span></code></pre></div>
+</div>
+<p>Use it to measure a cold start – what the first requests against a fresh
+engine and an empty cache actually cost – or to shorten a smoke test where the
+absolute numbers do not matter.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not compare a <code class="docutils literal notranslate"><span class="pre">--no-warmup</span></code> run against a warmed run: the numbers
+measure different things. Without warmup, the first requests pay the
+engine’s first-request cost and read from a cold cache, which inflates TTFT
+and depresses cache hit rate.</p>
+<p>For workloads whose warmup populates the data they then measure reuse of
+(<code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>,
+<code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>), skipping it removes the reuse the workload was built
+to measure. <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code> in particular reports pass-2 results
+against a cache that pass 1 was supposed to fill, so its output is not
+meaningful with <code class="docutils literal notranslate"><span class="pre">--no-warmup</span></code>.</p>
+</div>
 </section>
 <section id="workloads">
 <h3>Workloads<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#workloads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#workloads'"><span>#</span></a></h3>
@@ -1999,6 +2042,7 @@ toolchain is unavailable.</p></td>
 <li><a :data-current="activeSection === '#finding-tokens-per-gb-kvcache'" class="reference internal" href="#finding-tokens-per-gb-kvcache">Finding <code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span></code></a></li>
 </ul>
 </li>
+<li><a :data-current="activeSection === '#warmup-phase'" class="reference internal" href="#warmup-phase">Warmup Phase</a></li>
 <li><a :data-current="activeSection === '#workloads'" class="reference internal" href="#workloads">Workloads</a><ul>
 <li><a :data-current="activeSection === '#long-doc-qa'" class="reference internal" href="#long-doc-qa">long-doc-qa</a></li>
 <li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
