@@ -595,6 +595,56 @@ ROCm</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
+<input id="sd-tab-item-18" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-18">
+MetaX MACA</label><div class="sd-tab-content docutils">
+<p>MACA is CUDA-compatible: a MACA-enabled torch build reports
+<code class="docutils literal notranslate"><span class="pre">device.type</span> <span class="pre">==</span> <span class="pre">"cuda"</span></code>, so LMCache's existing CUDA-compatible
+connector path works without a separate device backend. There is no
+prebuilt MACA wheel or CI build -- this is a self-compile-only path,
+built with a MACA-enabled torch already installed via MetaX's own
+toolchain (not from PyPI).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Puts the MACA SDK's cu-bridge nvcc-compatible compiler on PATH</span>
+</span><span id="line-2"><span class="c1"># and its runtime libs on LD_LIBRARY_PATH -- required before the</span>
+</span><span id="line-3"><span class="c1"># build step below, so torch.utils.cpp_extension can locate it.</span>
+</span><span id="line-4"><span class="c1"># Adjust MACA_PATH to your actual MACA SDK install root.</span>
+</span><span id="line-5"><span class="nb">export</span><span class="w"> </span><span class="nv">MACA_PATH</span><span class="o">=</span>/opt/maca
+</span><span id="line-6"><span class="nb">export</span><span class="w"> </span><span class="nv">CUCC_PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/tools/cu-bridge
+</span><span id="line-7"><span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">CUCC_PATH</span><span class="si">}</span>/bin:<span class="si">${</span><span class="nv">CUCC_PATH</span><span class="si">}</span>/tools:<span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/mxgpu_llvm/bin:<span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/bin:<span class="si">${</span><span class="nv">PATH</span><span class="si">}</span>
+</span><span id="line-8"><span class="nb">export</span><span class="w"> </span><span class="nv">LD_LIBRARY_PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/lib:<span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/mxgpu_llvm/lib:<span class="si">${</span><span class="nv">MACA_PATH</span><span class="si">}</span>/ompi/lib:<span class="si">${</span><span class="nv">LD_LIBRARY_PATH</span><span class="si">}</span>
+</span><span id="line-9">
+</span><span id="line-10">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
+</span><span id="line-11"><span class="nb">cd</span><span class="w"> </span>LMCache
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Assumes a MACA-enabled torch is already installed/active in this</span>
+</span><span id="line-14"><span class="c1"># environment (e.g. inside a vllm-metax container).</span>
+</span><span id="line-15">
+</span><span id="line-16"><span class="c1"># Need to install these packages manually to avoid build isolation</span>
+</span><span id="line-17">pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements/build.txt
+</span><span id="line-18">
+</span><span id="line-19"><span class="c1"># --no-deps skips install_requires entirely, including</span>
+</span><span id="line-20"><span class="c1"># requirements/common.txt's cufile-python/nvtx (NVIDIA-only,</span>
+</span><span id="line-21"><span class="c1"># not needed on MACA) and the unpinned generic "torch" entry</span>
+</span><span id="line-22"><span class="c1"># (which would otherwise risk resolving over the MACA build).</span>
+</span><span id="line-23"><span class="c1"># Install any other runtime deps you actually need yourself first --</span>
+</span><span id="line-24"><span class="c1"># MP mode needs mcpy (MetaX's cupy equivalent), published on MetaX's</span>
+</span><span id="line-25"><span class="c1"># own pip index rather than PyPI:</span>
+</span><span id="line-26"><span class="c1">#   pip install mcpy -i https://repos.metax-tech.com/r/maca-pypi/simple \</span>
+</span><span id="line-27"><span class="c1">#       --trusted-host repos.metax-tech.com</span>
+</span><span id="line-28">
+</span><span id="line-29"><span class="c1"># SETUPTOOLS_SCM_PRETEND_VERSION makes the wheel filename and</span>
+</span><span id="line-30"><span class="c1"># lmcache.__version__ carry the MACA build identity (mirrors how</span>
+</span><span id="line-31"><span class="c1"># torch's own ROCm wheels are named e.g. torch-2.11.0+rocm7.2-...).</span>
+</span><span id="line-32"><span class="c1"># Derives the base version from this checkout's own git tag (so</span>
+</span><span id="line-33"><span class="c1"># it never needs manual updates across releases) and appends a</span>
+</span><span id="line-34"><span class="c1"># +maca&lt;build&gt; local segment -- set MACA_AI_VERSION to your MACA</span>
+</span><span id="line-35"><span class="c1"># SDK/build number, or leave it at the default below.</span>
+</span><span id="line-36"><span class="nv">BASE_VERSION</span><span class="o">=</span><span class="k">$(</span>python<span class="w"> </span>-m<span class="w"> </span>setuptools_scm<span class="k">)</span>
+</span><span id="line-37"><span class="nv">SETUPTOOLS_SCM_PRETEND_VERSION</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">BASE_VERSION</span><span class="si">}</span><span class="s2">+maca</span><span class="si">${</span><span class="nv">MACA_AI_VERSION</span><span class="k">:-</span><span class="nv">0</span><span class="p">.0.0.0</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-38"><span class="nv">BUILD_WITH_MACA</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--no-deps<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span></code></pre></div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -603,19 +653,19 @@ ROCm</label><div class="sd-tab-content docutils">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Docker</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-18" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-18">
+<input checked="checked" id="sd-tab-item-19" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-19">
 稳定版</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-22" name="sd-tab-set-6" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-22">
+<input checked="checked" id="sd-tab-item-23" name="sd-tab-set-6" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-23">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-23" name="sd-tab-set-6" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-23">
+<input id="sd-tab-item-24" name="sd-tab-set-6" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-24">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-cu129
 </span></code></pre></div>
@@ -623,19 +673,19 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
-<input id="sd-tab-item-19" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-19">
+<input id="sd-tab-item-20" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-20">
 每日构建版</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-24" name="sd-tab-set-7" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-24">
+<input checked="checked" id="sd-tab-item-25" name="sd-tab-set-7" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-25">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-nightly
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-25" name="sd-tab-set-7" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-25">
+<input id="sd-tab-item-26" name="sd-tab-set-7" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-26">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-nightly-cu129
 </span></code></pre></div>
@@ -643,15 +693,15 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
-<input id="sd-tab-item-20" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-20">
+<input id="sd-tab-item-21" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-21">
 ROCm</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>rocm/vllm-dev:nightly_0624_rc2_0624_rc2_20250620
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-21" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-21">
+<input id="sd-tab-item-22" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-22">
 英特尔 XPU</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>vllm/vllm-openai-xpu:v0.26.0
 </span></code></pre></div>
