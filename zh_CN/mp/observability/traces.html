@@ -318,7 +318,14 @@
 </div>
 <section id="per-request-hit-rate-attributes">
 <h2>每个请求的命中率属性<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#per-request-hit-rate-attributes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#per-request-hit-rate-attributes'"><span>#</span></a></h2>
-<p>每个会话都被封装在一个每请求根 span 中——标准 MP 路径对应 <code class="docutils literal notranslate"><span class="pre">request</span></code>，CacheBlend 路径对应 <code class="docutils literal notranslate"><span class="pre">cb.request</span></code>——该根 span 将所有子 span（<code class="docutils literal notranslate"><span class="pre">mp.store</span></code>、<code class="docutils literal notranslate"><span class="pre">mp.retrieve</span></code>、<code class="docutils literal notranslate"><span class="pre">mp.lookup_prefetch</span></code>）嵌套在其下。当查找阶段结束时，根 span 会被标注三个 OTel 属性，用以汇总请求级别的缓存命中率：</p>
+<p>Each session is wrapped in a per-request root span — <code class="docutils literal notranslate"><span class="pre">request</span></code> for the
+standard MP path and <code class="docutils literal notranslate"><span class="pre">cb.request</span></code> for the CacheBlend path — that nests
+all child spans (<code class="docutils literal notranslate"><span class="pre">mp.store</span></code>, <code class="docutils literal notranslate"><span class="pre">mp.retrieve</span></code>, <code class="docutils literal notranslate"><span class="pre">mp.lookup_prefetch</span></code>)
+beneath it.  When the lookup phase ends, the root span is annotated with
+OTel attributes that summarise the request-level cache hit rate.  Both
+root spans carry the first three below; the rest are specific to the
+<code class="docutils literal notranslate"><span class="pre">request</span></code> span, and <code class="docutils literal notranslate"><span class="pre">cb.request</span></code> instead carries its own CacheBlend
+breakdown of <code class="docutils literal notranslate"><span class="pre">hit_tokens</span></code> (prefix / segmented-prefix / non-prefix).</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 25.0%"/>
@@ -344,6 +351,36 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">hit_tokens</span> <span class="pre">/</span> <span class="pre">requested_tokens</span></code>；当分母为零时取 <code class="docutils literal notranslate"><span class="pre">0.0</span></code>。以预计算浮点数形式存储，原因是追踪 UI（Tempo、Jaeger）无法在查询时从两个整数属性动态推导该值。</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l1_hit_tokens</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Tokens in the prefix L1 alone could serve, under each object
+group's attention window rule.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2_hit_tokens</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Tokens by which L2 extended that prefix.  Together with
+<code class="docutils literal notranslate"><span class="pre">l1_hit_tokens</span></code> this is an exact integer partition of
+<code class="docutils literal notranslate"><span class="pre">hit_tokens</span></code>.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l1_hit_rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">l1_hit_tokens</span> <span class="pre">/</span> <span class="pre">requested_tokens</span></code>; <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the denominator
+is zero.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2_hit_rate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">l2_hit_tokens</span> <span class="pre">/</span> <span class="pre">requested_tokens</span></code>; <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the denominator
+is zero.  Sums with <code class="docutils literal notranslate"><span class="pre">l1_hit_rate</span></code> to <code class="docutils literal notranslate"><span class="pre">hit_rate</span></code> up to float
+rounding.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">early_exit_reason</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p>Which branch of the lookup returned before a prefetch was
+submitted: <code class="docutils literal notranslate"><span class="pre">no_gpu_context</span></code> or <code class="docutils literal notranslate"><span class="pre">no_group_layout_descs</span></code> (nothing
+registered for this model / world size), or <code class="docutils literal notranslate"><span class="pre">empty_chunk_hashes</span></code>
+(prompt shorter than one chunk).  <code class="docutils literal notranslate"><span class="pre">""</span></code> on the normal path,
+including a genuine cold miss.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
 </tbody>
 </table>
 <p>在处理 <code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>（标准 MP 路径）或 <code class="docutils literal notranslate"><span class="pre">CB_LOOKUP_END</span></code>（CacheBlend 路径）时写入这些属性——此时根 span 仍处于打开状态。<strong>纯存储请求</strong>不会调用 <code class="docutils literal notranslate"><span class="pre">lookup_prefetch_start()</span></code>，因此不会为查找阶段发出结束事件，其根 span 也不会携带这些属性。</p>
@@ -356,6 +393,12 @@
 </span><span id="line-6">
 </span><span id="line-7"># Complete misses (lookup ran but nothing was cached)
 </span><span id="line-8">{ name = "request" &amp;&amp; span.requested_tokens &gt; 0 &amp;&amp; span.hit_tokens = 0 }
+</span><span id="line-9">
+</span><span id="line-10"># Requests that had to go to L2 for most of their hit
+</span><span id="line-11">{ name = "request" &amp;&amp; span.l2_hit_rate &gt; 0.5 }
+</span><span id="line-12">
+</span><span id="line-13"># Lookups that exited early rather than genuinely missing
+</span><span id="line-14">{ name = "request" &amp;&amp; span.early_exit_reason != "" }
 </span></code></pre></div>
 </div>
 <p>有关完整的事件到 span 映射以及将子 span 关联回根 span 的注册模式，请参阅源码树中的 <code class="docutils literal notranslate"><span class="pre">docs/design/observability/request-event-span.md</span></code>。</p>
