@@ -398,11 +398,9 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code>: <code class="docutils literal notranslate"><span class="pre">"true"</span></code> or <code class="docutils literal notranslate"><span class="pre">"false"</span></code> (default <code class="docutils literal notranslate"><span class="pre">"false"</span></code>). When
 <code class="docutils literal notranslate"><span class="pre">"true"</span></code>, data files are spread across a two-level subdirectory tree
 under <code class="docutils literal notranslate"><span class="pre">file_path</span></code> instead of all living in one flat directory. The two
-levels are the first four hex characters of the chunk hash, matching the
-hash prefix already embedded in the filename
-(for example <code class="docutils literal notranslate"><span class="pre">834ebc79...</span></code> is stored as <code class="docutils literal notranslate"><span class="pre">83/4e/&lt;filename&gt;</span></code>), giving a
-fanout of up to 256 × 256 subdirectories. Leaving it unset preserves the
-original flat layout.</p>
+levels use the first four hex characters of the chunk hash for both salted
+and unsalted keys, providing up to 256 × 256 subdirectories. Leaving
+<code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code> unset preserves the flat layout.</p>
 <p>Large flat directories slow down metadata operations on many filesystems,
 so sharding helps once a single cache directory holds a large number of
 files. Subdirectories are created lazily on first use and cached in
@@ -414,9 +412,16 @@ fall back to the other layout. Toggling it against an existing cache
 directory makes previously written files unreachable (they are not
 deleted, just no longer found). Choose the layout when the cache
 directory is first created, or clear it when changing the setting.</p>
+<p>Releases that predate salted dynamic-NIXL filenames wrote salted traffic
+to salt-blind legacy paths. Those files cannot be safely attributed to a
+salt and are not used as a fallback. Clear or quarantine that cache
+directory when upgrading a deployment that used non-empty salts.</p>
 </div>
 </li>
 </ul>
+<p>For both flat and sharded layouts, a non-empty <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> is appended to
+the filename as <code class="docutils literal notranslate"><span class="pre">@&lt;cache_salt&gt;</span></code> before <code class="docutils literal notranslate"><span class="pre">.bin</span></code>. An empty salt retains the
+legacy filename.</p>
 <p><strong>可选字段（用于持久化）：</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">persist_enabled</span></code> (bool, 默认 <code class="docutils literal notranslate"><span class="pre">true</span></code>): 若为 <code class="docutils literal notranslate"><span class="pre">true</span></code>，关闭时数据文件将保留在磁盘上。若为 <code class="docutils literal notranslate"><span class="pre">false</span></code>，关闭时所有数据文件将被删除。</p></li>
