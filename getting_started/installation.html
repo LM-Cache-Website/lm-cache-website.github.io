@@ -419,6 +419,49 @@ also resolves it, since <code class="docutils literal notranslate"><span class="
 </div>
 <input id="sd-tab-item-10" name="sd-tab-set-2" type="radio"/>
 <label class="sd-tab-label" for="sd-tab-item-10">
+Moore Threads MUSA</label><div class="sd-tab-content docutils">
+<p>The MUSA wheel is built in the validated TorchMUSA/MUSA SDK
+image used by the release workflow and is published to a
+dedicated <a class="reference external" href="https://github.com/LMCache/LMCache/releases">GitHub Release</a>.
+It is not uploaded to PyPI because TorchMUSA is distributed
+by Moore Threads rather than the public PyPI index.</p>
+<p>Start a matching MUSA runtime image. The image must provide
+<code class="docutils literal notranslate"><span class="pre">torch_musa</span></code>, the MUSA SDK libraries, and (for the native
+transfer fast path) <code class="docutils literal notranslate"><span class="pre">musa_aiter</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--privileged<span class="w"> </span>--network<span class="o">=</span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-e<span class="w"> </span><span class="nv">MTHREADS_VISIBLE_DEVICES</span><span class="o">=</span>all<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--entrypoint<span class="w"> </span>bash<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>sh-harbor.mthreads.com/ai-kv/kuae-lmcache-vllm-ci@sha256:75c8c1012cf49caf6dd99dbbfd33931ef100d035647083b999eaf0092d94edba
+</span><span id="line-5">
+</span><span id="line-6"><span class="nv">VERSION</span><span class="o">=</span><span class="m">0</span>.5.5<span class="w">  </span><span class="c1"># replace with target release</span>
+</span><span id="line-7">pip<span class="w"> </span>install<span class="w"> </span><span class="nv">lmcache</span><span class="o">==</span><span class="si">${</span><span class="nv">VERSION</span><span class="si">}</span>+musa<span class="w"> </span>--no-deps<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--no-index<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--find-links<span class="w"> </span>https://github.com/LMCache/LMCache/releases/expanded_assets/v<span class="si">${</span><span class="nv">VERSION</span><span class="si">}</span>-musa
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">--no-deps</span></code> is required: it preserves the image’s
+vendor-pinned TorchMUSA stack instead of resolving the
+generic <code class="docutils literal notranslate"><span class="pre">torch</span></code> dependency from PyPI. <code class="docutils literal notranslate"><span class="pre">--no-index</span></code>
+prevents pip from selecting a same-version CUDA wheel.</p>
+<p>The current MUSA profile ships LMCache’s Python MUSA
+integration and common native modules. MUSA-specific
+fused kernels remain supplied by the optional
+<code class="docutils literal notranslate"><span class="pre">musa_aiter</span></code> package; build from source if your
+vendor image uses a different native extension.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The wheel carries a <code class="docutils literal notranslate"><span class="pre">+musa</span></code> PEP 440 local version,
+so <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">show</span> <span class="pre">lmcache</span></code> identifies the accelerator
+variant. A bare <code class="docutils literal notranslate"><span class="pre">lmcache==${VERSION}</span></code> also matches
+this wheel, but the explicit local version avoids
+accidentally selecting the CUDA artifact.</p>
+</div>
+</div>
+<input id="sd-tab-item-11" name="sd-tab-set-2" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-11">
 ROCm 7.2.4 / torch 2.10</label><div class="sd-tab-content docutils">
 <p>This wheel targets AMD Instinct <strong>gfx942</strong> (MI300X / MI325X) and
 <strong>gfx950</strong> (MI350X / MI355X). It is built and smoke-tested in the
@@ -463,8 +506,8 @@ Nightly</label><div class="sd-tab-content docutils">
 and published to GitHub Releases. No version pinning required — <code class="docutils literal notranslate"><span class="pre">--pre</span></code>
 picks the latest nightly automatically.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-11" name="sd-tab-set-3" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-11">
+<input checked="checked" id="sd-tab-item-12" name="sd-tab-set-3" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-12">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
 </span><span id="line-2"><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
@@ -475,8 +518,8 @@ CUDA 13.0</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-12" name="sd-tab-set-3" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-12">
+<input id="sd-tab-item-13" name="sd-tab-set-3" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-13">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
 </span><span id="line-2"><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
@@ -487,8 +530,8 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-13" name="sd-tab-set-3" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-13">
+<input id="sd-tab-item-14" name="sd-tab-set-3" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-14">
 ROCm 7.2</label><div class="sd-tab-content docutils">
 <p>Run inside an upstream vLLM ROCm container so torch and the ROCm
 runtime are already present, then install with <code class="docutils literal notranslate"><span class="pre">--no-deps</span></code>:</p>
@@ -522,8 +565,8 @@ From Source</label><div class="sd-tab-content docutils">
 <p><code class="docutils literal notranslate"><span class="pre">--no-build-isolation</span></code> ensures the kernels are compiled against the same torch
 already installed in your environment, preventing undefined symbol errors at runtime.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-14" name="sd-tab-set-4" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-14">
+<input checked="checked" id="sd-tab-item-15" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-15">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
@@ -537,8 +580,8 @@ CUDA 13.0</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-15" name="sd-tab-set-4" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-15">
+<input id="sd-tab-item-16" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-16">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
@@ -559,8 +602,8 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-16" name="sd-tab-set-4" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-16">
+<input id="sd-tab-item-17" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-17">
 ROCm</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
@@ -588,8 +631,8 @@ ROCm</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-17" name="sd-tab-set-4" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-17">
+<input id="sd-tab-item-18" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-18">
 Intel XPU</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
@@ -605,8 +648,8 @@ Intel XPU</label><div class="sd-tab-content docutils">
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-18" name="sd-tab-set-4" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-18">
+<input id="sd-tab-item-19" name="sd-tab-set-4" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-19">
 MetaX MACA</label><div class="sd-tab-content docutils">
 <p>MACA is CUDA-compatible: a MACA-enabled torch build reports
 <code class="docutils literal notranslate"><span class="pre">device.type</span> <span class="pre">==</span> <span class="pre">"cuda"</span></code>, so LMCache’s existing CUDA-compatible
@@ -663,19 +706,19 @@ toolchain (not from PyPI).</p>
 <label class="sd-tab-label" for="sd-tab-item-1">
 Docker</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-19" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-19">
+<input checked="checked" id="sd-tab-item-20" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-20">
 Stable</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-23" name="sd-tab-set-6" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-23">
+<input checked="checked" id="sd-tab-item-24" name="sd-tab-set-6" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-24">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-24" name="sd-tab-set-6" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-24">
+<input id="sd-tab-item-25" name="sd-tab-set-6" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-25">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-cu129
 </span></code></pre></div>
@@ -683,19 +726,19 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
-<input id="sd-tab-item-20" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-20">
+<input id="sd-tab-item-21" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-21">
 Nightly</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-25" name="sd-tab-set-7" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-25">
+<input checked="checked" id="sd-tab-item-26" name="sd-tab-set-7" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-26">
 CUDA 13.0</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-nightly
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-26" name="sd-tab-set-7" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-26">
+<input id="sd-tab-item-27" name="sd-tab-set-7" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-27">
 CUDA 12.9</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>lmcache/vllm-openai:latest-nightly-cu129
 </span></code></pre></div>
@@ -703,15 +746,15 @@ CUDA 12.9</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
-<input id="sd-tab-item-21" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-21">
+<input id="sd-tab-item-22" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-22">
 ROCm</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>rocm/vllm-dev:nightly_0624_rc2_0624_rc2_20250620
 </span></code></pre></div>
 </div>
 </div>
-<input id="sd-tab-item-22" name="sd-tab-set-5" type="radio"/>
-<label class="sd-tab-label" for="sd-tab-item-22">
+<input id="sd-tab-item-23" name="sd-tab-set-5" type="radio"/>
+<label class="sd-tab-label" for="sd-tab-item-23">
 Intel XPU</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>pull<span class="w"> </span>vllm/vllm-openai-xpu:v0.26.0
 </span></code></pre></div>
