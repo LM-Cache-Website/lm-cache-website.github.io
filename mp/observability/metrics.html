@@ -642,11 +642,31 @@ token-level hit rate). Only chunk-aligned tokens are counted.</p></td>
 <td><p>Total tokens found in L1 or L2 during lookup (numerator of the
 L1+L2 token-level hit rate). Counts the contiguous prefix hit only.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l1</span></code></p></td>
+<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
+<td><p>Of <code class="docutils literal notranslate"><span class="pre">lookup_hit</span></code>: tokens L1 could serve on its own under each
+object group’s attention-window rule.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l2</span></code></p></td>
+<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
+<td><p>Of <code class="docutils literal notranslate"><span class="pre">lookup_hit</span></code>: tokens L2 added beyond the L1-servable prefix.
+<code class="docutils literal notranslate"><span class="pre">l1</span> <span class="pre">+</span> <span class="pre">l2</span> <span class="pre">==</span> <span class="pre">lookup_hit</span></code> per event.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookups</span></code></p></td>
+<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
+<td><p>Completed lookups (denominator for <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_early_exit</span></code></p></td>
+<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>, <code class="docutils literal notranslate"><span class="pre">reason</span></code>)</p></td>
+<td><p>Lookups that exited before a cache probe; <code class="docutils literal notranslate"><span class="pre">reason</span></code> is one of
+<code class="docutils literal notranslate"><span class="pre">no_gpu_context</span></code>, <code class="docutils literal notranslate"><span class="pre">empty_chunk_hashes</span></code>, <code class="docutils literal notranslate"><span class="pre">no_group_layout_descs</span></code>.</p></td>
+</tr>
 </tbody>
 </table>
-<p>Both counters are driven by the same event (<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>),
+<p>All lookup counters are driven by the same event (<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>),
 so they always advance together per completed lookup. Early-exit lookups
-contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> to both, and abandoned lookups contribute to neither.</p>
+contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to all four token counters and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to
+<code class="docutils literal notranslate"><span class="pre">lookups</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>, and abandoned lookups contribute to neither.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">model_name</span></code> and <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> attributes are captured at lookup
 time from <code class="docutils literal notranslate"><span class="pre">IPCCacheServerKey</span></code> so dashboards can compute per-model or
 per-tenant hit rate. <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> can be high-cardinality (one entry
@@ -660,6 +680,14 @@ per tenant or isolation domain); drop it at scrape time with
 </span><span id="line-5"><span class="c1"># Per-model:</span>
 </span><span id="line-6"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
 </span><span id="line-7"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_requested_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="c1"># Share of hit tokens L1 could serve on its own:</span>
+</span><span id="line-10"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-11"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Fraction of lookups that early-exited, by reason:</span>
+</span><span id="line-14"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_early_exit_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">reason</span><span class="o">)</span>
+</span><span id="line-15"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookups_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
 </span></code></pre></div>
 </div>
 </section>

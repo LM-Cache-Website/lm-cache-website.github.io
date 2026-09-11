@@ -561,9 +561,31 @@ route returns 404 in push mode, as it does when metrics are disabled.</p>
 <td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
 <td><p>在查找过程中在 L1 或 L2 中找到的总令牌数（L1+L2 令牌级命中率的分子）。仅计算连续前缀命中。</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l1</span></code></p></td>
+<td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
+<td><p>Of <code class="docutils literal notranslate"><span class="pre">lookup_hit</span></code>: tokens L1 could serve on its own under each
+object group's attention-window rule.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l2</span></code></p></td>
+<td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
+<td><p>Of <code class="docutils literal notranslate"><span class="pre">lookup_hit</span></code>: tokens L2 added beyond the L1-servable prefix.
+<code class="docutils literal notranslate"><span class="pre">l1</span> <span class="pre">+</span> <span class="pre">l2</span> <span class="pre">==</span> <span class="pre">lookup_hit</span></code> per event.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookups</span></code></p></td>
+<td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
+<td><p>Completed lookups (denominator for <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_early_exit</span></code></p></td>
+<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>, <code class="docutils literal notranslate"><span class="pre">reason</span></code>)</p></td>
+<td><p>Lookups that exited before a cache probe; <code class="docutils literal notranslate"><span class="pre">reason</span></code> is one of
+<code class="docutils literal notranslate"><span class="pre">no_gpu_context</span></code>, <code class="docutils literal notranslate"><span class="pre">empty_chunk_hashes</span></code>, <code class="docutils literal notranslate"><span class="pre">no_group_layout_descs</span></code>.</p></td>
+</tr>
 </tbody>
 </table>
-<p>这两个计数器由同一事件（<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>）驱动，因此它们在每次完成查找时总是一起增加。提前退出的查找对两者都贡献 <code class="docutils literal notranslate"><span class="pre">0</span></code>，而放弃的查找则不对两者贡献。</p>
+<p>All lookup counters are driven by the same event (<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>),
+so they always advance together per completed lookup. Early-exit lookups
+contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to all four token counters and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to
+<code class="docutils literal notranslate"><span class="pre">lookups</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>, and abandoned lookups contribute to neither.</p>
 <p><code class="docutils literal notranslate"><span class="pre">model_name</span></code> 和 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 属性在查找时从 <code class="docutils literal notranslate"><span class="pre">IPCCacheServerKey</span></code> 捕获，以便仪表板计算每个模型或每个租户的命中率。<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 可能具有高基数（每个租户或隔离域一个条目）；若存储成本敏感，请在抓取时通过 <code class="docutils literal notranslate"><span class="pre">metric_relabel_configs</span></code> 丢弃它。</p>
 <p><strong>PromQL 查询命中率:</strong></p>
 <div class="highlight-promql notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Aggregate (all models, all salts):</span>
@@ -573,6 +595,14 @@ route returns 404 in push mode, as it does when metrics are disabled.</p>
 </span><span id="line-5"><span class="c1"># Per-model:</span>
 </span><span id="line-6"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
 </span><span id="line-7"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_requested_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="c1"># Share of hit tokens L1 could serve on its own:</span>
+</span><span id="line-10"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-11"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Fraction of lookups that early-exited, by reason:</span>
+</span><span id="line-14"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_early_exit_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">reason</span><span class="o">)</span>
+</span><span id="line-15"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookups_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
 </span></code></pre></div>
 </div>
 </section>
