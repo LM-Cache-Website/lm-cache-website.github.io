@@ -635,6 +635,95 @@ route returns 404 in push mode, as it does when metrics are disabled.</p>
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>On the store path the window opens before <code class="docutils literal notranslate"><span class="pre">reserve_write</span></code> runs on the
+CPU, so the store histogram also contains that CPU share. It was measured
+at well under 1% of the window, so no separate metric or correction is
+provided.</p>
+</div>
+</section>
+<section id="transfer-phase-metrics-gather-kernel-vs-dma">
+<span id="mp-obs-transfer-phase"></span><h2>Transfer Phase Metrics (gather kernel vs DMA)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-phase-metrics-gather-kernel-vs-dma" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-phase-metrics-gather-kernel-vs-dma'"><span>#</span></a></h2>
+<p>The L0↔L1 histograms above give one number per request. A GPU↔CPU
+transfer, however, is two serialized GPU phases per batch step:</p>
+<ul class="simple">
+<li><p><strong>kernel</strong> — the gather/scatter kernel moving paged KV blocks ↔ GPU
+staging buffers (occupies SMs, bounded by GPU memory bandwidth);</p></li>
+<li><p><strong>staging</strong> — the DMA copies moving GPU staging buffers ↔ pinned host
+memory (occupies copy engines, bounded by PCIe).</p></li>
+</ul>
+<p>The native plan executor brackets each phase of each batch step with a
+pair of CUDA events on the transfer stream (no GPU-side synchronization);
+when a transfer ends the completed pairs are popped onto the event bus and
+<code class="docutils literal notranslate"><span class="pre">TransferPhaseMetricsSubscriber</span></code> turns them into the metrics below. Recording
+is on whenever metrics or tracing consume the samples and costs nothing
+otherwise (<code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code> without <code class="docutils literal notranslate"><span class="pre">--enable-tracing</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">--disable-observability</span></code>).</p>
+<p>There is deliberately <strong>no kernel throughput histogram</strong>: a kernel
+section's elapsed is mostly the wait for the co-resident inference
+engine's SMs, so <code class="docutils literal notranslate"><span class="pre">bytes</span> <span class="pre">/</span> <span class="pre">elapsed</span></code> there reports contention, not a
+transfer rate (full rationale: <code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/METRICS.md</span></code>).</p>
+<p>All three metrics carry <code class="docutils literal notranslate"><span class="pre">device_index</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">"0"</span></code>) and <code class="docutils literal notranslate"><span class="pre">direction</span></code>
+(<code class="docutils literal notranslate"><span class="pre">"d2h"</span></code> for stores, <code class="docutils literal notranslate"><span class="pre">"h2d"</span></code> for retrieves); the two counters
+additionally carry <code class="docutils literal notranslate"><span class="pre">phase</span></code> (<code class="docutils literal notranslate"><span class="pre">"kernel"</span></code> / <code class="docutils literal notranslate"><span class="pre">"staging"</span></code>).</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>指标</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.transfer_staging_throughput</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>DMA staging throughput in GB/s, one sample per batch step.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.transfer_phase_bytes</span></code></p></td>
+<td><p>Counter (attr: <code class="docutils literal notranslate"><span class="pre">phase</span></code>)</p></td>
+<td><p>Cumulative bytes moved per phase. Kernel-phase bytes are derived
+from the launches, so blocks skipped via <code class="docutils literal notranslate"><span class="pre">skip_prefix_n_blocks</span></code>
+(sliding windows, partial prefix hits) are not counted as moved;
+the staging phase counts the whole staged payload. The difference
+between the two is the payload that crossed PCIe without being
+consumed by the kernel.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.transfer_phase_elapsed</span></code></p></td>
+<td><p>Counter (attr: <code class="docutils literal notranslate"><span class="pre">phase</span></code>)</p></td>
+<td><p>Cumulative stream interval per phase: for <code class="docutils literal notranslate"><span class="pre">staging</span></code> the DMA
+itself, for <code class="docutils literal notranslate"><span class="pre">kernel</span></code> mostly the wait for the engine's SMs.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What it answers:</strong> is the DMA side (PCIe / pinned memory) healthy, and
+where does a slow transfer's time go? Use the counters for aggregate
+answers, because a mean over per-step histogram samples is not
+byte-weighted:</p>
+<div class="highlight-promql notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Byte-weighted aggregate DMA rate (bytes/s) -- staging only; the same</span>
+</span><span id="line-2"><span class="c1"># ratio for phase="kernel" reports SM contention, not a transfer rate:</span>
+</span><span id="line-3"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_transfer_phase_bytes_total</span><span class="p">{</span><span class="nl">phase</span><span class="o">=</span><span class="p">"</span><span class="s">staging</span><span class="p">"}[</span><span class="s">1m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-4"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_transfer_phase_elapsed_seconds_total</span><span class="p">{</span><span class="nl">phase</span><span class="o">=</span><span class="p">"</span><span class="s">staging</span><span class="p">"}[</span><span class="s">1m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Time share of each phase (stream seconds per wall-clock second):</span>
+</span><span id="line-7"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_transfer_phase_elapsed_seconds_total</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="c1"># Per-step p95 of the staging phase:</span>
+</span><span id="line-10"><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.95</span><span class="p">,</span>
+</span><span id="line-11"><span class="w">  </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">le</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_transfer_staging_throughput_GB_per_second_bucket</span><span class="p">[</span><span class="s">1m</span><span class="p">]</span><span class="o">)))</span>
+</span></code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>A phase's elapsed time is stream-clocked from section start to end, so
+it includes any stream idle while the CPU enqueues that section's work.
+Samples are popped when the transfer's <code class="docutils literal notranslate"><span class="pre">MP_*_END</span></code> event is dispatched,
+i.e. shortly after the copy has actually finished on the GPU.</p>
+</div>
 </section>
 <section id="mp-transfer-counters-in-flight-gpu-copies">
 <h2>MP Transfer Counters (in-flight GPU copies)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mp-transfer-counters-in-flight-gpu-copies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mp-transfer-counters-in-flight-gpu-copies'"><span>#</span></a></h2>
@@ -923,6 +1012,7 @@ is unaffected.</p>
 <li><a :data-current="activeSection === '#lookup-hit-rate-metrics'" class="reference internal" href="#lookup-hit-rate-metrics">查找命中率指标</a></li>
 <li><a :data-current="activeSection === '#l0-gpu-block-lifecycle-histograms'" class="reference internal" href="#l0-gpu-block-lifecycle-histograms">L0 (GPU) 块生命周期直方图</a></li>
 <li><a :data-current="activeSection === '#l0-l1-throughput-histograms'" class="reference internal" href="#l0-l1-throughput-histograms">L0 ↔ L1 吞吐量直方图</a></li>
+<li><a :data-current="activeSection === '#transfer-phase-metrics-gather-kernel-vs-dma'" class="reference internal" href="#transfer-phase-metrics-gather-kernel-vs-dma">Transfer Phase Metrics (gather kernel vs DMA)</a></li>
 <li><a :data-current="activeSection === '#mp-transfer-counters-in-flight-gpu-copies'" class="reference internal" href="#mp-transfer-counters-in-flight-gpu-copies">MP Transfer Counters (in-flight GPU copies)</a></li>
 <li><a :data-current="activeSection === '#l1-l2-throughput-histograms'" class="reference internal" href="#l1-l2-throughput-histograms">L1 ↔ L2 吞吐量直方图</a></li>
 <li><a :data-current="activeSection === '#engine-counters'" class="reference internal" href="#engine-counters">引擎计数器</a></li>

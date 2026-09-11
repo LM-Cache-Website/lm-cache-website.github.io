@@ -461,6 +461,30 @@ including a genuine cold miss.  <code class="docutils literal notranslate"><span
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">Header</span></code> 包含魔数前缀（<code class="docutils literal notranslate"><span class="pre">LMCT</span></code>）、格式版本、追踪级别（当前为 <code class="docutils literal notranslate"><span class="pre">storage</span></code>）、追踪 schema 版本、开始时间戳以及 StorageManagerConfig 摘要。每个 <code class="docutils literal notranslate"><span class="pre">Record</span></code> 包含相对时间戳、墙钟时间戳、完全限定调用位置（<code class="docutils literal notranslate"><span class="pre">qualname</span></code>）和参数字典。</p>
 <p>该格式有意设计为可扩展：未来的追踪 <strong>级别</strong>（<code class="docutils literal notranslate"><span class="pre">mq</span></code>、<code class="docutils literal notranslate"><span class="pre">gpu</span></code>）将共享此布局，并通过 <code class="docutils literal notranslate"><span class="pre">level</span></code> 头字段加以区分。新增捕获的操作只需添加新的 <code class="docutils literal notranslate"><span class="pre">qualname</span></code> 字符串，无需升级格式版本。</p>
+</section>
+<section id="transfer-phase-sub-spans">
+<h3>Transfer phase sub-spans<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-phase-sub-spans" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-phase-sub-spans'"><span>#</span></a></h3>
+<p>With tracing enabled, each <code class="docutils literal notranslate"><span class="pre">mp.store</span></code> / <code class="docutils literal notranslate"><span class="pre">mp.retrieve</span></code> gets two child
+spans, one per GPU transfer phase:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">transfer.kernel_interval</span></code> -- gather/scatter kernel sections (paged KV
+blocks &lt;-&gt; GPU staging buffers). The name says <em>interval</em> because the
+kernel queues behind the co-resident inference engine's SM work: most of
+this bar is that wait, not the copy itself. Do not read it as a rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">transfer.staging</span></code> -- DMA copies (GPU staging buffers &lt;-&gt; pinned host
+memory) on the copy engine, which does not contend for SMs.</p></li>
+</ul>
+<p>The two bars are a <strong>stacked breakdown, not a timeline</strong>: the phases
+alternate every batch step on one stream, so their real intervals
+interleave. The phase that ran first starts at the transfer's real start
+and lasts its total elapsed; the other follows for its own. Their sum is
+the transfer's stream time; the gap to the parent span is idle time.</p>
+<p>Attributes: <code class="docutils literal notranslate"><span class="pre">nbytes</span></code>, <code class="docutils literal notranslate"><span class="pre">elapsed_seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">num_steps</span></code>, the real
+<code class="docutils literal notranslate"><span class="pre">first_start_s</span></code> / <code class="docutils literal notranslate"><span class="pre">last_end_s</span></code>, <code class="docutils literal notranslate"><span class="pre">device_index</span></code>, <code class="docutils literal notranslate"><span class="pre">session_id</span></code>, and
+-- on <code class="docutils literal notranslate"><span class="pre">transfer.staging</span></code> only -- <code class="docutils literal notranslate"><span class="pre">throughput_GB_per_second</span></code>
+(<code class="docutils literal notranslate"><span class="pre">nbytes</span> <span class="pre">/</span> <span class="pre">elapsed_seconds</span></code>; see above for why the kernel span carries
+none). Timings are CUDA-event based, anchored to the same wall clock as
+the other MP events; the children are exported shortly after their parent.</p>
 <p>有关完整的设计原理，请参见</p>
 
 </section>
@@ -492,6 +516,7 @@ including a genuine cold miss.  <code class="docutils literal notranslate"><span
 <li><a :data-current="activeSection === '#replay'" class="reference internal" href="#replay">重放</a></li>
 <li><a :data-current="activeSection === '#what-is-captured-and-what-is-not'" class="reference internal" href="#what-is-captured-and-what-is-not">捕获了什么（以及未捕获的内容）</a></li>
 <li><a :data-current="activeSection === '#file-format'" class="reference internal" href="#file-format">文件格式</a></li>
+<li><a :data-current="activeSection === '#transfer-phase-sub-spans'" class="reference internal" href="#transfer-phase-sub-spans">Transfer phase sub-spans</a></li>
 </ul>
 </li>
 </ul>
