@@ -338,8 +338,8 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">host</span></code> -- 允许 vLLM 容器访问本地主机上的 LMCache。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> -- Required for CUDA IPC shared memory transfers between
-containers (see <em>Isolated IPC</em> below for the plan to remove this
-requirement).</p></li>
+containers in the default (legacy) mode; see <em>Isolated IPC</em> below for
+running without it.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--runtime</span> <span class="pre">nvidia</span> <span class="pre">--gpus</span> <span class="pre">all</span></code> -- 通过 NVIDIA 容器运行时访问 GPU。</p></li>
 </ul>
 <p><strong>HTTP 服务器变体：</strong></p>
@@ -394,7 +394,9 @@ after <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mq
 <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> dependency left: <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> (Docker) and
 <code class="docutils literal notranslate"><span class="pre">hostIPC:</span> <span class="pre">true</span></code> / the shared <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> mount (Kubernetes) can be
 dropped. The two containers only need access to the same GPUs and
-distinct PID <em>values</em> (any regular container setup provides both).</p>
+distinct PID <em>values</em> (any regular container setup provides both).
+The Kubernetes <a class="reference internal" href="operator.html"><span class="doc">Kubernetes Operator</span></a> wires isolated IPC by default on NVIDIA
+(<code class="docutils literal notranslate"><span class="pre">spec.isolatedIPC</span></code>).</p>
 </div>
 <p>Current limitations:</p>
 <ul class="simple">
@@ -481,8 +483,8 @@ CUDA requirement files).</p></li>
 <ul class="simple">
 <li><p><strong>DaemonSet 使用 ``hostNetwork: true``</strong> 以便 vLLM pod 通过 <code class="docutils literal notranslate"><span class="pre">status.hostIP</span></code> 发现 LMCache 服务器。</p></li>
 <li><p><strong>Both containers mount ``/dev/shm``</strong> from the host to enable CUDA IPC
-memory sharing (see <em>Isolated IPC</em> above for the plan to remove this
-requirement).</p></li>
+memory sharing in the default (legacy) mode; see <em>Isolated IPC</em> above for
+running without it.</p></li>
 <li><p><strong>DaemonSet 不申请 GPU 资源</strong> -- 这样 GPU 可以完全专属分配给 vLLM pod。NVIDIA 容器运行时会自动为基于 IPC 的内存传输提供 GPU 访问权限。</p></li>
 <li><p><strong>多个 vLLM pod</strong> 在同一节点上会自动连接到同一个 LMCache DaemonSet 实例。</p></li>
 </ul>
