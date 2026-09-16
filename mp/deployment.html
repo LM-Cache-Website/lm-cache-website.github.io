@@ -427,6 +427,11 @@ server per node (DaemonSet) shared by multiple vLLM pods (Deployment).</p>
 <li><p>At least 4 GPUs per node</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">kubectl</span></code> configured to access your cluster</p></li>
 </ul>
+<p>Classic GPU Operator installs register RuntimeClass <code class="docutils literal notranslate"><span class="pre">nvidia</span></code>. CDI+NRI
+installs often have no RuntimeClass objects. On those clusters omit
+<code class="docutils literal notranslate"><span class="pre">runtimeClassName</span></code> on the LMCache DaemonSet and request a management CDI
+device (see <em>GPU Operator NRI/CDI</em> below). The operator path is
+<a class="reference internal" href="operator.html#mp-operator-nri-cdi"><span class="std std-ref">GPU Operator NRI/CDI</span></a>.</p>
 </section>
 <section id="step-by-step">
 <h3><a class="toc-backref" href="#id5" role="doc-backlink">Step-by-Step</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-by-step" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-by-step'"><span>#</span></a></h3>
@@ -492,17 +497,43 @@ server via <code class="docutils literal notranslate"><span class="pre">status.h
 memory sharing in the default (legacy) mode; see <em>Isolated IPC</em> above for
 running without it.</p></li>
 <li><p><strong>GPUs are NOT requested in the DaemonSet</strong> – this allows GPUs to remain
-exclusively allocated to vLLM pods.  The NVIDIA container runtime
-automatically provides GPU access for IPC-based memory transfers.</p></li>
+exclusively allocated to vLLM pods. On classic GPU Operator installs the
+NVIDIA container runtime (RuntimeClass <code class="docutils literal notranslate"><span class="pre">nvidia</span></code>) provides GPU access
+for IPC-based memory transfers. On CDI+NRI installs there is no
+<code class="docutils literal notranslate"><span class="pre">nvidia</span></code> RuntimeClass; omit it and request a management CDI device
+instead (see below).</p></li>
 <li><p><strong>Multiple vLLM pods</strong> on the same node automatically connect to the same
 LMCache DaemonSet instance.</p></li>
 </ul>
+<section id="gpu-operator-nri-cdi">
+<h4>GPU Operator NRI/CDI<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gpu-operator-nri-cdi"><span>#</span></a></h4>
+<p>If <code class="docutils literal notranslate"><span class="pre">kubectl</span> <span class="pre">get</span> <span class="pre">runtimeclass</span></code> is empty, do not set <code class="docutils literal notranslate"><span class="pre">runtimeClassName</span></code>
+on the DaemonSet. Request the management CDI device on the pod (the
+container name must match the annotation key):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">nvidia.cdi.k8s.io/container.lmcache-server</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">management.nvidia.com/gpu=all</span>
+</span></code></pre></div>
+</div>
+<p>If the DaemonSet namespace is not the GPU Operator install namespace,
+NVIDIA Container Toolkit <strong>≥ v1.20.0</strong> takes extra namespaces from
+<code class="docutils literal notranslate"><span class="pre">NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES</span></code> (Helm <code class="docutils literal notranslate"><span class="pre">toolkit.env</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">ClusterPolicy</span></code> <code class="docutils literal notranslate"><span class="pre">spec.toolkit.env</span></code>).
+(<a class="reference external" href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/cdi.html">NVIDIA: Requesting a Management CDI Device</a>)
+Below v1.20.0 that env is not available, so the DaemonSet can see GPUs
+only in the toolkit install namespace (typically <code class="docutils literal notranslate"><span class="pre">gpu-operator</span></code>).</p>
+<p>For reference, toolkit v1.20.0 became the GPU Operator Helm default in
+v26.7.0. The default allowed namespace is the toolkit install namespace;
+from 1.20, additional namespaces can be listed in
+<code class="docutils literal notranslate"><span class="pre">NRI_MANAGEMENT_CDI_DEVICE_NAMESPACES</span></code>, and the toolkit namespace remains
+allowed.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>LMCache pods on nodes without GPUs will crash with CUDA initialization
 errors.  This is expected – LMCache only needs to run on GPU nodes where
 vLLM pods are scheduled.</p>
 </div>
+</section>
 </section>
 <section id="health-checking-http-server">
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">Health Checking (HTTP Server)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#health-checking-http-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#health-checking-http-server'"><span>#</span></a></h3>
@@ -644,7 +675,10 @@ helps with monitoring and debugging.</p></td>
 <li><a :data-current="activeSection === '#kubernetes'" class="reference internal" href="#kubernetes">Kubernetes</a><ul>
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li><a :data-current="activeSection === '#step-by-step'" class="reference internal" href="#step-by-step">Step-by-Step</a></li>
-<li><a :data-current="activeSection === '#architecture-notes'" class="reference internal" href="#architecture-notes">Architecture Notes</a></li>
+<li><a :data-current="activeSection === '#architecture-notes'" class="reference internal" href="#architecture-notes">Architecture Notes</a><ul>
+<li><a :data-current="activeSection === '#gpu-operator-nri-cdi'" class="reference internal" href="#gpu-operator-nri-cdi">GPU Operator NRI/CDI</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#health-checking-http-server'" class="reference internal" href="#health-checking-http-server">Health Checking (HTTP Server)</a></li>
 <li><a :data-current="activeSection === '#monitoring-integration'" class="reference internal" href="#monitoring-integration">Monitoring Integration</a></li>
 <li><a :data-current="activeSection === '#cleanup'" class="reference internal" href="#cleanup">Cleanup</a></li>
