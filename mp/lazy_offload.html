@@ -295,17 +295,28 @@
 <section id="lazy-kv-cache-offload">
 <h1>Lazy KV Cache Offload<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lazy-kv-cache-offload"><span>#</span></a></h1>
 <p>Lazy offload lets the vLLM <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> defer GPU-to-LMCache store
-operations and submit finished requests in FIFO batches. It moves store work
-out of the normal per-step path, which can improve serving throughput when
-immediate cache availability is less important than reducing per-request
-offload overhead.</p>
+operations instead of submitting them on the step that computed the KV. It
+moves store work out of the normal per-step path, which can improve serving
+throughput when immediate cache availability is less important than reducing
+per-request offload overhead.</p>
+<p>Two drain policies decide when a buffered store is submitted.
+<code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> is the default: it releases a store when the GPU blocks
+holding its data approach vLLM’s eviction head, so KV that is about to be
+lost is offloaded and KV that stays resident on the GPU is not. <code class="docutils literal notranslate"><span class="pre">FIFO</span></code>, the
+count-triggered policy described in the rest of this page, remains available
+by setting <code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy=FIFO</span></code>. The eviction-aware knobs
+are listed in <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a>.</p>
+<p>Lazy offload requires vLLM prefix caching (<code class="docutils literal notranslate"><span class="pre">enable_prefix_caching=True</span></code>):
+eviction detection reads block hashes, which only exist while prefix caching
+maintains them.</p>
 <p>This feature is disabled by default and is available only with vLLM and
 <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>. The LMCache server needs no additional flags.</p>
 <section id="enable-lazy-offload">
 <h2>Enable Lazy Offload<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#enable-lazy-offload" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#enable-lazy-offload'"><span>#</span></a></h2>
-<p>Pass the lazy-offload options in vLLM’s <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>. For
-example, the following configuration starts offloading after 20 requests have
-finished and selects up to 10 requests per FIFO batch:</p>
+<p>Pass the lazy-offload options in vLLM’s <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>. The
+example below selects the FIFO policy explicitly, starting offload
+after 20 requests have finished and selecting up to 10 requests per batch;
+omit <code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code> to get the eviction-aware default:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"localhost","lmcache.mp.port":5555,"lmcache.mp.lazy_offload":true,"lmcache.mp.lazy_offload_policy":"FIFO","lmcache.mp.lazy_offload_threshold":20,"lmcache.mp.lazy_offload_select_count":10}}'</span>
@@ -330,9 +341,10 @@ finished and selects up to 10 requests per FIFO batch:</p>
 <td><p>Enable deferred, batched store submission.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code></p></td>
-<td><p>Select finished requests in insertion order. <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> is currently the
-only supported policy.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code></p></td>
+<td><p>Drain policy. <code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> releases a store when its GPU blocks
+near the eviction head; <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> selects finished requests in
+insertion order once the threshold below is met.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>

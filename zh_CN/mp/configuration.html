@@ -1076,27 +1076,6 @@ allowing L2-to-L1 KV staging to overlap with scheduler queue wait.
 Resumable requests are skipped because their token IDs may be incomplete
 at enqueue time.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
-<td><p>Defer store operations and submit finished requests in FIFO batches.
-Available only with vLLM and <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>. See
-<a class="reference internal" href="lazy_offload.html"><span class="doc">Lazy KV Cache Offload</span></a> for behavior, limitations, and tuning guidance.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code></p></td>
-<td><p>Policy used to select finished pending requests. <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> is currently
-the only supported value. Used only when lazy offload is enabled.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
-<td><p>Number of finished pending requests required before a lazy-offload
-batch becomes eligible for submission.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
-<td><p>Maximum number of finished requests selected each time the
-lazy-offload threshold is met.</p></td>
-</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
 <td><p>工作进程与服务器传输上下文的路由模式。可以是 <code class="docutils literal notranslate"><span class="pre">auto``（CUDA</span> <span class="pre">-&gt;</span> <span class="pre">lmcache_driven，其他</span> <span class="pre">-&gt;</span> <span class="pre">engine_driven）、``lmcache_driven``（强制使用</span> <span class="pre">IPC</span> <span class="pre">/</span> <span class="pre">SHM</span> <span class="pre">零拷贝句柄路径</span> <span class="pre">—</span> <span class="pre">LMCache</span> <span class="pre">服务器通过设备句柄拉取数据）或</span> <span class="pre">``engine_driven``（强制使用工作进程端的收集/分散拷贝路径）。当设置时，会覆盖</span> <span class="pre">``LMCACHE_MP_TRANSFER_MODE</span></code> 环境变量。</p></td>
@@ -1123,6 +1102,50 @@ device, e.g. <code class="docutils literal notranslate"><span class="pre">NVIDIA
 otherwise). Composes with <code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code> for
 fabric-exportable pools; a POSIX-fd-only pool under isolated IPC
 is rejected at registration.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Buffer stores on the scheduler and submit them according to the
+selected lazy-offload policy. Requires vLLM prefix caching. See
+<a class="reference internal" href="lazy_offload.html"><span class="doc">Lazy KV Cache Offload</span></a> for behavior, limitations, and tuning guidance.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code></p></td>
+<td><p>Lazy drain policy. <code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> drains blocks near the GPU free
+queue's eviction head. Set <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> explicitly to keep the
+count-triggered behavior.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_horizon_steps</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2.5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: estimated scheduler steps of block
+consumption treated as imminent eviction. Must be greater than zero.
+Larger values store earlier and reduce eviction losses, but may store
+GPU-resident hot content and increase lower-tier eviction pressure.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_drain_per_step</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">64</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: maximum store operations emitted per
+scheduler step. A value below the concurrent prefill admission rate
+can lose buffered operations to eviction.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_deferral_seconds</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: how long a buffered operation may wait before
+it is emitted regardless of eviction pressure. Not a hard bound: no
+drain runs on a step that schedules no tokens, a request whose store
+is already in flight is skipped, and due operations that do not fit
+in <code class="docutils literal notranslate"><span class="pre">max_drain_per_step</span></code> wait for a later step. Zero leaves emission
+entirely to the danger window. Set it below the reuse interval the
+workload has to beat.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: number of finished buffered requests that triggers a
+drain.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: maximum finished requests emitted by one drain.</p></td>
 </tr>
 </tbody>
 </table>
