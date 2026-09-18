@@ -1077,11 +1077,39 @@ allowing L2-to-L1 KV staging to overlap with scheduler queue wait.
 Resumable requests are skipped because their token IDs may be incomplete
 at enqueue time.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Whether vLLM worker 0 should start a local <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> process
+before workers connect to it. Other local workers wait for the server to
+become reachable. Only <code class="docutils literal notranslate"><span class="pre">localhost</span></code> and <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> are supported.
+IPv6 endpoints, including <code class="docutils literal notranslate"><span class="pre">::1</span></code>, raise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> before startup
+because the MP ZMQ transport does not enable IPv6 sockets.
+Auto-start supports exactly one server endpoint; configuring
+multiple <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> during
+connector initialization.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.wait_timeout</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">90.0</span></code></p></td>
+<td><p>Timeout (seconds) to wait for the auto-started server to respond to
+ZMQ <code class="docutils literal notranslate"><span class="pre">PING</span></code> requests. Must be positive and finite.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.server_args</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
+<td><p>Extra command-line arguments passed to the auto-started MP HTTP server
+process. Required server settings such as <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code> must be supplied here. For example, pass
+<code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span> <span class="pre">20</span> <span class="pre">--eviction-policy</span> <span class="pre">LRU</span></code>. Endpoint flags such as
+<code class="docutils literal notranslate"><span class="pre">--host</span></code>, <code class="docutils literal notranslate"><span class="pre">--port</span></code>, and <code class="docutils literal notranslate"><span class="pre">--http-host</span></code> are rejected because the
+auto-started ZMQ and HTTP listeners are bound to the local connector
+endpoint. If multiple auto-started MP servers run on the same host, pass
+distinct <code class="docutils literal notranslate"><span class="pre">--http-port</span></code> values here to avoid HTTP frontend port
+conflicts.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
 <td><p>工作进程与服务器传输上下文的路由模式。可以是 <code class="docutils literal notranslate"><span class="pre">auto``（CUDA</span> <span class="pre">-&gt;</span> <span class="pre">lmcache_driven，其他</span> <span class="pre">-&gt;</span> <span class="pre">engine_driven）、``lmcache_driven``（强制使用</span> <span class="pre">IPC</span> <span class="pre">/</span> <span class="pre">SHM</span> <span class="pre">零拷贝句柄路径</span> <span class="pre">—</span> <span class="pre">LMCache</span> <span class="pre">服务器通过设备句柄拉取数据）或</span> <span class="pre">``engine_driven``（强制使用工作进程端的收集/分散拷贝路径）。当设置时，会覆盖</span> <span class="pre">``LMCACHE_MP_TRANSFER_MODE</span></code> 环境变量。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Assume the vLLM workers and the LMCache server run in containers
 that share no host IPC namespace (<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>) and no common
@@ -1092,7 +1120,7 @@ handles. Set it together with the
 server's <code class="docutils literal notranslate"><span class="pre">--isolated-ipc</span></code> flag -- a mismatch fails at event
 import on whichever side receives the foreign handle.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.use_vmm_api</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.use_vmm_api</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Set when the engine allocates its KV cache through the CUDA VMM
 API (vLLM's <code class="docutils literal notranslate"><span class="pre">--enable-cumem-allocator</span></code>): such memory has no
@@ -1104,32 +1132,32 @@ otherwise). Composes with <code class="docutils literal notranslate"><span class
 fabric-exportable pools; a POSIX-fd-only pool under isolated IPC
 is rejected at registration.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Buffer stores on the scheduler and submit them according to the
 selected lazy-offload policy. Requires vLLM prefix caching. See
 <a class="reference internal" href="lazy_offload.html"><span class="doc">Lazy KV Cache Offload</span></a> for behavior, limitations, and tuning guidance.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code></p></td>
 <td><p>Lazy drain policy. <code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> drains blocks near the GPU free
 queue's eviction head. Set <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> explicitly to keep the
 count-triggered behavior.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_horizon_steps</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_horizon_steps</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">2.5</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: estimated scheduler steps of block
 consumption treated as imminent eviction. Must be greater than zero.
 Larger values store earlier and reduce eviction losses, but may store
 GPU-resident hot content and increase lower-tier eviction pressure.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_drain_per_step</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_drain_per_step</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">64</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: maximum store operations emitted per
 scheduler step. A value below the concurrent prefill admission rate
 can lose buffered operations to eviction.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_deferral_seconds</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_deferral_seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: how long a buffered operation may wait before
 it is emitted regardless of eviction pressure. Not a hard bound: no
@@ -1139,17 +1167,56 @@ in <code class="docutils literal notranslate"><span class="pre">max_drain_per_st
 entirely to the danger window. Set it below the reuse interval the
 workload has to beat.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: number of finished buffered requests that triggers a
 drain.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: maximum finished requests emitted by one drain.</p></td>
 </tr>
 </tbody>
 </table>
+<p>To let vLLM worker 0 start a local MP server automatically:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.autostart": true, "lmcache.mp.autostart.server_args": "--l1-size-gb 20 --eviction-policy LRU"}}'</span>
+</span></code></pre></div>
+</div>
+<p>Auto-start is a convenience for single-node, single-server deployments. The MP
+server is a child of vLLM worker 0, not an independently managed service.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>LMCache's adapter shutdown does not explicitly terminate this child, but
+vLLM's process-tree cleanup may terminate it. Its lifetime depends on the
+vLLM version and exit path; neither survival nor automatic cleanup is
+guaranteed. Stop any remaining auto-started server when it is no longer
+needed.</p>
+</div>
+<p>For servers that must survive vLLM restarts or be shared across vLLM instances,
+and for multi-node TP/PP deployments, start and manage the server separately.
+For example, run the server in a separate terminal or service manager and leave
+auto-start disabled in vLLM:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Terminal 1: independently managed MP server</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--http-host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
+</span><span id="line-4">
+</span><span id="line-5"><span class="c1"># Terminal 2: connect-only vLLM instance</span>
+</span><span id="line-6">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-8"><span class="s1">        "kv_connector": "LMCacheMPConnector",</span>
+</span><span id="line-9"><span class="s1">        "kv_connector_module_path":</span>
+</span><span id="line-10"><span class="s1">            "lmcache.integration.vllm.lmcache_mp_connector",</span>
+</span><span id="line-11"><span class="s1">        "kv_role": "kv_both",</span>
+</span><span id="line-12"><span class="s1">        "kv_connector_extra_config": {</span>
+</span><span id="line-13"><span class="s1">            "lmcache.mp.host": "127.0.0.1",</span>
+</span><span id="line-14"><span class="s1">            "lmcache.mp.port": 5555,</span>
+</span><span id="line-15"><span class="s1">            "lmcache.mp.autostart": false</span>
+</span><span id="line-16"><span class="s1">        }</span>
+</span><span id="line-17"><span class="s1">    }'</span>
+</span></code></pre></div>
+</div>
 </section>
 </section>
 <section id="environment-variables">
