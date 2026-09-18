@@ -147,6 +147,7 @@
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">Secondary KV Storage<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="supported_storages.html">Supported Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l3"><a class="reference internal" href="nixl.html">NIXL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="nixl_native.html">Native NIXL</a></li>
 <li class="toctree-l3 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="file_and_block.html">File &amp; Block<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l4"><a class="reference internal" href="fs.html">FileSystem</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">FS (native)</a></li>
@@ -326,16 +327,15 @@ for client-side usage tracking.  Default <code class="docutils literal notransla
 <p><code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> has two independent alignment requirements:</p>
 <ol class="arabic simple">
 <li><p><strong>Length alignment.</strong>  The transfer length must be a multiple of
-the filesystem’s block size.  The connector queries the disk block
-size at construction time and, on each operation, checks
-<code class="docutils literal notranslate"><span class="pre">len</span> <span class="pre">%</span> <span class="pre">disk_block_size</span></code>.  If the length is <strong>not</strong> a multiple,
-the connector silently falls back to a buffered open (no
-<code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>) for that operation – correctness is preserved but
-you do not get true direct I/O.  To ensure <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> is
-actually used, choose <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> so that the resulting
-per-chunk byte size is a multiple of the FS block size.  GPFS and
-similar parallel filesystems often use large blocks (e.g. several
-MiB).</p></li>
+the filesystem’s block size.  With <code class="docutils literal notranslate"><span class="pre">use_odirect:</span> <span class="pre">true</span></code> the adapter
+automatically transfers each object’s full alignment-padded L1 slot
+(logical bytes plus padding up to <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code>), so this
+requirement holds even when KV chunk byte sizes are not multiples of
+the block size; on-disk files are correspondingly padded, and loads
+must run with the same <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> and <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code>
+settings as the stores.  Raise <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> to match the
+block size on filesystems with large blocks (GPFS and similar
+parallel filesystems often use several MiB).</p></li>
 <li><p><strong>Memory-buffer alignment.</strong>  The I/O buffer pointer itself must
 also be aligned (typically to 4096 bytes on local disks, or to the
 FS block size on parallel filesystems).  This is controlled by

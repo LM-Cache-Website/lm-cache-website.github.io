@@ -147,6 +147,7 @@
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l3"><a class="reference internal" href="nixl.html">NIXL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="nixl_native.html">Native NIXL</a></li>
 <li class="toctree-l3 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l4"><a class="reference internal" href="fs.html">文件系统</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">FS（原生）</a></li>
@@ -315,7 +316,16 @@ for reads that use <code class="docutils literal notranslate"><span class="pre">
 <p class="admonition-title">重要</p>
 <p><code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> 有两个独立的对齐要求：</p>
 <ol class="arabic simple">
-<li><p><strong>长度对齐。</strong>  传输长度必须是文件系统块大小的倍数。连接器在构造时查询磁盘块大小，并在每次操作时检查 <code class="docutils literal notranslate"><span class="pre">len</span> <span class="pre">%</span> <span class="pre">disk_block_size</span></code>。如果长度 <strong>不是</strong> 倍数，连接器会默默回退到缓冲打开（不使用 <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>）进行该操作——正确性得以保留，但您无法获得真正的直接 I/O。为了确保实际使用 <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code>，选择 <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> 使得每块的字节大小是文件系统块大小的倍数。GPFS 和类似的并行文件系统通常使用较大的块（例如几个 MiB）。</p></li>
+<li><p><strong>Length alignment.</strong>  The transfer length must be a multiple of
+the filesystem's block size.  With <code class="docutils literal notranslate"><span class="pre">use_odirect:</span> <span class="pre">true</span></code> the adapter
+automatically transfers each object's full alignment-padded L1 slot
+(logical bytes plus padding up to <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code>), so this
+requirement holds even when KV chunk byte sizes are not multiples of
+the block size; on-disk files are correspondingly padded, and loads
+must run with the same <code class="docutils literal notranslate"><span class="pre">use_odirect</span></code> and <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code>
+settings as the stores.  Raise <code class="docutils literal notranslate"><span class="pre">--l1-align-bytes</span></code> to match the
+block size on filesystems with large blocks (GPFS and similar
+parallel filesystems often use several MiB).</p></li>
 <li><p><strong>Memory-buffer alignment.</strong>  The I/O buffer pointer itself must
 also be aligned (typically to 4096 bytes on local disks, or to the
 FS block size on parallel filesystems).  This is controlled by

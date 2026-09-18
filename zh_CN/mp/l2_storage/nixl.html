@@ -21,7 +21,7 @@
 <link href="../../_static/lmcache-logo.png" rel="icon"/>
 <link href="../../search.html" rel="search" title="搜索"/>
 <link href="../../genindex.html" rel="index" title="索引"/>
-<link href="file_and_block.html" rel="next" title="文件与块"/>
+<link href="nixl_native.html" rel="next" title="Native NIXL"/>
 <link href="supported_storages.html" rel="prev" title="支持的后端"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
@@ -147,6 +147,7 @@
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="index.html">二级 KV 存储<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="supported_storages.html">支持的后端<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">NIXL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="nixl_native.html">Native NIXL</a></li>
 <li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="file_and_block.html">文件与块<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
 <li class="toctree-l4"><a class="reference internal" href="fs.html">文件系统</a></li>
 <li class="toctree-l4"><a class="reference internal" href="fs_native.html">FS（原生）</a></li>
@@ -295,10 +296,15 @@
 <div id="content" role="main">
 <section id="nixl">
 <h1>NIXL<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#nixl"><span>#</span></a></h1>
-<p>基于 NIXL 的持久存储 — 主要的生产 L2 后端，使用 NIXL（NVIDIA 互连库）进行高性能存储 I/O。两种适配器类型共享此后端：</p>
+<p>NIXL-based persistent storage — the primary production L2 backend, using NIXL
+(NVIDIA Interconnect Library) for high-performance storage I/O. Three adapter
+types share this backend:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_store</span></code> — 在初始化时预分配的固定存储描述符池。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nixl_store_dynamic</span></code> — 每次操作时动态打开并注册文件，支持跨重启的持久化/恢复，并消除打开文件描述符数量的限制。</p></li>
+<li><p><a class="reference internal" href="nixl_native.html"><span class="doc">Native NIXL</span></a> — an optional C++20 connector that registers the L1 arena
+once per worker and supports both generic <code class="docutils literal notranslate"><span class="pre">FILE_SEG</span></code> and <code class="docutils literal notranslate"><span class="pre">OBJ_SEG</span></code>
+strategies.</p></li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
@@ -307,6 +313,9 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>lmcache<span class="o">[</span>nixl<span class="o">]</span>
 </span></code></pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">nixl_native</span></code> additionally requires NIXL 1.3 or newer development headers
+and a build with <code class="docutils literal notranslate"><span class="pre">BUILD_WITH_NIXL=1</span></code>. See <a class="reference internal" href="nixl_native.html"><span class="doc">Native NIXL</span></a> for complete
+build and operational instructions.</p>
 </div>
 <section id="static-pool-nixl-store">
 <h2>静态池 — <code class="docutils literal notranslate"><span class="pre">nixl_store</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#static-pool-nixl-store" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#static-pool-nixl-store'"><span>#</span></a></h2>
@@ -459,8 +468,8 @@ legacy filename.</p>
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="file_and_block.html">
-        文件与块
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="nixl_native.html">
+        Native NIXL
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
