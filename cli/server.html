@@ -297,10 +297,10 @@
 <section id="lmcache-server">
 <h1>lmcache server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-server"><span>#</span></a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> command launches the standalone LMCache
-Multi-Process (MP) server, which exposes a ZMQ control plane and an HTTP
-frontend (status, healthcheck, cache-clear, checksum APIs). It is the server
-that <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">describe</span></code>, <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">ping</span> <span class="pre">kvcache</span></code>, <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">kvcache</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> talk to.</p>
+Multi-Process (MP) server, which exposes a configurable ZMQ or gRPC request
+endpoint and an HTTP frontend (status, healthcheck, cache-clear, checksum
+APIs). It is the server that <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">describe</span></code>, <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">ping</span> <span class="pre">kvcache</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">kvcache</span></code>, and <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> talk to.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This command requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> installation with CUDA
@@ -340,29 +340,35 @@ authoritative list is large and evolves with the runtime, so consult:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">HOST</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">{zmq,grpc}</span></code></p></td>
+<td><p>Request transport exposed by the server (default: <code class="docutils literal notranslate"><span class="pre">zmq</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span> <span class="pre">HOST</span></code></p></td>
 <td><p>Bind address for the server.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">PORT</span></code></p></td>
-<td><p>ZMQ control-plane port.</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">PORT</span></code></p></td>
+<td><p>Request-transport port.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code></p></td>
 <td><p>KV cache chunk size in tokens.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span> <span class="pre">GB</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span> <span class="pre">GB</span></code></p></td>
 <td><p>L1 (CPU/DRAM) cache capacity in GB.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">POLICY</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">POLICY</span></code></p></td>
 <td><p>L1 eviction policy (e.g. <code class="docutils literal notranslate"><span class="pre">LRU</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span> <span class="pre">RATIO</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span> <span class="pre">RATIO</span></code></p></td>
 <td><p>L1 fill ratio at which eviction begins.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">RATIO</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-ratio</span> <span class="pre">RATIO</span></code></p></td>
 <td><p>Fraction of L1 cleared per eviction cycle.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span> <span class="pre">N</span></code></p></td>
-<td><p>Number of server worker processes.</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span> <span class="pre">N</span></code></p></td>
+<td><p>Base number of request worker threads.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--grpc-server-workers</span> <span class="pre">N</span></code></p></td>
+<td><p>gRPC dispatch threads (used only with <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">grpc</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-url</span> <span class="pre">URL</span></code></p></td>
 <td><p>Register with an MP coordinator at this base URL (e.g.

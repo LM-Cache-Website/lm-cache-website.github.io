@@ -376,33 +376,41 @@ feature explicitly documents support for it.  The in-process
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--transport</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zmq</span></code></p></td>
+<td><p>Request transport exposed by the server. Choices: <code class="docutils literal notranslate"><span class="pre">zmq</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
 <td><p>(未设置，默认 UUID v4)</p></td>
 <td><p>此 MP 服务器的稳定标识。用作协调器成员身份键，并投影到每条指标和每个 Span 的 OTel <code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code> 资源属性（从而使遥测数据与协调器成员身份共享同一个 ID）。若未传递该参数，则默认为启动时生成的随机 UUID v4。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">localhost</span></code></p></td>
-<td><p>绑定 ZMQ 服务器的主机地址。</p></td>
+<td><p>Host address to bind the selected request server.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5555</span></code></p></td>
-<td><p>绑定 ZMQ 服务器的端口。</p></td>
+<td><p>Port to bind the selected request server.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
 <td><p>KV Cache 操作的块大小（以 token 为单位）。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>工作线程的基本数量。为 GPU（亲和性）池和 CPU（正常）池设置默认值。可以通过 <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code> 针对每个池进行覆盖。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
 <td><p>(继承 <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>GPU 亲和性池（STORE/RETRIEVE）的工作线程。来自同一 vLLM 实例的请求始终分发到同一线程，从而消除 GPU 传输锁竞争。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
 <td><p>(继承 <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>普通 CPU 池（LOOKUP 等）的工作线程。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--grpc-server-workers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>gRPC request-dispatch threads. Used only with <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">grpc</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
@@ -938,9 +946,10 @@ logged at INFO.</p></td>
 <section id="vllm-client-configuration">
 <h2><a class="toc-backref" href="#id15" role="doc-backlink">vLLM 客户端配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
-<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> transport prefix
-on <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> is optional -- a bare host is accepted and
-normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the connector:</p>
+<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The URL scheme selects the request
+transport: use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC, matching the
+server's <code class="docutils literal notranslate"><span class="pre">--transport</span></code> setting. A bare host is accepted and normalized to
+<code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for backward compatibility:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "127.0.0.1", "lmcache.mp.port": 6000}}'</span>
@@ -1045,8 +1054,8 @@ locally-assigned server.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost</span></code></p></td>
-<td><p>Single-server deployment: host of the LMCache MP server. A ZMQ
-transport prefix (e.g. <code class="docutils literal notranslate"><span class="pre">tcp://</span></code>) is optional -- a bare
+<td><p>Single-server deployment: request transport and host of the LMCache MP
+server. Use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC. A bare
 <code class="docutils literal notranslate"><span class="pre">localhost</span></code> / <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> is normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the
 connector. Ignored when <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> is set.</p></td>
 </tr>

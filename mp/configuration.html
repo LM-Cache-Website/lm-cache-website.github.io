@@ -377,7 +377,11 @@ feature explicitly documents support for it.  The in-process
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--transport</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">zmq</span></code></p></td>
+<td><p>Request transport exposed by the server. Choices: <code class="docutils literal notranslate"><span class="pre">zmq</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
 <td><p><em>(unset, default UUID v4)</em></p></td>
 <td><p>Stable identity of this MP server. Used as the coordinator
 membership key and projected onto the OTel
@@ -386,33 +390,37 @@ span (so telemetry and coordinator membership share one id).
 When the flag is not passed, defaults to a random UUID v4
 minted at startup.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">localhost</span></code></p></td>
-<td><p>Host address to bind the ZMQ server.</p></td>
+<td><p>Host address to bind the selected request server.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5555</span></code></p></td>
-<td><p>Port to bind the ZMQ server.</p></td>
+<td><p>Port to bind the selected request server.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
 <td><p>Chunk size for KV cache operations (in tokens).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-workers</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Base number of worker threads. Sets the default for both the GPU
 (affinity) pool and the CPU (normal) pool. Can be overridden
 per-pool with <code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-gpu-workers</span></code></p></td>
 <td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>Worker threads for the GPU affinity pool (STORE/RETRIEVE).
 Requests from the same vLLM instance are always dispatched to the
 same thread, eliminating GPU transfer lock contention.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-cpu-workers</span></code></p></td>
 <td><p>(inherits <code class="docutils literal notranslate"><span class="pre">--max-workers</span></code>)</p></td>
 <td><p>Worker threads for the normal CPU pool (LOOKUP, etc.).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--grpc-server-workers</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>gRPC request-dispatch threads. Used only with <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">grpc</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">blake3</span></code></p></td>
@@ -1027,9 +1035,10 @@ usage. See <a class="reference internal" href="observability/logs.html"><span cl
 <section id="vllm-client-configuration">
 <h2><a class="toc-backref" href="#id14" role="doc-backlink">vLLM Client Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
-<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> transport prefix
-on <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> is optional – a bare host is accepted and
-normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the connector:</p>
+<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The URL scheme selects the request
+transport: use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC, matching the
+server’s <code class="docutils literal notranslate"><span class="pre">--transport</span></code> setting. A bare host is accepted and normalized to
+<code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for backward compatibility:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "127.0.0.1", "lmcache.mp.port": 6000}}'</span>
@@ -1144,8 +1153,8 @@ locally-assigned server.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost</span></code></p></td>
-<td><p>Single-server deployment: host of the LMCache MP server. A ZMQ
-transport prefix (e.g. <code class="docutils literal notranslate"><span class="pre">tcp://</span></code>) is optional – a bare
+<td><p>Single-server deployment: request transport and host of the LMCache MP
+server. Use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC. A bare
 <code class="docutils literal notranslate"><span class="pre">localhost</span></code> / <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> is normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the
 connector. Ignored when <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> is set.</p></td>
 </tr>
