@@ -310,7 +310,7 @@ isolation, shared caching, and independent resource scaling.</p>
 <li><p><a class="reference internal" href="#server-variants" id="id3">Server Variants</a></p></li>
 <li><p><a class="reference internal" href="#high-level-architecture" id="id4">High-Level Architecture</a></p></li>
 <li><p><a class="reference internal" href="#engine-and-modules" id="id5">Engine and Modules</a></p></li>
-<li><p><a class="reference internal" href="#request-protocol-and-dispatch" id="id6">Request Protocol and Dispatch</a></p></li>
+<li><p><a class="reference internal" href="#request-operations" id="id6">Request Operations</a></p></li>
 <li><p><a class="reference internal" href="#config-system" id="id7">Config System</a></p></li>
 <li><p><a class="reference internal" href="#distributed-storage" id="id8">Distributed Storage</a></p>
 <ul>
@@ -332,7 +332,7 @@ isolation, shared caching, and independent resource scaling.</p>
 <ul>
 <li><p><a class="reference internal" href="#adding-a-new-l2-adapter" id="id19">Adding a new L2 adapter</a></p></li>
 <li><p><a class="reference internal" href="#adding-an-observability-subscriber" id="id20">Adding an observability subscriber</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-new-request-type" id="id21">Adding a new request type</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-new-rpc" id="id21">Adding a new RPC</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#key-source-files" id="id22">Key Source Files</a></p></li>
@@ -394,7 +394,7 @@ understand, debug, or extend the system.</p>
 </section>
 <section id="high-level-architecture">
 <h2><a class="toc-backref" href="#id4" role="doc-backlink">High-Level Architecture</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#high-level-architecture" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#high-level-architecture'"><span>#</span></a></h2>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vLLM Instance(s)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Engine Worker(s)
 </span><span id="line-2">     |
 </span><span id="line-3">     | RequestClient (URL scheme selects ZMQ or gRPC)
 </span><span id="line-4">     v
@@ -404,9 +404,9 @@ understand, debug, or extend the system.</p>
 </span><span id="line-8">     v                                      v
 </span><span id="line-9">MessageQueueServer                  GrpcMultiprocessServer
 </span><span id="line-10">(transport/zmq_impl/mq.py)          (transport/grpc_impl/server.py)
-</span><span id="line-11">     |                                      |
-</span><span id="line-12">     +------------------+-------------------+
-</span><span id="line-13">                        | dispatch by RequestType
+</span><span id="line-11">      |                                      |
+</span><span id="line-12">      +------------------+-------------------+
+</span><span id="line-13">                        | dispatch by operation name
 </span><span id="line-14">                        v
 </span><span id="line-15">EngineModule handlers owned by MPCacheServer (server.py)
 </span><span id="line-16">     |
@@ -445,9 +445,9 @@ and/or <code class="docutils literal notranslate"><span class="pre">EngineDriven
 <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> loads just one,
 <code class="docutils literal notranslate"><span class="pre">auto</span></code> loads both — plus the blend module when
 <code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> is set). It calls <code class="docutils literal notranslate"><span class="pre">create_request_server()</span></code> to build
-the ZMQ or gRPC request server selected by <code class="docutils literal notranslate"><span class="pre">--transport</span></code>, registers handlers
-for every <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> exposed by the loaded modules, and blocks in a
-keep-alive loop.</p>
+the ZMQ or gRPC request server selected by <code class="docutils literal notranslate"><span class="pre">--transport</span></code>, discovers the
+annotated operations exposed by the loaded modules, and blocks in a keep-alive
+loop.</p>
 <p><strong>``modules/blend.py``</strong> – Defines <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>, the paged-aware
 blend pipeline that enables non-prefix KV cache reuse (e.g. across
 document paragraphs) on the sparse-prefetch path. KV-cache registration
@@ -468,13 +468,14 @@ for inspecting detailed internal state. The selected request server runs as
 part of the same process, and any configured runtime plugins are spawned by
 <code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> during FastAPI startup.</p>
 </section>
-<section id="request-protocol-and-dispatch">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Request Protocol and Dispatch</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#request-protocol-and-dispatch" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#request-protocol-and-dispatch'"><span>#</span></a></h2>
+<section id="request-operations">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Request Operations</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#request-operations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#request-operations'"><span>#</span></a></h2>
+<p>Workers call the same typed operations through either ZMQ (DEALER/ROUTER) or
+gRPC. The handler scheduling contract is transport-neutral.</p>
 <p>ZMQ encodes requests as msgspec multipart messages over DEALER/ROUTER sockets;
-gRPC encodes the same semantic operations with protobuf. Both transports map
-requests to the shared <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> and annotated engine-module handlers.
-See <a class="reference internal" href="request_transport.html"><span class="doc">Request Transport</span></a> for endpoint selection and wire-format details.</p>
-<p><strong>RequestType enum</strong> (defined in <code class="docutils literal notranslate"><span class="pre">protocols/base.py</span></code>):</p>
+gRPC encodes the same operations with protobuf. Both dispatch by operation
+name; see <a class="reference internal" href="request_transport.html"><span class="doc">Request Transport</span></a> for endpoint selection and wire details.</p>
+<p><strong>RPC operations</strong> (declared by typed methods on <code class="docutils literal notranslate"><span class="pre">RequestClient</span></code>):</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 35.0%"/>
@@ -880,23 +881,15 @@ concern (metrics / logging / tracing), gated on the corresponding
 CLI flag if needed.</p></li>
 </ol>
 </section>
-<section id="adding-a-new-request-type">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">Adding a new request type</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-a-new-request-type" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-a-new-request-type'"><span>#</span></a></h3>
+<section id="adding-a-new-rpc">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Adding a new RPC</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-a-new-rpc" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#adding-a-new-rpc'"><span>#</span></a></h3>
 <ol class="arabic simple">
-<li><p>Add a new member to <code class="docutils literal notranslate"><span class="pre">RequestType</span></code> in <code class="docutils literal notranslate"><span class="pre">protocols/base.py</span></code>.</p></li>
-<li><p>Create a <code class="docutils literal notranslate"><span class="pre">ProtocolDefinition</span></code> in the appropriate <code class="docutils literal notranslate"><span class="pre">protocols/*.py</span></code> file
-(<code class="docutils literal notranslate"><span class="pre">engine</span></code>, <code class="docutils literal notranslate"><span class="pre">controller</span></code>, <code class="docutils literal notranslate"><span class="pre">observability</span></code>, <code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">blend</span></code>,
-or <code class="docutils literal notranslate"><span class="pre">p2p</span></code>) and add the request name to that module’s <code class="docutils literal notranslate"><span class="pre">REQUEST_NAMES</span></code>.</p></li>
-<li><p>Implement the handler method on the appropriate <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>
-(e.g. <code class="docutils literal notranslate"><span class="pre">LookupModule</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>, <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>)
-and decorate it with <code class="docutils literal notranslate"><span class="pre">@request_handler</span></code>.</p></li>
-<li><p>Add the named method to the shared <code class="docutils literal notranslate"><span class="pre">RequestClient</span></code> contract and the ZMQ
-client facade. Add the corresponding protobuf method for gRPC; register a
-custom codec only when the structural codec cannot represent its types.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">create_request_server()</span></code> selects the transport. Both implementations
-discover the annotated handlers from the loaded modules, so business code
-does not register handlers with either concrete server.</p></li>
+<li><p>Add a typed <code class="docutils literal notranslate"><span class="pre">@rpc_method</span></code> to <code class="docutils literal notranslate"><span class="pre">RequestClient</span></code>.</p></li>
+<li><p>Add the gRPC protobuf request, response, and service method.</p></li>
+<li><p>Add a same-named <code class="docutils literal notranslate"><span class="pre">@request_handler</span></code> on the appropriate <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code>.</p></li>
 </ol>
+<p>Existing ZMQ operations retain their frozen numeric wire IDs. New operations
+use their string name and do not extend the legacy compatibility table.</p>
 </section>
 </section>
 <section id="key-source-files">
@@ -923,6 +916,12 @@ does not register handlers with either concrete server.</p></li>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/engine_module.py</span></code></p></td>
 <td><p>Transport-neutral <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code> protocol</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/rpc.py</span></code></p></td>
+<td><p>RPC discovery and typed operation specifications</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transport/base.py</span></code></p></td>
+<td><p>Typed <code class="docutils literal notranslate"><span class="pre">RequestClient</span></code> and <code class="docutils literal notranslate"><span class="pre">RequestServer</span></code> contracts</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transport/server_factory.py</span></code></p></td>
 <td><p>Transport-neutral request-server construction boundary</p></td>
@@ -962,49 +961,46 @@ handler adapters, and message queue server construction</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">MPRuntimePluginLauncher</span></code> that spawns runtime plugins with the
 full server config serialized into environment variables</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/protocols/base.py</span></code></p></td>
-<td><p>RequestType, HandlerType, ProtocolDefinition</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_manager.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_manager.py</span></code></p></td>
 <td><p>StorageManager (top-level manager)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p></td>
 <td><p>StorageManagerConfig hierarchy</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l1_manager.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l1_manager.py</span></code></p></td>
 <td><p>L1Manager (object state machine)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p></td>
 <td><p>L2 adapter config registry</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/base.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/base.py</span></code></p></td>
 <td><p>L2AdapterInterface</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/store_controller.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/store_controller.py</span></code></p></td>
 <td><p>StoreController (event-driven L1-&gt;L2)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/eviction_controller.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/eviction_controller.py</span></code></p></td>
 <td><p>EvictionController (watermark-triggered)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/prefetch_controller.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/storage_controllers/prefetch_controller.py</span></code></p></td>
 <td><p>PrefetchController (L2-&gt;L1 on miss)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p></td>
 <td><p>ObservabilityConfig + <code class="docutils literal notranslate"><span class="pre">init_observability()</span></code> entry point</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event_bus.py</span></code></p></td>
 <td><p>EventBus singleton and <code class="docutils literal notranslate"><span class="pre">EventSubscriber</span></code> base class</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/event.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Event</span></code> / <code class="docutils literal notranslate"><span class="pre">EventType</span></code> definitions</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/otel_init.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/otel_init.py</span></code></p></td>
 <td><p>OTel metrics / tracing provider setup</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/subscribers/</span></code></p></td>
 <td><p>Metrics, logging, and tracing subscribers</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/trace/</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/trace/</span></code></p></td>
 <td><p>Trace recording (<code class="docutils literal notranslate"><span class="pre">--trace-level</span> <span class="pre">storage</span></code>) capture stack</p></td>
 </tr>
 </tbody>
@@ -1036,7 +1032,7 @@ full server config serialized into environment variables</p></td>
 <li><a :data-current="activeSection === '#server-variants'" class="reference internal" href="#server-variants">Server Variants</a></li>
 <li><a :data-current="activeSection === '#high-level-architecture'" class="reference internal" href="#high-level-architecture">High-Level Architecture</a></li>
 <li><a :data-current="activeSection === '#engine-and-modules'" class="reference internal" href="#engine-and-modules">Engine and Modules</a></li>
-<li><a :data-current="activeSection === '#request-protocol-and-dispatch'" class="reference internal" href="#request-protocol-and-dispatch">Request Protocol and Dispatch</a></li>
+<li><a :data-current="activeSection === '#request-operations'" class="reference internal" href="#request-operations">Request Operations</a></li>
 <li><a :data-current="activeSection === '#config-system'" class="reference internal" href="#config-system">Config System</a></li>
 <li><a :data-current="activeSection === '#distributed-storage'" class="reference internal" href="#distributed-storage">Distributed Storage</a><ul>
 <li><a :data-current="activeSection === '#storagemanager'" class="reference internal" href="#storagemanager">StorageManager</a></li>
@@ -1055,7 +1051,7 @@ full server config serialized into environment variables</p></td>
 <li><a :data-current="activeSection === '#how-to-extend'" class="reference internal" href="#how-to-extend">How to Extend</a><ul>
 <li><a :data-current="activeSection === '#adding-a-new-l2-adapter'" class="reference internal" href="#adding-a-new-l2-adapter">Adding a new L2 adapter</a></li>
 <li><a :data-current="activeSection === '#adding-an-observability-subscriber'" class="reference internal" href="#adding-an-observability-subscriber">Adding an observability subscriber</a></li>
-<li><a :data-current="activeSection === '#adding-a-new-request-type'" class="reference internal" href="#adding-a-new-request-type">Adding a new request type</a></li>
+<li><a :data-current="activeSection === '#adding-a-new-rpc'" class="reference internal" href="#adding-a-new-rpc">Adding a new RPC</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#key-source-files'" class="reference internal" href="#key-source-files">Key Source Files</a></li>
