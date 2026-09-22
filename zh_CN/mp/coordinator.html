@@ -473,6 +473,31 @@ pass this flag and the local <code class="docutils literal notranslate"><span cl
 mode exposes <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> on the coordinator HTTP port. When set, the
 local <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint returns 404.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--event-transport</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">http</span></code></p></td>
+<td><p>Transport the fleet's cache events arrive on, exactly one. <code class="docutils literal notranslate"><span class="pre">http</span></code>
+serves <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>; <code class="docutils literal notranslate"><span class="pre">kafka</span></code> consumes <code class="docutils literal notranslate"><span class="pre">--kafka-topic</span></code> instead
+(one <code class="docutils literal notranslate"><span class="pre">CacheEventsRequest</span></code> JSON envelope per record, the same body
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code> accepts) and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code> answers 404. <code class="docutils literal notranslate"><span class="pre">kafka</span></code>
+needs the <code class="docutils literal notranslate"><span class="pre">lmcache[kafka]</span></code> extra (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">'lmcache[kafka]'</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kafka-bootstrap-servers</span></code></p></td>
+<td><p>(empty)</p></td>
+<td><p>Comma-separated Kafka bootstrap servers. Required with
+<code class="docutils literal notranslate"><span class="pre">--event-transport</span> <span class="pre">kafka</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kafka-topic</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache-cache-events</span></code></p></td>
+<td><p>Topic to consume; must match the MP servers'
+<code class="docutils literal notranslate"><span class="pre">--coordinator-kafka-topic</span></code>. Ignored unless
+<code class="docutils literal notranslate"><span class="pre">--event-transport</span> <span class="pre">kafka</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kafka-group-id</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache-coordinator</span></code></p></td>
+<td><p>Consumer group whose committed offsets a restart resumes from. A new
+group reads the whole retained stream. Ignored unless
+<code class="docutils literal notranslate"><span class="pre">--event-transport</span> <span class="pre">kafka</span></code>.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -632,11 +657,14 @@ event transport.</p></td>
 </tr>
 </tbody>
 </table>
-<p>The Kafka transport currently implements MP-server publication only. A
-coordinator Kafka source with checkpointed offsets, seeking, and replay is a
-follow-up; use the default HTTP transport for an end-to-end deployment today.
-It needs the optional <code class="docutils literal notranslate"><span class="pre">lmcache[kafka]</span></code> extra (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">'lmcache[kafka]'</span></code>),
-which the server imports only when the Kafka transport is selected.</p>
+<p>With the Kafka transport, start the coordinator with
+<code class="docutils literal notranslate"><span class="pre">--event-transport</span> <span class="pre">kafka</span></code> and the same topic so it consumes the stream
+instead of serving <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>; without that, the broker retains the
+records but nothing reads them. Both sides need the optional
+<code class="docutils literal notranslate"><span class="pre">lmcache[kafka]</span></code> extra (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">'lmcache[kafka]'</span></code>), imported only
+when Kafka is selected. A restarted coordinator resumes from its consumer
+group's committed offsets; coordinator-driven replay of a detected gap is a
+follow-up.</p>
 <p>服务器在其稳定身份下注册（<code class="docutils literal notranslate"><span class="pre">--instance-id</span></code> / OTel <code class="docutils literal notranslate"><span class="pre">service.instance.id</span></code>）；如果未传递该标志，服务器将在启动时生成一个随机的 UUID v4 并在该 UUID 下注册。</p>
 <p>注册是尽力而为的：如果协调器无法访问，MP 服务器会记录警告，持续重试，并继续提供服务。启动时会拒绝格式错误的心跳间隔值。</p>
 </section>
