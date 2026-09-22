@@ -798,7 +798,20 @@ ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">u
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-policy</span></code></p></td>
 <td><p>必需</p></td>
-<td><p>逐出策略。可选项：<code class="docutils literal notranslate"><span class="pre">LRU</span></code>、<code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code>、<code class="docutils literal notranslate"><span class="pre">noop</span></code>。<code class="docutils literal notranslate"><span class="pre">noop</span></code> 用于纯缓冲区模式，此时 L1 仅作为写缓冲区（数据写入 L2 后即从 L1 删除）。<code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code> 为每个 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 维护独立的 LRU 列表，并要求在运行时通过 <code class="docutils literal notranslate"><span class="pre">/quota</span></code> HTTP 端点为每个 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 配置配额（参见 <a class="reference internal" href="http_api.html#mp-http-quota-api"><span class="std std-ref">配额管理</span></a>）；未注册配额的 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 的有效上限为 <code class="docutils literal notranslate"><span class="pre">0</span></code> 字节，其数据将在下一个逐出周期被清除（白名单语义）。</p></td>
+<td><p>Eviction policy.
+Choices: <code class="docutils literal notranslate"><span class="pre">LRU</span></code>, <code class="docutils literal notranslate"><span class="pre">ARC</span></code>, <code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code>, <code class="docutils literal notranslate"><span class="pre">noop</span></code>.
+<code class="docutils literal notranslate"><span class="pre">ARC</span></code> adaptively balances recently created keys and frequently
+accessed keys. It keeps key-only ghost history for completed policy
+evictions; no KV data is retained in the ghost lists.
+Use <code class="docutils literal notranslate"><span class="pre">noop</span></code> for buffer-only mode where L1 acts as a pure
+write buffer (data is deleted from L1 after L2 store).
+<code class="docutils literal notranslate"><span class="pre">IsolatedLRU</span></code> maintains one LRU list per <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>
+and requires per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> quotas to be configured at
+runtime via the <code class="docutils literal notranslate"><span class="pre">/quota</span></code> HTTP endpoints
+(see <a class="reference internal" href="http_api.html#mp-http-quota-api"><span class="std std-ref">配额管理</span></a>); a <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> with no
+registered quota has an effective limit of <code class="docutils literal notranslate"><span class="pre">0</span></code> bytes,
+so its data is evicted at the next eviction cycle
+(allowlist semantics).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.8</span></code></p></td>
