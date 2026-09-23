@@ -484,7 +484,14 @@ plugins via <code class="docutils literal notranslate"><span class="pre">LMCACHE
 to the HTTP <code class="docutils literal notranslate"><span class="pre">/run_script</span></code> endpoint are allowed to import.
 Example: <code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span> <span class="pre">numpy</span> <span class="pre">pandas</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--run-script-api-enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Enable the <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/run_script</span></code> HTTP endpoint, which executes
+caller-supplied Python in-process. The restricted builtins are
+<strong>not</strong> a security boundary — treat this as full remote code
+execution and only enable it on a trusted network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
 <td><p>SHM segment name for non-GPU KV transfer (only used when the
 non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
@@ -493,7 +500,7 @@ non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span cl
 the pickle path.  Any other value: create a SHM pool and use
 that exact name for its segment.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">120.0</span></code></p></td>
 <td><p>Silence budget (seconds) after which a worker that has sent at
 least one heartbeat PING but then gone quiet has its KV cache
@@ -503,14 +510,14 @@ adapter’s <code class="docutils literal notranslate"><span class="pre">lmcache
 missed pings never reap a live worker; the adapter warns at startup
 if its interval is raised without raising this.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-registration-grace-seconds</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--worker-registration-grace-seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">3600.0</span></code></p></td>
 <td><p>Silence budget (seconds) for a worker that registered but has never
 sent a PING (still warming up, or died before its first request).
 Must be &gt;= <code class="docutils literal notranslate"><span class="pre">--worker-reap-timeout-seconds</span></code>. Generous by default so
 slow model warmup is never mistaken for a dead worker.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-segmented-prefix</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-segmented-prefix</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p>CacheBlend (<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code>) only: on a mid-prefix L2 retrieve
 failure, retain the gapped prefix so the post-gap chunks stay
@@ -518,13 +525,13 @@ L1-resident and only the dropped gap is recomputed, instead of
 truncating the prefix at the gap. No effect for other engines. See
 <a class="reference internal" href="l2_storage/fault_inject.html"><span class="doc">Fault Inject</span></a> for a way to exercise it.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-dedup-content</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-dedup-content</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> only: skip fingerprint registration for a chunk
 whose content is already indexed, so the same text stored behind two
 prefixes is indexed once. No effect for other engines.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p>Split a hybrid model’s kernel groups into one object group per
 cross-chunk attention window (full attention, each sliding-window
@@ -599,8 +606,10 @@ when this limit is exceeded.</p></td>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--http-host</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code></p></td>
-<td><p>Host to bind the HTTP (FastAPI/uvicorn) server.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code></p></td>
+<td><p>Host to bind the HTTP (FastAPI/uvicorn) server. The admin API has
+no authentication; only bind a non-loopback address on a trusted
+network.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--http-port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">8080</span></code></p></td>

@@ -328,8 +328,9 @@ inference data path.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--http-host</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code></p></td>
-<td><p>绑定 HTTP 服务器的主机。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code></p></td>
+<td><p>Host to bind the HTTP server. The admin API has no authentication;
+only bind a non-loopback address on a trusted network.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--http-port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">8080</span></code></p></td>
@@ -576,7 +577,8 @@ inference data path.</p>
 </tr>
 <tr class="row-even"><td><p>POST</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/run_script</span></code></p></td>
-<td><p>在受限的沙箱中执行上传的 Python 脚本。</p></td>
+<td><p>Execute an uploaded Python script in a restricted sandbox.
+Disabled by default; requires <code class="docutils literal notranslate"><span class="pre">--run-script-api-enabled</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1642,6 +1644,11 @@ that event flow, not from the response of this call.</p>
 </section>
 <section id="post-run-script">
 <h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/run_script</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-run-script" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-run-script'"><span>#</span></a></h3>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>This endpoint is <strong>disabled by default</strong> (requests return <code class="docutils literal notranslate"><span class="pre">404</span></code>).
+Start the server with <code class="docutils literal notranslate"><span class="pre">--run-script-api-enabled</span></code> to enable it.</p>
+</div>
 <p>在服务器进程中执行上传的 Python 脚本。脚本作为多部分表单数据上传，字段名称为 <code class="docutils literal notranslate"><span class="pre">script</span></code>，并在受限的 <code class="docutils literal notranslate"><span class="pre">__builtins__</span></code> 下被 <code class="docutils literal notranslate"><span class="pre">exec</span></code> 执行（仅允许 <code class="docutils literal notranslate"><span class="pre">print</span></code>、<code class="docutils literal notranslate"><span class="pre">str</span></code>、<code class="docutils literal notranslate"><span class="pre">int</span></code>、<code class="docutils literal notranslate"><span class="pre">float</span></code>、<code class="docutils literal notranslate"><span class="pre">list</span></code>、<code class="docutils literal notranslate"><span class="pre">dict</span></code>、<code class="docutils literal notranslate"><span class="pre">tuple</span></code>、<code class="docutils literal notranslate"><span class="pre">set</span></code> 和受保护的 <code class="docutils literal notranslate"><span class="pre">__import__</span></code>）。仅允许导入在 <code class="docutils literal notranslate"><span class="pre">--script-allowed-imports</span></code> 中列出的模块；运行的 FastAPI <code class="docutils literal notranslate"><span class="pre">app</span></code> 会注入到脚本的全局变量中。如果脚本赋值给名为 <code class="docutils literal notranslate"><span class="pre">result</span></code> 的变量，则返回其字符串化值；否则返回正文为 <code class="docutils literal notranslate"><span class="pre">"脚本成功执行"</span></code>（<code class="docutils literal notranslate"><span class="pre">Content-Type:</span> <span class="pre">text/plain</span></code>）。</p>
 <p><strong>请求体：</strong> 多部分表单数据，包含一个 <code class="docutils literal notranslate"><span class="pre">script</span></code> 文件字段（要执行的 Python 源代码）。不是 JSON 格式的请求体。</p>
 <div class="admonition danger">
@@ -1653,6 +1660,7 @@ that event flow, not from the response of this call.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: 脚本已执行。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: 未提供 <code class="docutils literal notranslate"><span class="pre">script</span></code> 文件。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: the endpoint is disabled (<code class="docutils literal notranslate"><span class="pre">--run-script-api-enabled</span></code> not set).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">500</span></code>: 在导入设置或执行期间引发了异常（主体：<code class="docutils literal notranslate"><span class="pre">"执行脚本时出错：&lt;reason&gt;"</span></code>）。</p></li>
 </ul>
 <p><strong>示例：</strong></p>
