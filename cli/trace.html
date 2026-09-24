@@ -299,8 +299,10 @@
 <div id="content" role="main">
 <section id="lmcache-trace">
 <h1>lmcache trace<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lmcache-trace"><span>#</span></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span></code> command inspects and replays LMCache storage-level
-trace files (<code class="docutils literal notranslate"><span class="pre">.lct</span></code>). It has two sub-commands:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span></code> command inspects and replays LMCache trace files
+(<code class="docutils literal notranslate"><span class="pre">.lct</span></code>). A file holds one trace <em>level</em>: <code class="docutils literal notranslate"><span class="pre">storage</span></code> records
+<code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> calls; <code class="docutils literal notranslate"><span class="pre">events</span></code> records the cache-event stream a server
+emits for the MP coordinator. It has two sub-commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span><span class="o">{</span>info,replay<span class="o">}</span><span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
@@ -312,33 +314,75 @@ trace codecs, <code class="docutils literal notranslate"><span class="pre">Trace
 missing.</p>
 </div>
 <p>Trace <em>capture</em> is not a <code class="docutils literal notranslate"><span class="pre">trace</span></code> sub-command — recording is bound to a live
-server via <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--trace-level</span> <span class="pre">storage</span> <span class="pre">[--trace-output</span> <span class="pre">...]</span></code> (see
-<a class="reference internal" href="server.html"><span class="doc">lmcache server</span></a>).</p>
+server via <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--trace-level</span> <span class="pre">{storage,events}</span> <span class="pre">[--trace-output</span> <span class="pre">...]</span></code>
+(see <a class="reference internal" href="server.html"><span class="doc">lmcache server</span></a>).</p>
 <section id="info">
 <h2>info<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#info" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#info'"><span>#</span></a></h2>
 <p>Print a one-screen summary of a trace file: header metadata plus per-qualname
-record counts.</p>
+record counts. Works for both levels.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>info<span class="w"> </span>path/to/trace.lct
 </span></code></pre></div>
 </div>
+<p>A <code class="docutils literal notranslate"><span class="pre">storage</span></code> file:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Trace file: path/to/trace.lct
-</span><span id="line-2">  level:                storage
-</span><span id="line-3">  format_version:       1
-</span><span id="line-4">  trace_schema_version: 1
-</span><span id="line-5">  duration:             12.345s
-</span><span id="line-6">  sm_config_digest:     a1b2c3d4
-</span><span id="line-7">  total_records:        2048
+</span><span id="line-2">  level:                      storage
+</span><span id="line-3">  format_version:             1
+</span><span id="line-4">  trace_schema_version:       1
+</span><span id="line-5">  duration:                   12.345s
+</span><span id="line-6">  sm_config_digest:           a1b2c3d4
+</span><span id="line-7">  total_records:              2048
 </span><span id="line-8">  ops:
 </span><span id="line-9">    StorageManager.store: 1024
 </span><span id="line-10">    StorageManager.retrieve: 1024
 </span></code></pre></div>
 </div>
+<p>An <code class="docutils literal notranslate"><span class="pre">events</span></code> file adds the header metadata the level records and a
+summary of the stream: which server wrote it and how many times it
+restarted (one incarnation per start), batches by event type, tier, backend
+and whether the backend is shared, entries per event type, bytes stored, and
+how many store entries carry token ids.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Trace file: events-node-a.lct
+</span><span id="line-2">  level:                      events
+</span><span id="line-3">  format_version:             1
+</span><span id="line-4">  trace_schema_version:       1
+</span><span id="line-5">  duration:                   612.480s
+</span><span id="line-6">  sm_config_digest:           7a10b9a5c8e8344d32b5f8b7a530327a19f189439f5d2d5151065fd5d19ecff8
+</span><span id="line-7">  cache_event_schema_version: 1
+</span><span id="line-8">  instance_id:                node-a
+</span><span id="line-9">  lmcache_version:            0.5.6
+</span><span id="line-10">  total_records:              8
+</span><span id="line-11">  ops:
+</span><span id="line-12">    events.batch: 6
+</span><span id="line-13">    events.lifecycle: 2
+</span><span id="line-14">  events:
+</span><span id="line-15">    instances:                  1
+</span><span id="line-16">      node-a: incarnations=[1758400000] restarts=0
+</span><span id="line-17">    batches (type/tier/backend/shared):
+</span><span id="line-18">      access/l1/-/local: 1
+</span><span id="line-19">      delete/l1/dram/local: 1
+</span><span id="line-20">      store/l1/dram/local: 2
+</span><span id="line-21">      store/l2/fs/local: 1
+</span><span id="line-22">      store/l2/s3/shared: 1
+</span><span id="line-23">    entries:
+</span><span id="line-24">      access: 30
+</span><span id="line-25">      delete: 12
+</span><span id="line-26">      store: 128
+</span><span id="line-27">    store_bytes:                113246208
+</span><span id="line-28">    entries_with_tokens:        64
+</span><span id="line-29">    lifecycle:                  start=1, stop=1
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">lifecycle:</span> <span class="pre">start=1,</span> <span class="pre">stop=1</span></code> says the server started once and shut down
+cleanly; a missing <code class="docutils literal notranslate"><span class="pre">stop</span></code> means the process was killed and the tail may be
+truncated. <code class="docutils literal notranslate"><span class="pre">restarts</span></code> counts incarnations beyond the first.</p>
 <p>The only argument is the positional <code class="docutils literal notranslate"><span class="pre">FILE</span></code> (path to a <code class="docutils literal notranslate"><span class="pre">.lct</span></code> trace file).</p>
 </section>
 <section id="replay">
 <h2>replay<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay'"><span>#</span></a></h2>
 <p>Reissue every recorded call against a fresh <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code>, honoring the
-recorded inter-call timings.</p>
+recorded inter-call timings. <code class="docutils literal notranslate"><span class="pre">replay</span></code> accepts <code class="docutils literal notranslate"><span class="pre">storage</span></code> files only; an
+<code class="docutils literal notranslate"><span class="pre">events</span></code> file is refused with a message saying so, since its records are
+coordinator input rather than storage calls.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>path/to/trace.lct<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
