@@ -302,8 +302,8 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">trace</span></code> command inspects and replays LMCache trace files
 (<code class="docutils literal notranslate"><span class="pre">.lct</span></code>). A file holds one trace <em>level</em>: <code class="docutils literal notranslate"><span class="pre">storage</span></code> records
 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> calls; <code class="docutils literal notranslate"><span class="pre">events</span></code> records the cache-event stream a server
-emits for the MP coordinator. It has two sub-commands:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span><span class="o">{</span>info,replay<span class="o">}</span><span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+emits for the MP coordinator. It has three sub-commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span><span class="o">{</span>info,replay,replay-events<span class="o">}</span><span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
 <div class="admonition note">
@@ -379,7 +379,7 @@ truncated. <code class="docutils literal notranslate"><span class="pre">restarts
 <p>Reissue every recorded call against a fresh <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code>, honoring the
 recorded inter-call timings. <code class="docutils literal notranslate"><span class="pre">replay</span></code> accepts <code class="docutils literal notranslate"><span class="pre">storage</span></code> files only; an
 <code class="docutils literal notranslate"><span class="pre">events</span></code> file is refused with a message saying so, since its records are
-coordinator input rather than storage calls.</p>
+coordinator input rather than storage calls (see <code class="docutils literal notranslate"><span class="pre">replay-events</span></code>).</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay<span class="w"> </span>path/to/trace.lct<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU
 </span></code></pre></div>
@@ -428,6 +428,74 @@ coordinator input rather than storage calls.</p>
 <p>终端摘要报告整体重放统计信息（重放/跳过/失败的记录、持续时间、配置摘要匹配）和每个操作的延迟百分位数。如果任何记录失败，<code class="docutils literal notranslate"><span class="pre">replay</span></code> 将以状态 <code class="docutils literal notranslate"><span class="pre">1</span></code> 退出。</p>
 </section>
 </section>
+<section id="replay-events">
+<h2>replay-events<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replay-events" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replay-events'"><span>#</span></a></h2>
+<p>Deliver the cache-event stream an <code class="docutils literal notranslate"><span class="pre">events</span></code> file holds to a coordinator,
+the way the server that wrote it would have. Several files, one per server,
+replay as one fleet, merged by wall-clock time:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>trace<span class="w"> </span>replay-events<span class="w"> </span>node-a.lct<span class="w"> </span>node-b.lct<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--coordinator-url<span class="w"> </span>http://coordinator:9300
+</span></code></pre></div>
+</div>
+<p>Each <code class="docutils literal notranslate"><span class="pre">start</span></code> mark registers its server with the coordinator (at the
+address the server recorded, or loopback) and begins heartbeating it every
+<code class="docutils literal notranslate"><span class="pre">--heartbeat-interval</span></code> seconds, each batch is one <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/events</span></code>
+carrying the record unchanged, and each <code class="docutils literal notranslate"><span class="pre">stop</span></code> mark deregisters. A file
+that ends without a <code class="docutils literal notranslate"><span class="pre">stop</span></code> is a server that died or a recording that was
+cut: its heartbeats end with its last record, and the coordinator retires
+it after its instance timeout, as it would a real crash. By default the
+stream goes as fast as the coordinator takes it; <code class="docutils literal notranslate"><span class="pre">--speed</span> <span class="pre">1</span></code> replays at
+the recorded rate. The servers are not there to be called back, so a replay
+exercises ingest and the views (directory, usage, declared capacity), not a
+controller's deletes or prefetches; run the coordinator with its eviction
+loop off to keep it from addressing them. The summary says how the
+coordinator counted the batches: applied, duplicate (a sequence it had
+already admitted) and stale (an incarnation it had already moved past).</p>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>Replay into a coordinator that does not have the same fleet live.
+Registering a recorded server replaces a live one's registration, and
+the coordinator would address the live server at the recorded address.</p>
+</div>
+<section id="id1">
+<h3>选项<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id1" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id1'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FILE</span></code></p></td>
+<td><p>One or more <code class="docutils literal notranslate"><span class="pre">events</span></code>-level <code class="docutils literal notranslate"><span class="pre">.lct</span></code> files (positional, required).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--coordinator-url</span> <span class="pre">URL</span></code></p></td>
+<td><p>The coordinator to deliver the stream to (required).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--speed</span> <span class="pre">N</span></code></p></td>
+<td><p>Pacing relative to the recording; <code class="docutils literal notranslate"><span class="pre">1</span></code> is the recorded rate, <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(default) as fast as the coordinator takes it.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--heartbeat-interval</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p>Heartbeat each registered server this often (default <code class="docutils literal notranslate"><span class="pre">5</span></code>, below
+the coordinator's 30 s instance timeout); <code class="docutils literal notranslate"><span class="pre">0</span></code> sends none.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>Suppress the terminal summary.</p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">replay-events</span></code> exits with status <code class="docutils literal notranslate"><span class="pre">2</span></code> if a file is not an <code class="docutils literal notranslate"><span class="pre">events</span></code>
+trace this build can replay, and with status <code class="docutils literal notranslate"><span class="pre">1</span></code> if the coordinator
+cannot be reached or refuses a call; the replay stops there rather than
+skip records, since a partly delivered stream would leave views that look
+complete and are not. The per-record log says how far it got.</p>
+</section>
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -452,6 +520,10 @@ coordinator input rather than storage calls.</p>
 <li><a :data-current="activeSection === '#info'" class="reference internal" href="#info">信息</a></li>
 <li><a :data-current="activeSection === '#replay'" class="reference internal" href="#replay">重放</a><ul>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">选项</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#replay-events'" class="reference internal" href="#replay-events">replay-events</a><ul>
+<li><a :data-current="activeSection === '#id1'" class="reference internal" href="#id1">选项</a></li>
 </ul>
 </li>
 </ul>
