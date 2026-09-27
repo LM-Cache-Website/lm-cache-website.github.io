@@ -575,6 +575,15 @@ object group's attention-window rule.</p></td>
 <td><p>Of <code class="docutils literal notranslate"><span class="pre">lookup_hit</span></code>: tokens L2 added beyond the L1-servable prefix.
 <code class="docutils literal notranslate"><span class="pre">l1</span> <span class="pre">+</span> <span class="pre">l2</span> <span class="pre">==</span> <span class="pre">lookup_hit</span></code> per event.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l1_keys</span></code></p></td>
+<td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
+<td><p>Hit keys L1 already held. One key per object group, kv rank and
+chunk, so the count is not divided by the TP world size.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_hit_l2_keys</span></code></p></td>
+<td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
+<td><p>Hit keys loaded from L2 into L1.</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookups</span></code></p></td>
 <td><p>计数器（属性：<code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>）</p></td>
 <td><p>Completed lookups (denominator for <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>).</p></td>
@@ -588,7 +597,8 @@ object group's attention-window rule.</p></td>
 </table>
 <p>All lookup counters are driven by the same event (<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>),
 so they always advance together per completed lookup. Early-exit lookups
-contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to all four token counters and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to
+contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to all four token counters, <code class="docutils literal notranslate"><span class="pre">0</span></code> keys to both
+key counters, and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to
 <code class="docutils literal notranslate"><span class="pre">lookups</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>, and abandoned lookups contribute to neither.</p>
 <p><code class="docutils literal notranslate"><span class="pre">model_name</span></code> 和 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 属性在查找时从 <code class="docutils literal notranslate"><span class="pre">IPCCacheServerKey</span></code> 捕获，以便仪表板计算每个模型或每个租户的命中率。<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 可能具有高基数（每个租户或隔离域一个条目）；若存储成本敏感，请在抓取时通过 <code class="docutils literal notranslate"><span class="pre">metric_relabel_configs</span></code> 丢弃它。</p>
 <p><strong>PromQL 查询命中率:</strong></p>
@@ -607,8 +617,21 @@ contribute <code class="docutils literal notranslate"><span class="pre">0</span>
 </span><span id="line-13"><span class="c1"># Fraction of lookups that early-exited, by reason:</span>
 </span><span id="line-14"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_early_exit_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">reason</span><span class="o">)</span>
 </span><span id="line-15"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookups_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-16">
+</span><span id="line-17"><span class="c1"># Share of hit keys L1 already held:</span>
+</span><span id="line-18"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-19"><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-20"><span class="w">   </span><span class="o">+</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l2_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
 </span></code></pre></div>
 </div>
+<p><strong>Tokens vs. keys on hybrid models.</strong> The token split credits L1 only with
+the prefix L1 could serve without L2. On a hybrid model (full attention plus
+sliding-window or linear-attention layers), L1 may hold every full-attention
+key while L2 supplies only the few sliding-window keys that complete the
+prefix. The token counters then report the whole hit as L2, while the key
+counters show that most of the data came from L1. Use the token counters for
+"how much of the hit depends on L2" and the key counters for "how much data
+L2 actually moved".</p>
 </section>
 <section id="l0-gpu-block-lifecycle-histograms">
 <h2>L0 (GPU) 块生命周期直方图<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l0-gpu-block-lifecycle-histograms" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l0-gpu-block-lifecycle-histograms'"><span>#</span></a></h2>

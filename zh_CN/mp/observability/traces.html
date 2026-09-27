@@ -378,6 +378,17 @@ is zero.  <code class="docutils literal notranslate"><span class="pre">request</
 is zero.  Sums with <code class="docutils literal notranslate"><span class="pre">l1_hit_rate</span></code> to <code class="docutils literal notranslate"><span class="pre">hit_rate</span></code> up to float
 rounding.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l1_hit_keys</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Hit keys (one per object group, kv rank and chunk) L1 already
+held.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2_hit_keys</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Hit keys loaded from L2.  On hybrid models this can be small while
+<code class="docutils literal notranslate"><span class="pre">l2_hit_tokens</span></code> covers the whole hit (L2 supplied only the
+sliding-window keys).  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">early_exit_reason</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
 <td><p>Which branch of the lookup returned before a prefetch was
@@ -402,8 +413,11 @@ including a genuine cold miss.  <code class="docutils literal notranslate"><span
 </span><span id="line-10"># Requests that had to go to L2 for most of their hit
 </span><span id="line-11">{ name = "request" &amp;&amp; span.l2_hit_rate &gt; 0.5 }
 </span><span id="line-12">
-</span><span id="line-13"># Lookups that exited early rather than genuinely missing
-</span><span id="line-14">{ name = "request" &amp;&amp; span.early_exit_reason != "" }
+</span><span id="line-13"># Requests that loaded anything from L2
+</span><span id="line-14">{ name = "request" &amp;&amp; span.l2_hit_keys &gt; 0 }
+</span><span id="line-15">
+</span><span id="line-16"># Lookups that exited early rather than genuinely missing
+</span><span id="line-17">{ name = "request" &amp;&amp; span.early_exit_reason != "" }
 </span></code></pre></div>
 </div>
 <p>有关完整的事件到 span 映射以及将子 span 关联回根 span 的注册模式，请参阅源码树中的 <code class="docutils literal notranslate"><span class="pre">docs/design/observability/request-event-span.md</span></code>。</p>
