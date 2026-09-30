@@ -405,14 +405,14 @@ adapter-specific payload to the selected adapter. DAX owns the path, mode,
 migration, and resize semantics; the generic interface is reusable by other
 adapters such as P2P.
 Use JSON bodies because DAX paths contain slashes:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
-</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
+</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
-</span><span id="line-5">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/remove<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/remove<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-7"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "mode": "migrate"}'</span>
-</span><span id="line-8">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/resize<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/resize<span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-10"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "200GiB"}'</span>
 </span></code></pre></div>
@@ -429,6 +429,8 @@ readable until it is evicted or the server closes.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">resize</span></code> supports <code class="docutils literal notranslate"><span class="pre">migrate</span></code> and <code class="docutils literal notranslate"><span class="pre">evict</span></code> modes. It does not support
 <code class="docutils literal notranslate"><span class="pre">drain</span></code> because resize completes synchronously.</p>
+<p>An add returns <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code> when L1 or another DAX L2 adapter already
+maps the same physical device, including through an alias.</p>
 <p>Hotplug operations are lock-safe by default. A remove or shrink that would
 delete externally locked or borrowed slots returns <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code> unless
 <code class="docutils literal notranslate"><span class="pre">force</span></code> is set. A migration that has no active destination capacity returns
@@ -439,25 +441,25 @@ outside the new slot range must migrate first, or the request fails.</p>
 <section id="hardware-validation-flow">
 <h2>Hardware Validation Flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hardware-validation-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hardware-validation-flow'"><span>#</span></a></h2>
 <p>Use the same Qwen 8B or 14B long-context workload before and after a runtime
-capacity change. Without hotplug support, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code> and
-<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> are not available; changing the DAX device set
+capacity change. Without hotplug support, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/status</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/add</span></code> are not available; changing the DAX device set
 requires restarting LMCache with a new <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> value, which drops the
 volatile DAX key index.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3-8B<span class="w">  </span><span class="c1"># or a local Qwen 8B/14B checkpoint</span>
-</span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span><span id="line-3">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">  </span>--model<span class="w"> </span><span class="s2">"</span><span class="nv">$MODEL</span><span class="s2">"</span><span class="w"> </span>--num-documents<span class="w"> </span><span class="m">1</span><span class="w"> </span>--document-length<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">  </span>--output-len<span class="w"> </span><span class="m">16</span><span class="w"> </span>--repeat-count<span class="w"> </span><span class="m">2</span><span class="w"> </span>--repeat-mode<span class="w"> </span>tile<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">  </span>--completions<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--json-output
-</span><span id="line-7">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-8"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
-</span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span></code></pre></div>
 </div>
 <p>Record these fields for the comparison:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> before and after <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> before and after <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/add</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">total_used_bytes</span></code> while the Qwen workload is running.</p></li>
 <li><p>Whether an LMCache restart was required.</p></li>
 <li><p>Whether the same cached prompt remains retrievable after the capacity change.</p></li>

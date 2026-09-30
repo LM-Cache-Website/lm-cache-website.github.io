@@ -376,14 +376,14 @@
 <section id="runtime-hotplug-api">
 <h2>运行时热插拔 API<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-hotplug-api" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-hotplug-api'"><span>#</span></a></h2>
 <p>运行时热插拔在 <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> 为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 时才会启用。该 API 仅更改 LMCache 的运行时映射和元数据；<code class="docutils literal notranslate"><span class="pre">/dev/dax*</span></code> 设备必须已经存在，并且 LMCache 服务器进程必须具有可读写权限。运行时端点通过 StorageManager 的通用 L2 适配器重新配置接口实现，该接口将后端、操作名称和适配器特定有效负载路由到所选适配器。DAX 拥有路径、模式、迁移和调整大小的语义；通用接口可被其他适配器（如 P2P）重用。使用 JSON 主体，因为 DAX 路径包含斜杠：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
-</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
+</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
-</span><span id="line-5">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/remove<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/remove<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-7"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "mode": "migrate"}'</span>
-</span><span id="line-8">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/resize<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/resize<span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-10"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "200GiB"}'</span>
 </span></code></pre></div>
@@ -395,26 +395,32 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">drain</span></code>: 停止对源设备的新写入，并保持现有的 KV 可读，直到被逐出或服务器关闭。</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">resize</span></code> 支持 <code class="docutils literal notranslate"><span class="pre">migrate</span></code> 和 <code class="docutils literal notranslate"><span class="pre">evict</span></code> 模式。它不支持 <code class="docutils literal notranslate"><span class="pre">drain</span></code>，因为 resize 是同步完成的。</p>
+<p>An add returns <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code> when L1 or another DAX L2 adapter already
+maps the same physical device, including through an alias.</p>
 <p>热插拔操作默认是安全的。删除或缩小会删除外部锁定或借用的槽位时，除非设置了 <code class="docutils literal notranslate"><span class="pre">force</span></code>，否则返回 <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">Conflict</span></code>。没有活动目标容量的迁移返回 <code class="docutils literal notranslate"><span class="pre">507</span> <span class="pre">Insufficient</span> <span class="pre">Storage</span></code>。扩展的调整大小保留内存中的键索引，并且不移动 KV 负载。缩小的调整大小绝不会静默丢弃键；新槽范围外的条目必须先迁移，否则请求将失败。</p>
 </section>
 <section id="hardware-validation-flow">
 <h2>硬件验证流程<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#hardware-validation-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#hardware-validation-flow'"><span>#</span></a></h2>
-<p>在运行时容量更改之前和之后使用相同的 Qwen 8B 或 14B 长上下文工作负载。如果没有热插拔支持，<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/status</span></code> 和 <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> 将不可用；更改 DAX 设备集需要使用新的 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> 值重新启动 LMCache，这将丢弃易失性的 DAX 密钥索引。</p>
+<p>Use the same Qwen 8B or 14B long-context workload before and after a runtime
+capacity change. Without hotplug support, <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/status</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/add</span></code> are not available; changing the DAX device set
+requires restarting LMCache with a new <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> value, which drops the
+volatile DAX key index.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">MODEL</span><span class="o">=</span>Qwen/Qwen3-8B<span class="w">  </span><span class="c1"># or a local Qwen 8B/14B checkpoint</span>
-</span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-2">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span><span id="line-3">python<span class="w"> </span>benchmarks/long_doc_qa/long_doc_qa.py<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">  </span>--model<span class="w"> </span><span class="s2">"</span><span class="nv">$MODEL</span><span class="s2">"</span><span class="w"> </span>--num-documents<span class="w"> </span><span class="m">1</span><span class="w"> </span>--document-length<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">  </span>--output-len<span class="w"> </span><span class="m">16</span><span class="w"> </span>--repeat-count<span class="w"> </span><span class="m">2</span><span class="w"> </span>--repeat-mode<span class="w"> </span>tile<span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">  </span>--completions<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--json-output
-</span><span id="line-7">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-8"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
-</span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/status
+</span><span id="line-10">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span></code></pre></div>
 </div>
 <p>记录这些字段以进行比较：</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> 在 <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/add</span></code> 之前和之后。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_capacity_bytes</span></code> before and after <code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l2/add</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">total_used_bytes</span></code> 在 Qwen 工作负载运行时。</p></li>
 <li><p>是否需要重启 LMCache。</p></li>
 <li><p>在容量变化后，是否仍然可以检索到相同的缓存提示。</p></li>

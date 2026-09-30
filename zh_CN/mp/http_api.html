@@ -505,12 +505,40 @@ only bind a non-loopback address on a trusted network.</p></td>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>GET</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/status</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/l2/status</span></code></p></td>
 <td><p>报告一个后端类型的可运行管理 L2 适配器。 （要发现可重新配置的后端，请使用 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> 并读取 <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> 标志。）</p></td>
 </tr>
 <tr class="row-odd"><td><p>POST</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/{operation}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/l2/{operation}</span></code></p></td>
 <td><p>对后端适配器应用一个运行时重新配置操作。</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Runtime L1 reconfiguration (Device-DAX)</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10.0%"/>
+<col style="width: 35.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>方法</p></th>
+<th class="head"><p>路径</p></th>
+<th class="head"><p>目的</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l1/status</span></code></p></td>
+<td><p>Report every Device-DAX L1 arena with usage and lifecycle state.</p></td>
+</tr>
+<tr class="row-odd"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l1/add</span></code></p></td>
+<td><p>Map an additional Device-DAX device.</p></td>
+</tr>
+<tr class="row-even"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l1/remove</span></code></p></td>
+<td><p>Remove one mapped Device-DAX L1 device (currently drain mode only).</p></td>
 </tr>
 </tbody>
 </table>
@@ -759,7 +787,12 @@ Disabled by default; requires <code class="docutils literal notranslate"><span c
 </span><span id="line-6"><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">primary</span></code> 仅在第一个条目上为 <code class="docutils literal notranslate"><span class="pre">true</span></code>。<code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> 对于接受 <code class="docutils literal notranslate"><span class="pre">/reconfigure</span></code> 操作的适配器为 <code class="docutils literal notranslate"><span class="pre">true</span></code> — 将该适配器的 <code class="docutils literal notranslate"><span class="pre">type_name</span></code> 作为 <code class="docutils literal notranslate"><span class="pre">{backend}</span></code> 路径参数传递给 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code> 和重新配置操作。没有 L2 后端的引擎返回 <code class="docutils literal notranslate"><span class="pre">{\"adapters\":</span> <span class="pre">[]}``（仍然是</span> <span class="pre">``200</span></code> — 引擎已初始化，只是没有 L2 存储）。</p>
+<p><code class="docutils literal notranslate"><span class="pre">primary</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code> only on the first entry. <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> is
+<code class="docutils literal notranslate"><span class="pre">true</span></code> for adapters that accept <code class="docutils literal notranslate"><span class="pre">/reconfigure</span></code> operations — pass that
+adapter's <code class="docutils literal notranslate"><span class="pre">type_name</span></code> as the <code class="docutils literal notranslate"><span class="pre">{backend}</span></code> path parameter to
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/l2/status</span></code> and the reconfigure operations. An
+engine that has no L2 backends returns <code class="docutils literal notranslate"><span class="pre">{"adapters":</span> <span class="pre">[]}</span></code> (still <code class="docutils literal notranslate"><span class="pre">200</span></code> —
+the engine is initialized, it just has no L2 storage).</p>
 <p><strong>HTTP 状态码:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: 成功（包括无适配器的情况）。</p></li>
@@ -1284,13 +1317,17 @@ that event flow, not from the response of this call.</p>
 <section id="runtime-l2-reconfiguration">
 <span id="mp-http-dax-api"></span><h2>运行时 L2 重新配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-l2-reconfiguration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-l2-reconfiguration'"><span>#</span></a></h2>
 <p>这些端点在服务器具有可运行时重新配置的 L2 适配器时可用。它们仅更改 LMCache 的运行时映射和元数据；后端资源如 DAX 设备路径必须已经存在，并且服务器必须能够读取和写入。该端点将 <code class="docutils literal notranslate"><span class="pre">backend</span></code>、<code class="docutils literal notranslate"><span class="pre">operation</span></code> 和 JSON 请求体路由到通用 L2 适配器重新配置 API，而后端特定的验证和迁移语义则保留在适配器内部。</p>
+<p><strong>Changed:</strong> L2 reconfiguration uses <code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/l2/status</span></code>
+and <code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/l2/{operation}</span></code>. The previous
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/status</span></code> and <code class="docutils literal notranslate"><span class="pre">/reconfigure/{backend}/{operation}</span></code>
+URLs are removed and return <code class="docutils literal notranslate"><span class="pre">404</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">backend</span></code> 和 <code class="docutils literal notranslate"><span class="pre">operation</span></code> 路径段被规范化（去除空格并转为小写）。在请求体内，<code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>（默认为 <code class="docutils literal notranslate"><span class="pre">0</span></code>）是 <strong>后端本地</strong> 的——它仅索引该后端的适配器，而不是整个引擎的适配器列表。如果 L2 适配器被序列化/反序列化包装，后端字符串仍然是配置的 L2 适配器类型，而不是序列化/反序列化包装类型。</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>这里接受的后端字符串通过 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config/adapters</span></code> 发现：每个 <code class="docutils literal notranslate"><span class="pre">reconfigurable</span></code> 标志为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 的适配器都可以通过其 <code class="docutils literal notranslate"><span class="pre">type_name</span></code> 进行访问。</p>
 </div>
-<section id="get-reconfigure-backend-status">
-<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-reconfigure-backend-status" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-reconfigure-backend-status'"><span>#</span></a></h3>
+<section id="get-reconfigure-backend-l2-status">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/l2/status</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-reconfigure-backend-l2-status" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-reconfigure-backend-l2-status'"><span>#</span></a></h3>
 <p>报告一个后端类型的运行时可管理适配器。每个适配器条目的 <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code> 被重写为其 <strong>后端本地</strong> 的 0 基索引（在操作请求体中传回的值）。</p>
 <p><strong>路径参数:</strong> <code class="docutils literal notranslate"><span class="pre">backend</span></code> — 适配器 <code class="docutils literal notranslate"><span class="pre">type_name``（标准化：去除空格并小写；通过</span> <span class="pre">``GET</span> <span class="pre">/config/adapters</span></code> 发现有效值）。</p>
 <p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
@@ -1312,12 +1349,12 @@ that event flow, not from the response of this call.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化。</p></li>
 </ul>
 <p><strong>示例：</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/reconfigure/dax/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/reconfigure/dax/l2/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </span></code></pre></div>
 </div>
 </section>
-<section id="post-reconfigure-backend-operation">
-<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/{operation}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-reconfigure-backend-operation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-reconfigure-backend-operation'"><span>#</span></a></h3>
+<section id="post-reconfigure-backend-l2-operation">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/l2/{operation}</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-reconfigure-backend-l2-operation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-reconfigure-backend-l2-operation'"><span>#</span></a></h3>
 <p>将一个重新配置操作应用于后端适配器。请求体是一个 JSON 对象，其接受的字段取决于后端和操作。<code class="docutils literal notranslate"><span class="pre">200</span></code> 响应是存储管理器的 <code class="docutils literal notranslate"><span class="pre">reconfigure_l2_adapter</span></code> 返回的内容（一个后端定义的字典）。</p>
 <p><strong>路径参数:</strong> <code class="docutils literal notranslate"><span class="pre">backend``（适配器</span> <span class="pre">``type_name</span></code>）和 <code class="docutils literal notranslate"><span class="pre">operation``（例如</span> <span class="pre">``add</span></code> / <code class="docutils literal notranslate"><span class="pre">remove</span></code> / <code class="docutils literal notranslate"><span class="pre">resize</span></code> 用于 <code class="docutils literal notranslate"><span class="pre">dax</span></code>）。两者都经过标准化（去除空格并转为小写）。</p>
 <p>对于 <strong>通用</strong> 路径（任何后端除了 <code class="docutils literal notranslate"><span class="pre">dax</span></code>），请求体包含 <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code> 以及任何特定于后端的字段，这些字段会逐字转发给适配器。</p>
@@ -1364,12 +1401,88 @@ that event flow, not from the response of this call.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化。</p></li>
 </ul>
 <p><strong>示例：</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/reconfigure/dax/add<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/dax0.0", "size": "100GiB"}'</span>
 </span></code></pre></div>
 </div>
 <p>有关详细的请求示例、模式语义和验证指导，请参阅 <a class="reference internal" href="../kv_cache/storage_backends/dax.html"><span class="doc">设备-DAX (/dev/dax)</span></a>。</p>
+</section>
+</section>
+<section id="runtime-l1-reconfiguration-device-dax">
+<h2>Runtime L1 Reconfiguration (Device-DAX)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#runtime-l1-reconfiguration-device-dax" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#runtime-l1-reconfiguration-device-dax'"><span>#</span></a></h2>
+<p>These routes manage the Device-DAX L1 arena pool configured with
+<code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code>. Devices must already be provisioned, and requests do not
+use <code class="docutils literal notranslate"><span class="pre">adapter_index</span></code>.</p>
+<section id="get-reconfigure-dax-l1-status">
+<h3><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/dax/l1/status</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#get-reconfigure-dax-l1-status" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#get-reconfigure-dax-l1-status'"><span>#</span></a></h3>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"arenas"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-3"><span class="w">    </span><span class="p">{</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">"device_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/dax1.1"</span><span class="p">,</span>
+</span><span id="line-5"><span class="w">      </span><span class="nt">"size_in_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">17179869184</span><span class="p">,</span>
+</span><span id="line-6"><span class="w">      </span><span class="nt">"used_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">4294967296</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">      </span><span class="nt">"free_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">12884901888</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">      </span><span class="nt">"active_allocations"</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">      </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"active"</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">      </span><span class="nt">"is_primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+</span><span id="line-11"><span class="w">    </span><span class="p">}</span>
+</span><span id="line-12"><span class="w">  </span><span class="p">]</span>
+</span><span id="line-13"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="post-reconfigure-dax-l1-add">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/dax/l1/add</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-reconfigure-dax-l1-add" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-reconfigure-dax-l1-add'"><span>#</span></a></h3>
+<p><strong>Request body:</strong> <code class="docutils literal notranslate"><span class="pre">device_path</span></code> (string) and <code class="docutils literal notranslate"><span class="pre">size</span></code> (integer byte count or a
+string such as <code class="docutils literal notranslate"><span class="pre">"16GiB"</span></code>).</p>
+<p><strong>Response</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>): <code class="docutils literal notranslate"><span class="pre">{"added":</span> <span class="pre">&lt;arena&gt;}</span></code>.</p>
+<p><strong>示例：</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/reconfigure/dax/l1/add<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/dax1.2", "size": "16GiB"}'</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="post-reconfigure-dax-l1-remove">
+<h3><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/dax/l1/remove</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-reconfigure-dax-l1-remove" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-reconfigure-dax-l1-remove'"><span>#</span></a></h3>
+<p>Only drain mode is supported. A draining arena accepts no new allocations and
+is unmapped after its live allocations are freed. The primary arena cannot be
+removed.
+Use the exact device path supplied when adding the arena.</p>
+<p><strong>Request body:</strong> <code class="docutils literal notranslate"><span class="pre">device_path</span></code> (string) and optional <code class="docutils literal notranslate"><span class="pre">mode</span></code> (<code class="docutils literal notranslate"><span class="pre">drain</span></code>;
+default <code class="docutils literal notranslate"><span class="pre">drain</span></code>).</p>
+<p><strong>响应</strong> (<code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">OK</span></code>):</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">"device_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/dax1.2"</span><span class="p">,</span>
+</span><span id="line-4"><span class="w">    </span><span class="nt">"arenas"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-5"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-6"><span class="w">        </span><span class="nt">"device_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/dax1.2"</span><span class="p">,</span>
+</span><span id="line-7"><span class="w">        </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"draining"</span><span class="p">,</span>
+</span><span id="line-8"><span class="w">        </span><span class="nt">"active_allocations"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+</span><span id="line-9"><span class="w">        </span><span class="nt">"size_in_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">17179869184</span><span class="p">,</span>
+</span><span id="line-10"><span class="w">        </span><span class="nt">"used_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">6291456</span><span class="p">,</span>
+</span><span id="line-11"><span class="w">        </span><span class="nt">"free_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">17173577728</span><span class="p">,</span>
+</span><span id="line-12"><span class="w">        </span><span class="nt">"is_primary"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+</span><span id="line-13"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-14"><span class="w">    </span><span class="p">]</span>
+</span><span id="line-15"><span class="w">  </span><span class="p">}</span>
+</span><span id="line-16"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><strong>HTTP 状态码:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: 成功。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: invalid <code class="docutils literal notranslate"><span class="pre">size</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code>: device is not mapped.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">409</span></code>: incompatible L1 or device state, or mapping validation failure.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: invalid request body.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">500</span></code>: synchronization or cleanup failure after draining starts.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: 引擎未初始化。</p></li>
+</ul>
+<p>See <a class="reference internal" href="coordinator.html"><span class="doc">多服务器协调</span></a> for capacity reporting.</p>
 </section>
 </section>
 <section id="observability">
@@ -1740,8 +1853,14 @@ Start the server with <code class="docutils literal notranslate"><span class="pr
 </ul>
 </li>
 <li><a :data-current="activeSection === '#runtime-l2-reconfiguration'" class="reference internal" href="#runtime-l2-reconfiguration">运行时 L2 重新配置</a><ul>
-<li><a :data-current="activeSection === '#get-reconfigure-backend-status'" class="reference internal" href="#get-reconfigure-backend-status"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/status</span></code></a></li>
-<li><a :data-current="activeSection === '#post-reconfigure-backend-operation'" class="reference internal" href="#post-reconfigure-backend-operation"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/{operation}</span></code></a></li>
+<li><a :data-current="activeSection === '#get-reconfigure-backend-l2-status'" class="reference internal" href="#get-reconfigure-backend-l2-status"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/{backend}/l2/status</span></code></a></li>
+<li><a :data-current="activeSection === '#post-reconfigure-backend-l2-operation'" class="reference internal" href="#post-reconfigure-backend-l2-operation"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/{backend}/l2/{operation}</span></code></a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#runtime-l1-reconfiguration-device-dax'" class="reference internal" href="#runtime-l1-reconfiguration-device-dax">Runtime L1 Reconfiguration (Device-DAX)</a><ul>
+<li><a :data-current="activeSection === '#get-reconfigure-dax-l1-status'" class="reference internal" href="#get-reconfigure-dax-l1-status"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/reconfigure/dax/l1/status</span></code></a></li>
+<li><a :data-current="activeSection === '#post-reconfigure-dax-l1-add'" class="reference internal" href="#post-reconfigure-dax-l1-add"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/dax/l1/add</span></code></a></li>
+<li><a :data-current="activeSection === '#post-reconfigure-dax-l1-remove'" class="reference internal" href="#post-reconfigure-dax-l1-remove"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/reconfigure/dax/l1/remove</span></code></a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#observability'" class="reference internal" href="#observability">可观察性</a><ul>
