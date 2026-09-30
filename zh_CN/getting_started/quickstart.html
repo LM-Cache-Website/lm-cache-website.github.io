@@ -474,9 +474,12 @@ transport-selection behavior:</p>
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio"/>
 <label class="sd-tab-label" for="sd-tab-item-1">
 SGLang</label><div class="sd-tab-content docutils">
-<div class="admonition note">
-<p class="admonition-title">备注</p>
-<p>SGLang 集成现在默认使用 MP（多进程）模式。请参考 <a class="reference external" href="https://github.com/LMCache/LMCache/blob/dev/examples/sgl_integration/README.md">examples/sgl_integration/README.md</a> 以获取当前的设置说明。</p>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>The SGLang integration currently supports only MP (multi-process)
+mode. LMCache must run as a standalone server; in-process mode is not
+supported. Use an SGLang version that contains <a class="reference external" href="https://github.com/sgl-project/sglang/pull/38652">SGLang PR #38652</a> and an LMCache
+version that contains <a class="reference external" href="https://github.com/LMCache/LMCache/pull/4828">LMCache PR #4828</a>.</p>
 </div>
 <p><strong>安装 SGLang</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
@@ -484,28 +487,60 @@ SGLang</label><div class="sd-tab-content docutils">
 </span><span id="line-3">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--prerelease<span class="o">=</span>allow<span class="w"> </span>lmcache<span class="w"> </span><span class="s2">"sglang"</span>
 </span></code></pre></div>
 </div>
-<p><strong>使用 LMCache 启动 SGLang</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cat<span class="w"> </span>&gt;<span class="w"> </span>lmc_config.yaml<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
-</span><span id="line-2"><span class="s">chunk_size: 8  # demo only; use 256 for production</span>
-</span><span id="line-3"><span class="s">local_cpu: true</span>
-</span><span id="line-4"><span class="s">use_layerwise: true</span>
-</span><span id="line-5"><span class="s">max_local_cpu_size: 10  # GB</span>
-</span><span id="line-6"><span class="s">EOF</span>
-</span><span id="line-7">
-</span><span id="line-8"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_CONFIG_FILE</span><span class="o">=</span><span class="nv">$PWD</span>/lmc_config.yaml
-</span><span id="line-9">
-</span><span id="line-10">python<span class="w"> </span>-m<span class="w"> </span>sglang.launch_server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-11"><span class="w">  </span>--model-path<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
-</span><span id="line-12"><span class="w">  </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
-</span><span id="line-13"><span class="w">  </span>--port<span class="w"> </span><span class="m">30000</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-14"><span class="w">  </span>--enable-lmcache
+<p><strong>Configure the LMCache connection</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cat<span class="w"> </span>&gt;<span class="w"> </span>lmcache_config.yaml<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
+</span><span id="line-2"><span class="s">mp_host: 127.0.0.1</span>
+</span><span id="line-3"><span class="s">mp_port: 5555</span>
+</span><span id="line-4"><span class="s">EOF</span>
 </span></code></pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">备注</p>
-<p>通过配置文件配置 LMCache。有关完整列表，请参见 <a class="reference internal" href="../api_reference/configurations.html"><span class="doc">配置 LMCache</span></a>。</p>
+<p><code class="docutils literal notranslate"><span class="pre">mp_host</span></code> and <code class="docutils literal notranslate"><span class="pre">mp_port</span></code> identify the standalone LMCache request
+server. A bare host uses the default ZMQ transport.</p>
+<p><strong>Start the LMCache server</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># A small chunk size makes cache reuse visible with the short demo</span>
+</span><span id="line-2"><span class="c1"># prompts below. Use the default (256) for production workloads.</span>
+</span><span id="line-3">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">  </span>--l1-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">16</span>
+</span></code></pre></div>
 </div>
-<p><strong>测试</strong> -- 打开一个新终端并发送两个共享前缀的请求：</p>
+<p>To use gRPC instead of ZMQ, include the <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> scheme in the
+connector configuration:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cat<span class="w"> </span>&gt;<span class="w"> </span>lmcache_config.yaml<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
+</span><span id="line-2"><span class="s">mp_host: grpc://127.0.0.1</span>
+</span><span id="line-3"><span class="s">mp_port: 5555</span>
+</span><span id="line-4"><span class="s">EOF</span>
+</span></code></pre></div>
+</div>
+<p>Then start the LMCache server with the matching transport:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>--l1-size-gb<span class="w"> </span><span class="m">10</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">16</span>
+</span></code></pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>When serving a hybrid model, add <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> to the
+LMCache server command. This option is required so full-attention,
+sliding-window, and recurrent-state cache groups retain their distinct
+storage semantics. Omitting it can restore incompatible KV or state
+data and cause accuracy problems.</p>
+</div>
+<p><strong>Start SGLang in a separate terminal</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-m<span class="w"> </span>sglang.launch_server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--model-path<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">  </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">  </span>--port<span class="w"> </span><span class="m">30000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">  </span>--enable-lmcache<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">  </span>--lmcache-config-file<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/lmcache_config.yaml"</span>
+</span></code></pre></div>
+</div>
+<p>The SGLang process owns the GPU-resident radix cache and connects to the
+LMCache server for external lookup, retrieve, and store operations. The
+server independently manages its CPU and remote cache tiers.</p>
+<p><strong>Test</strong> -- open a new terminal and send two requests whose prompts
+share a prefix. Clear SGLang's local radix cache between them so the
+second request must retrieve the shared prefix from LMCache.</p>
 <p><strong>第一次请求</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://localhost:30000/v1/chat/completions<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
@@ -515,6 +550,11 @@ SGLang</label><div class="sd-tab-content docutils">
 </span><span id="line-6"><span class="s1">    "max_tokens": 100,</span>
 </span><span id="line-7"><span class="s1">    "temperature": 0.7</span>
 </span><span id="line-8"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+<p><strong>Clear the local SGLang radix cache</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">sleep<span class="w"> </span><span class="m">2</span><span class="w">  </span><span class="c1"># allow the asynchronous LMCache store to finish</span>
+</span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">"http://localhost:30000/flush_cache?timeout=60"</span>
 </span></code></pre></div>
 </div>
 <p><strong>第二个请求</strong></p>
@@ -528,29 +568,14 @@ SGLang</label><div class="sd-tab-content docutils">
 </span><span id="line-8"><span class="s1">  }'</span>
 </span></code></pre></div>
 </div>
-<p><strong>您应该看到类似于以下的 LMCache 日志：</strong></p>
-<p><strong>第一次请求</strong> -- 提示词和生成的令牌被存储：</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Prefill batch, #new-seq: 1, #new-token: 35, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0,
-</span><span id="line-2">Decode batch, #running-req: 1, #token: 74, token usage: 0.00, cuda graph: True, gen throughput (token/s): 1.63, #queue-req: 0,
-</span><span id="line-3">Decode batch, #running-req: 1, #token: 114, token usage: 0.00, cuda graph: True, gen throughput (token/s): 87.95, #queue-req: 0,
-</span><span id="line-4">LMCache INFO: Stored 128 out of total 135 tokens. size: 0.0195 GB, cost 12.8890 ms, throughput: 1.5153 GB/s (cache_engine.py:623:lmcache.v1.cache_engine)
+<p>The first request populates LMCache. After the local radix cache is
+cleared, the second request retrieves its shared, chunk-aligned prefix
+from the standalone LMCache server. You can confirm the retrieve through
+the server metrics endpoint:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080/metrics<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>lmcache_mp_l1_read_chunks_total
 </span></code></pre></div>
 </div>
-<p><strong>第二个请求</strong> -- Radix Cache 和 LMCache 共享前缀；仅存储新部分：</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Prefill batch, #new-seq: 1, #new-token: 10, #cached-token: 30, token usage: 0.00, #running-req: 0, #queue-req: 0,
-</span><span id="line-2">Decode batch, #running-req: 1, #token: 64, token usage: 0.00, cuda graph: True, gen throughput (token/s): 8.29, #queue-req: 0,
-</span><span id="line-3">Decode batch, #running-req: 1, #token: 104, token usage: 0.00, cuda graph: True, gen throughput (token/s): 87.95, #queue-req: 0,
-</span><span id="line-4">Decode batch, #running-req: 1, #token: 144, token usage: 0.00, cuda graph: True, gen throughput (token/s): 87.89, #queue-req: 0,
-</span><span id="line-5">LMCache INFO: Stored 112 out of total 140 tokens. size: 0.0171 GB, cost 11.1986 ms, throughput: 1.5261 GB/s (cache_engine.py:623:lmcache.v1.cache_engine)
-</span></code></pre></div>
-</div>
-<ul class="simple">
-<li><p><strong>总令牌 140</strong>：SGLang 将 KV Cache 存储用于 Prefill 和解码令牌，因此总计 = 40 提示 + 100 生成 = 140 令牌。</p></li>
-<li><p><strong>缓存的令牌: 30</strong>: SGLang 的 Radix Attention Cache 重用了来自第一次请求的 30 个令牌。</p></li>
-<li><p><strong>LMCache 命中令牌: 24</strong>: LMCache 检测到从第一次请求中存储的 24 个令牌（3 个完整的 8 令牌块）。由于 Radix Cache 已经在显存中提供了 30 个令牌，因此这 24 个令牌不需要从 LMCache 加载或再次存储。</p></li>
-<li><p><strong>新令牌：10</strong>：只有 10 个提示令牌需要进行 Prefill 计算（40 个提示 - 30 个缓存 = 10）。</p></li>
-<li><p><strong>140 个中存储了 112 个</strong>：24 个令牌（3 个完整块）已在 LMCache 中，予以跳过。在剩余的 116 个令牌中，112 个（14 个完整的 8 令牌块）被存储。</p></li>
-</ul>
 </div>
 <input id="sd-tab-item-2" name="sd-tab-set-0" type="radio"/>
 <label class="sd-tab-label" for="sd-tab-item-2">
