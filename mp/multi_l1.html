@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Request Transport | LMCache</title>
-<meta content="Request Transport | LMCache" property="og:title"/>
-<meta content="Request Transport | LMCache" name="twitter:title"/>
+<title>L1 Write Overflow and Ownership | LMCache</title>
+<meta content="L1 Write Overflow and Ownership | LMCache" property="og:title"/>
+<meta content="L1 Write Overflow and Ownership | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -21,8 +21,8 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="multi_l1.html" rel="next" title="L1 Write Overflow and Ownership"/>
-<link href="index.html" rel="prev" title="Overview"/>
+<link href="../getting_started/installation.html" rel="next" title="Installation"/>
+<link href="request_transport.html" rel="prev" title="Request Transport"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
       const userPreference = localStorage.getItem('darkMode');
@@ -295,98 +295,105 @@
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../getting_started/index.html">Getting Started</a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Overview</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Request Transport</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">L1 Write Overflow and Ownership</span>
 </nav>
 <div id="content" role="main">
-<section id="request-transport">
-<h1>Request Transport<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#request-transport"><span>#</span></a></h1>
-<p>LMCache MP clients select the request transport from the LMCache server URL.
-This transport carries control and cache-operation requests; it is separate
-from <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, which controls how KV data moves between
-the engine worker and the LMCache server.</p>
-<section id="transport-schemes">
-<h2>Transport schemes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transport-schemes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transport-schemes'"><span>#</span></a></h2>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 30.0%"/>
-<col style="width: 25.0%"/>
-<col style="width: 45.0%"/>
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Endpoint</p></th>
-<th class="head"><p>Transport</p></th>
-<th class="head"><p>Status</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">host:port</span></code> or <code class="docutils literal notranslate"><span class="pre">tcp://host:port</span></code></p></td>
-<td><p>ZMQ over TCP</p></td>
-<td><p>Supported. A URL without a scheme defaults to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code>.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ipc://path</span></code> or <code class="docutils literal notranslate"><span class="pre">inproc://name</span></code></p></td>
-<td><p>ZMQ IPC or in-process</p></td>
-<td><p>Recognized by the client factory; the standard LMCache server currently
-binds ZMQ over TCP.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc://host:port</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc+unix:///path</span></code></p></td>
-<td><p>gRPC</p></td>
-<td><p>Supported.</p></td>
-</tr>
-</tbody>
-</table>
+<section id="l1-write-overflow-and-ownership">
+<h1>L1 Write Overflow and Ownership<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-write-overflow-and-ownership"><span>#</span></a></h1>
+<p>This change adds two foundations for multi-L1 support: ordered write overflow
+and an owner tag on each L1 memory object. It does <strong>not</strong> enable multi-L1
+serving through the CLI.</p>
+<section id="what-changes-for-users">
+<h2>What changes for users?<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-changes-for-users" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-changes-for-users'"><span>#</span></a></h2>
+<p>Keep using the existing single-L1 configuration. No CLI migration is needed.
+The DRAM, Device-DAX, and GDS options in <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> remain unchanged,
+including the legacy <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> options. There is no new public multi-L1
+configuration or L1–L2 affinity setting.</p>
+<p>The internal construction path accepts an ordered set of existing L1 managers
+for allocation and ownership tests. It requires no L2 adapters and <code class="docutils literal notranslate"><span class="pre">noop</span></code>
+eviction. Serving reads and prefetch are rejected with multiple managers.
+<code class="docutils literal notranslate"><span class="pre">memcheck()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_l1_usage()</span></code>, <code class="docutils literal notranslate"><span class="pre">report_status()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">publish_capacity()</span></code> also raise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> in this internal mode rather
+than report only the primary L1.
+Multi-L1 read selection, cancellation, eviction, and L2 integration are deferred.</p>
 </section>
-<section id="grpc-implementation-and-schema-development">
-<h2>gRPC implementation and schema development<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#grpc-implementation-and-schema-development" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#grpc-implementation-and-schema-development'"><span>#</span></a></h2>
-<p>The gRPC client and server live under
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/multiprocess/transport/grpc_impl</span></code>. They expose the same named
-<code class="docutils literal notranslate"><span class="pre">RequestClient</span></code> operations and annotated engine-module handlers as ZMQ, while
-protobuf defines the gRPC wire format. Schemas live in the sibling <code class="docutils literal notranslate"><span class="pre">protos</span></code>
-directory, and package builds generate their Python bindings under
-<code class="docutils literal notranslate"><span class="pre">_proto_gen</span></code>.</p>
-<p>After changing a schema, regenerate and validate all bindings with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements/proto.txt
-</span><span id="line-2">python<span class="w"> </span>-m<span class="w"> </span>lmcache.v1.multiprocess.transport.grpc_impl._proto_gen._generate
+<section id="how-overflow-works">
+<h2>How overflow works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-overflow-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-overflow-works'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">StorageManager.reserve_write()</span></code> tries the primary L1 first. It retries only
+keys that returned <code class="docutils literal notranslate"><span class="pre">OUT_OF_MEMORY</span></code> on the next eligible L1, in explicit order.
+Calls are synchronous. Each candidate is visited at most once per reservation.
+The candidate order is validated and captured at construction, so later changes
+to the supplied policy object do not change an existing manager’s write order.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Reserve a batch
+</span><span id="line-2">     |
+</span><span id="line-3">     v
+</span><span id="line-4">Primary L1 ---- OUT_OF_MEMORY keys ----&gt; Fallback L1 ----&gt; Next L1
+</span><span id="line-5">     |                                       |
+</span><span id="line-6">     +-- keep successes                      +-- keep successes
+</span><span id="line-7">     +-- stop on other errors                +-- stop on other errors
 </span></code></pre></div>
 </div>
-<p>For a single vLLM connector, set the scheme in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> and keep the
-port in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code>. A ZMQ configuration is:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tcp://localhost"</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span>
-</span><span id="line-4"><span class="p">}</span>
+<p>Successful keys stay on their selected L1. They are not allocated again on a
+fallback. Conflicts and exceptions do not trigger overflow. If every candidate
+is full, failed keys are omitted from the returned object mapping, as before.
+This does not add cross-L1 deduplication.</p>
+<p>Existing allocation batches are preserved. Overflow is <strong>not perfect packing</strong>.
+For example, a new two-object batch may fail when each L1 has space for only one
+object, even though their combined free space is sufficient. The allocator frees
+partial allocations before reporting that batch as out of memory; overflow
+passes the failed subset to the next L1 without splitting it into single-key
+allocations.</p>
+</section>
+<section id="why-each-object-has-an-owner">
+<h2>Why each object has an owner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-each-object-has-an-owner" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-each-object-has-an-owner'"><span>#</span></a></h2>
+<p>Each L1 stamps its objects with a process-local integer identity. Objects
+created outside L1 start without an owner. The identity belongs to the manager,
+not its position in the placement order. It is separate from the writer tag
+and is not part of keys, hashes, or serialized KV metadata.</p>
+<p>Completion captures owner identities from the objects returned by reservation.
+It never repeats placement or searches for another copy of the key.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Reserved objects --&gt; group keys by object owner
+</span><span id="line-2">                              |
+</span><span id="line-3">                      GPU copy completes
+</span><span id="line-4">                              |
+</span><span id="line-5">                              v
+</span><span id="line-6">                     Stream-ordered callback
+</span><span id="line-7">                              |
+</span><span id="line-8">                              v
+</span><span id="line-9">                 Finish on each captured owner
 </span></code></pre></div>
 </div>
-<p>To select gRPC, use the same configuration shape with a <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> host:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grpc://localhost"</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span>
-</span><span id="line-4"><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p>Start the server with the matching request transport:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>zmq<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
-</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
-</span></code></pre></div>
-</div>
-<p>For multiple servers, specify the scheme on every entry in
-<code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code>, for example
-<code class="docutils literal notranslate"><span class="pre">tcp://host1:5555,tcp://host2:5555</span></code> or
-<code class="docutils literal notranslate"><span class="pre">grpc://host1:5555,grpc://host2:5555</span></code>. All clients and servers in a
-deployment must use matching transports.</p>
+<p>The internal callback carries only owner integers and keys, not memory objects,
+tensors, or Python pointers. Existing L1 staging keeps allocations alive. An
+unknown or unset owner is an error; multi-manager completion does not guess the
+primary L1. Existing single-L1 callers can still finish writes using keys alone.
+Single-L1 trace recording also keeps the existing key-only completion format,
+so traces can be replayed against a fresh manager with a different owner ID.</p>
+<p>The owner tag does not replace writer validation, read locks, reference counts,
+or GPU completion ordering. It is not a write generation or a crash-recovery
+token. Two copies of the same key can have different owners; finishing one
+does not publish the other.</p>
+</section>
+<section id="not-included">
+<h2>Not included<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#not-included" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#not-included'"><span>#</span></a></h2>
+<p>Backend rewiring, GPU L1, public multi-L1 configuration, L1–L2 affinity,
+per-L1 reporting, concurrent lookup, migration, and shared-CXL services remain
+follow-up work. CPU allocation tests do not qualify multi-L1 serving, GPU
+transfers, or cross-host sharing.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="index.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="request_transport.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        Overview
+        Request Transport
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="multi_l1.html">
-        L1 Write Overflow and Ownership
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../getting_started/installation.html">
+        Installation
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
@@ -395,8 +402,10 @@ deployment must use matching transports.</p>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#transport-schemes'" class="reference internal" href="#transport-schemes">Transport schemes</a></li>
-<li><a :data-current="activeSection === '#grpc-implementation-and-schema-development'" class="reference internal" href="#grpc-implementation-and-schema-development">gRPC implementation and schema development</a></li>
+<li><a :data-current="activeSection === '#what-changes-for-users'" class="reference internal" href="#what-changes-for-users">What changes for users?</a></li>
+<li><a :data-current="activeSection === '#how-overflow-works'" class="reference internal" href="#how-overflow-works">How overflow works</a></li>
+<li><a :data-current="activeSection === '#why-each-object-has-an-owner'" class="reference internal" href="#why-each-object-has-an-owner">Why each object has an owner</a></li>
+<li><a :data-current="activeSection === '#not-included'" class="reference internal" href="#not-included">Not included</a></li>
 </ul>
 </div>
 </aside>
