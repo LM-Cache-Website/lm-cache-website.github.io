@@ -313,6 +313,8 @@ general handling of Mamba / linear-attention models.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://huggingface.co/moonshotai/Kimi-K3">moonshotai/Kimi-K3</a>
 (8× NVIDIA B300)</p></li>
+<li><p><a class="reference external" href="https://huggingface.co/moonshotai/Kimi-K3">moonshotai/Kimi-K3</a> MXFP4
+(8× AMD MI355X, ROCm 10, TP 8 / DCP 8, fp8 KV cache)</p></li>
 </ul>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio"/>
@@ -445,6 +447,26 @@ derived flags (see above).</p></li>
 needed; <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> advertises hybrid support and vLLM
 auto-selects the KDA and MLA backends. For the generic LMCache + vLLM
 wiring (ports, remote hosts), see <a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">快速入门</span></a>.</p>
+<p><strong>AMD MI355X / ROCm 10 (TP 8, decode context parallel 8).</strong> Validated
+under a 70-concurrency agentic trace with a 1.8 TB L1:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">+rocm7.2</span></code> LMCache wheel loads on ROCm 10 (its native extensions
+link <code class="docutils literal notranslate"><span class="pre">libamdhip64.so.7</span></code>, which ROCm 10 still ships).</p></li>
+<li><p>With DCP 8 and fp8 KV the MLA group registers 12288 tokens per block;
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">12288</span></code> (with <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>) works.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">--l1-init-size-gb</span></code> equal to <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> for a terabyte-scale
+L1. With the default lazy expansion the server keeps pinning host
+memory while vLLM registers its KV caches, and the GPU mappings can
+stall in the driver for minutes (heartbeats time out and the connector
+drops into degraded mode). Eager pinning finishes before vLLM starts.</p></li>
+<li><p>Under deep queues a request can wait many minutes between its lookup
+and its retrieve. Raise <code class="docutils literal notranslate"><span class="pre">--l1-read-ttl-seconds</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--session-ttl-seconds</span></code> above that delay (<code class="docutils literal notranslate"><span class="pre">7200</span></code> here); with the
+defaults (300 / 600) the prefetch read locks expire before the
+retrieve, which fails with <code class="docutils literal notranslate"><span class="pre">KEY_NOT_READABLE</span></code> and is reported to vLLM
+as <code class="docutils literal notranslate"><span class="pre">invalid_block_ids</span></code> -- fatal for a hybrid model with several KV
+cache groups.</p></li>
+</ul>
 <p>If there are any issues with vLLM setup, please refer to the
 <a class="reference external" href="https://docs.vllm.ai/projects/recipes/en/latest/index.html">vLLM Recipes</a>
 for more details.</p>
