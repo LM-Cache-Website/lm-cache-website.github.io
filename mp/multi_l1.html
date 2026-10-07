@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>L1 Write Overflow and Ownership | LMCache</title>
-<meta content="L1 Write Overflow and Ownership | LMCache" property="og:title"/>
-<meta content="L1 Write Overflow and Ownership | LMCache" name="twitter:title"/>
+<title>Multiple L1 Managers | LMCache</title>
+<meta content="Multiple L1 Managers | LMCache" property="og:title"/>
+<meta content="Multiple L1 Managers | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=95c83b7e" rel="stylesheet" type="text/css"/>
@@ -295,91 +295,162 @@
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../getting_started/index.html">Getting Started</a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">Overview</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">L1 Write Overflow and Ownership</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Multiple L1 Managers</span>
 </nav>
 <div id="content" role="main">
-<section id="l1-write-overflow-and-ownership">
-<h1>L1 Write Overflow and Ownership<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-write-overflow-and-ownership"><span>#</span></a></h1>
-<p>This change adds two foundations for multi-L1 support: ordered write overflow
-and an owner tag on each L1 memory object. It does <strong>not</strong> enable multi-L1
-serving through the CLI.</p>
-<section id="what-changes-for-users">
-<h2>What changes for users?<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-changes-for-users" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-changes-for-users'"><span>#</span></a></h2>
-<p>Keep using the existing single-L1 configuration. No CLI migration is needed.
-The DRAM, Device-DAX, and GDS options in <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> remain unchanged,
-including the legacy <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> options. There is no new public multi-L1
-configuration or L1–L2 affinity setting.</p>
-<p>The internal construction path accepts an ordered set of existing L1 managers
-for allocation and ownership tests. It requires no L2 adapters and <code class="docutils literal notranslate"><span class="pre">noop</span></code>
-eviction. Serving reads and prefetch are rejected with multiple managers.
-<code class="docutils literal notranslate"><span class="pre">memcheck()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_l1_usage()</span></code>, <code class="docutils literal notranslate"><span class="pre">report_status()</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">publish_capacity()</span></code> also raise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> in this internal mode rather
-than report only the primary L1.
-Multi-L1 read selection, cancellation, eviction, and L2 integration are deferred.</p>
-</section>
-<section id="how-overflow-works">
-<h2>How overflow works<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#how-overflow-works" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#how-overflow-works'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">StorageManager.reserve_write()</span></code> tries the primary L1 first. It retries only
-keys that returned <code class="docutils literal notranslate"><span class="pre">OUT_OF_MEMORY</span></code> on the next eligible L1, in explicit order.
-Calls are synchronous. Each candidate is visited at most once per reservation.
-The candidate order is validated and captured at construction, so later changes
-to the supplied policy object do not change an existing manager’s write order.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Reserve a batch
-</span><span id="line-2">     |
-</span><span id="line-3">     v
-</span><span id="line-4">Primary L1 ---- OUT_OF_MEMORY keys ----&gt; Fallback L1 ----&gt; Next L1
-</span><span id="line-5">     |                                       |
-</span><span id="line-6">     +-- keep successes                      +-- keep successes
-</span><span id="line-7">     +-- stop on other errors                +-- stop on other errors
+<section id="multiple-l1-managers">
+<h1>Multiple L1 Managers<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-l1-managers"><span>#</span></a></h1>
+<p>The MP server can serve KV objects from independently configured DRAM,
+Device-DAX, and GDS L1 managers. Each manager has its own capacity, eviction
+controller, and store controller. L2 adapters use a fixed L1 affinity tag.</p>
+<section id="configuration">
+<h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
+<p>Repeat <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> in write-placement order. Each JSON object requires
+<code class="docutils literal notranslate"><span class="pre">type</span></code>, a unique non-empty <code class="docutils literal notranslate"><span class="pre">tag</span></code>, and <code class="docutils literal notranslate"><span class="pre">size_gb</span></code> (GiB). The types are
+<code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code>, and <code class="docutils literal notranslate"><span class="pre">GDS</span></code>. The <code class="docutils literal notranslate"><span class="pre">_default</span></code> tag is reserved for DRAM
+in this interface and is the default affinity target for L2 adapters.</p>
+<p>For example, use a dedicated Device-DAX device and a GDS-capable directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DRAM","tag":"_default","size_gb":8}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DEVDAX","tag":"dax","size_gb":16,"path":"/dev/dax0.0"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"GDS","tag":"gds","size_gb":32,"path":"/mnt/nvme/lmcache"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/mnt/archive/lmcache","affinity_tag":"dax"}'</span>
 </span></code></pre></div>
 </div>
-<p>Successful keys stay on their selected L1. They are not allocated again on a
-fallback. Conflicts and exceptions do not trigger overflow. If every candidate
-is full, failed keys are omitted from the returned object mapping, as before.
-This does not add cross-L1 deduplication.</p>
-<p>Existing allocation batches are preserved. Overflow is <strong>not perfect packing</strong>.
-For example, a new two-object batch may fail when each L1 has space for only one
-object, even though their combined free space is sufficient. The allocator frees
-partial allocations before reporting that batch as out of memory; overflow
-passes the failed subset to the next L1 without splitting it into single-key
-allocations.</p>
+<p>A Device-DAX L1 in this interface has no implicit DRAM pool. Its size applies
+to the mapped device. Use dedicated, physically disjoint regions: different
+Device-DAX paths can alias the same CXL memory. Independent managers must not
+write those aliases concurrently. GDS uses
+an ephemeral slab that is cleared at initialization; it does not restore
+cached objects after a server restart.</p>
+<p>Use these combinations of <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> arguments for the six profiles:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 60.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Profile</p></th>
+<th class="head"><p>Managers in placement order</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>DRAM only</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DRAM</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>GDS only</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GDS</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Device-DAX only</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DRAM + GDS</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">GDS</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>DRAM + Device-DAX</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DRAM + Device-DAX + GDS</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code>, <code class="docutils literal notranslate"><span class="pre">GDS</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Common optional JSON fields are <code class="docutils literal notranslate"><span class="pre">align_bytes</span></code> (4096),
+<code class="docutils literal notranslate"><span class="pre">read_ttl_seconds</span></code> (300), <code class="docutils literal notranslate"><span class="pre">write_ttl_seconds</span></code> (600), and <code class="docutils literal notranslate"><span class="pre">eviction</span></code>.
+Alignment must be a positive power of two; GDS requires at least 4096 bytes.
+TTLs must be positive integers. Unknown fields are rejected.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%"/>
+<col style="width: 80.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Backend fields</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DRAM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">use_lazy</span></code> (true), <code class="docutils literal notranslate"><span class="pre">init_size_gb</span></code> (20, capped at capacity),
+<code class="docutils literal notranslate"><span class="pre">shm_name</span></code> (empty), <code class="docutils literal notranslate"><span class="pre">use_hugepages</span></code> (false). Shared memory and
+hugepages require eager allocation. Shared-memory names must be unique.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code></p></td>
+<td><p>Required <code class="docutils literal notranslate"><span class="pre">path</span></code>; the allocator checks mapping size and device alignment.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GDS</span></code></p></td>
+<td><p>Required <code class="docutils literal notranslate"><span class="pre">path</span></code>; <code class="docutils literal notranslate"><span class="pre">backend</span></code> (<code class="docutils literal notranslate"><span class="pre">auto</span></code>), <code class="docutils literal notranslate"><span class="pre">direct_io</span></code> (true).
+See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> for backend requirements and location semantics.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The global eviction flags supply defaults. Override them per manager with,
+for example, <code class="docutils literal notranslate"><span class="pre">"eviction":{"eviction_policy":"LRU","trigger_watermark":0.9,</span>
+<span class="pre">"eviction_ratio":0.1}</span></code>. Without global defaults each manager must specify
+an eviction policy. <code class="docutils literal notranslate"><span class="pre">noop</span></code> is useful for controlled overflow tests; an LRU
+manager may free space before a later write needs to overflow.</p>
+<p>Legacy single-L1 flags, including <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>, remain supported. Do not
+combine <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> with legacy capacity or backend-selection flags.
+Python callers can use <code class="docutils literal notranslate"><span class="pre">DRAML1ManagerConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DevDaxL1ManagerConfig</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">GDSL1ManagerConfig</span></code>; their <code class="docutils literal notranslate"><span class="pre">from_dict</span></code> methods implement the JSON schema.</p>
 </section>
-<section id="why-each-object-has-an-owner">
-<h2>Why each object has an owner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#why-each-object-has-an-owner" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#why-each-object-has-an-owner'"><span>#</span></a></h2>
-<p>Each L1 stamps its objects with a process-local integer identity. Objects
-created outside L1 start without an owner. The identity belongs to the manager,
-not its position in the placement order. It is separate from the writer tag
-and is not part of keys, hashes, or serialized KV metadata.</p>
-<p>Completion captures owner identities from the objects returned by reservation.
-It never repeats placement or searches for another copy of the key.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Reserved objects --&gt; group keys by object owner
-</span><span id="line-2">                              |
-</span><span id="line-3">                      GPU copy completes
-</span><span id="line-4">                              |
-</span><span id="line-5">                              v
-</span><span id="line-6">                     Stream-ordered callback
-</span><span id="line-7">                              |
-</span><span id="line-8">                              v
-</span><span id="line-9">                 Finish on each captured owner
-</span></code></pre></div>
-</div>
-<p>The internal callback carries only owner integers and keys, not memory objects,
-tensors, or Python pointers. Existing L1 staging keeps allocations alive. An
-unknown or unset owner is an error; multi-manager completion does not guess the
-primary L1. Existing single-L1 callers can still finish writes using keys alone.
-Single-L1 trace recording also keeps the existing key-only completion format,
-so traces can be replayed against a fresh manager with a different owner ID.</p>
-<p>The owner tag does not replace writer validation, read locks, reference counts,
-or GPU completion ordering. It is not a write generation or a crash-recovery
-token. Two copies of the same key can have different owners; finishing one
-does not publish the other.</p>
+<section id="placement-affinity-and-reads">
+<h2>Placement, affinity, and reads<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#placement-affinity-and-reads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#placement-affinity-and-reads'"><span>#</span></a></h2>
+<p>Writes try managers in argument order. Only <code class="docutils literal notranslate"><span class="pre">OUT_OF_MEMORY</span></code> results move to
+the next manager; conflicts and exceptions do not. Allocation remains atomic
+within each batch, so a batch can fail even when combined free space across
+managers would suffice. This does not add cross-L1 deduplication or migration.</p>
+<p>An L2 adapter’s <code class="docutils literal notranslate"><span class="pre">affinity_tag</span></code> selects the host-backed L1 used for both
+stores and reloads. It defaults to <code class="docutils literal notranslate"><span class="pre">_default</span></code> and must name a configured
+manager. An adapter sees completed stores from that manager only. Set the tag
+explicitly for a Device-DAX-only configuration. GDS cannot be an affinity
+target for the existing host-buffer L2 adapters. Affinity is fixed; runtime
+adapter additions are validated against the same tags.</p>
+<p>Lookups visit L1 managers synchronously. Prefetch selects one owner per key
+and keeps that selection in the request’s result. GPU completion releases
+locks on those exact owners, including when another request finds a different
+copy of the same key. Every manager has independent read and write locks.</p>
 </section>
-<section id="not-included">
-<h2>Not included<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#not-included" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#not-included'"><span>#</span></a></h2>
-<p>Backend rewiring, GPU L1, public multi-L1 configuration, L1–L2 affinity,
-per-L1 reporting, concurrent lookup, migration, and shared-CXL services remain
-follow-up work. CPU allocation tests do not qualify multi-L1 serving, GPU
-transfers, or cross-host sharing.</p>
+<section id="status-and-prometheus">
+<h2>Status and Prometheus<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#status-and-prometheus" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#status-and-prometheus'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code> includes these fields under <code class="docutils literal notranslate"><span class="pre">storage_manager</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">l1_managers</span></code>: status keyed by L1 tag, including object/lock counts,
+staging bytes, used/allocated/configured memory, and capacity by medium.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">store_controllers</span></code> and <code class="docutils literal notranslate"><span class="pre">l1_eviction_controllers</span></code>: controller health
+and progress keyed by tag.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">l1_usage</span></code>: aggregate <code class="docutils literal notranslate"><span class="pre">[used_bytes,</span> <span class="pre">allocated_bytes]</span></code>. For lazy DRAM,
+allocated bytes can be below configured capacity.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">l1_capacity_bytes_by_backend</span></code>: configured/live capacity summed by
+<code class="docutils literal notranslate"><span class="pre">dram</span></code>, <code class="docutils literal notranslate"><span class="pre">devdax</span></code>, and <code class="docutils literal notranslate"><span class="pre">gds</span></code>. Draining Device-DAX arenas are excluded.</p></li>
+</ul>
+<p>The legacy singular status fields remain available when there is one manager.
+<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/config</span></code> includes every L1 configuration and each adapter’s affinity.</p>
+<p>Prometheus exports <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_memory_usage_bytes</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_usage_ratio</span></code>, and <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_staging_bytes</span></code> with
+<code class="docutils literal notranslate"><span class="pre">l1_tag</span></code> and <code class="docutils literal notranslate"><span class="pre">backend</span></code> labels. L1 read, write, and eviction counters carry
+<code class="docutils literal notranslate"><span class="pre">l1_tag</span></code> alongside existing cache-salt labels. Optional lifecycle histograms
+also use <code class="docutils literal notranslate"><span class="pre">l1_tag</span></code> and track each manager’s copy independently. Sum across
+<code class="docutils literal notranslate"><span class="pre">l1_tag</span></code> for server totals; do not sum usage ratios. A legacy manager that combines DRAM
+and Device-DAX reports <code class="docutils literal notranslate"><span class="pre">backend="dram+devdax"</span></code> for its combined usage.</p>
+</section>
+<section id="limits-and-serving-validation">
+<h2>Limits and serving validation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limits-and-serving-validation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limits-and-serving-validation'"><span>#</span></a></h2>
+<p>Only <strong>one GDS slab per process</strong> is supported. The native GDS libraries
+register CUDA streams process-wide; adding a second slab currently conflicts
+with that registration. This limit permits every profile listed above.
+A successful cuFile compatibility-mode transfer does not establish native
+GPUDirect DMA support; check the deployment’s driver and filesystem.</p>
+<p>L1 topology is fixed at startup. The legacy single-region descriptor,
+shared-memory transfer channel, P2P registration, and Device-DAX hotplug API
+require a single compatible L1. Multi-L1 GPU serving uses the existing
+LMCache-driven IPC transfer path. Hybrid models additionally require their
+engine’s supported recurrent-state connector and matching block/chunk
+geometry; see <a class="reference internal" href="hybrid_models.html"><span class="doc">Hybrid Attention Models</span></a>.</p>
+<p>Storage profiles alone do not qualify an engine/model/TP combination. Validate
+external-cache hits after clearing engine-local prefix state, token outputs,
+per-tag writes and reads, and zero remaining locks. Exercise every configured
+backend under pressure, and restart the engine and server for a second run.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -402,10 +473,10 @@ transfers, or cross-host sharing.</p>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#what-changes-for-users'" class="reference internal" href="#what-changes-for-users">What changes for users?</a></li>
-<li><a :data-current="activeSection === '#how-overflow-works'" class="reference internal" href="#how-overflow-works">How overflow works</a></li>
-<li><a :data-current="activeSection === '#why-each-object-has-an-owner'" class="reference internal" href="#why-each-object-has-an-owner">Why each object has an owner</a></li>
-<li><a :data-current="activeSection === '#not-included'" class="reference internal" href="#not-included">Not included</a></li>
+<li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
+<li><a :data-current="activeSection === '#placement-affinity-and-reads'" class="reference internal" href="#placement-affinity-and-reads">Placement, affinity, and reads</a></li>
+<li><a :data-current="activeSection === '#status-and-prometheus'" class="reference internal" href="#status-and-prometheus">Status and Prometheus</a></li>
+<li><a :data-current="activeSection === '#limits-and-serving-validation'" class="reference internal" href="#limits-and-serving-validation">Limits and serving validation</a></li>
 </ul>
 </div>
 </aside>
