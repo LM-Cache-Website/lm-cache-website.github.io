@@ -319,11 +319,17 @@
 <p>CLI 使用统一的 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> 工具（定义在 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/utils/subclass_discovery.py</span></code> 中）来定位每个级别的命令类。理解这两个发现入口是扩展 CLI 的关键。</p>
 <section id="top-level-command-discovery">
 <h3>顶级命令发现<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
-<p>当 CLI 启动时，<code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> 在其自身的包（<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>）上调用 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code>。这会扫描所有 <strong>直接子模块</strong> — 包括 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件和子包（通过它们的 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>） — 并收集找到的每个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py</span>
+<p>When an invocation runs, <code class="docutils literal notranslate"><span class="pre">main(argv)</span></code> calls
+<code class="docutils literal notranslate"><span class="pre">register_commands(subparsers,</span> <span class="pre">route)</span></code>, which calls
+<code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on its own package (<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>).
+This scans all <strong>direct submodules</strong> — both <code class="docutils literal notranslate"><span class="pre">.py</span></code> files and
+sub-packages (via their <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>) — and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.  Merely <em>importing</em> the package imports
+no concrete command wrapper modules.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py (runs per invocation)</span>
 </span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.utils.subclass_discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_subclasses</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="n">ALL_COMMANDS</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-4"><span class="n">commands</span> <span class="o">=</span> <span class="p">[</span>
 </span><span id="line-5">    <span class="bp">cls</span><span class="p">()</span>
 </span><span id="line-6">    <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
 </span><span id="line-7">        <span class="vm">__name__</span><span class="p">,</span>                          <span class="c1"># "lmcache.cli.commands"</span>
@@ -333,7 +339,12 @@
 </span><span id="line-11"><span class="p">]</span>
 </span></code></pre></div>
 </div>
-<p>生成的 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 列表随后在 <code class="docutils literal notranslate"><span class="pre">main.py</span></code> 中注册到根 <code class="docutils literal notranslate"><span class="pre">argparse</span></code> 解析器。这意味着放置在 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> 下的任何新 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件（或子包）会自动作为顶级命令可用 — 无需手动导入或注册。</p>
+<p>The command matching the invocation route is then fully registered with
+the <code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser; unselected commands contribute only name/help,
+so every listing stays complete.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
+sub-package) placed under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> is automatically
+available as a top-level command — no manual imports or registration
+needed.</p>
 <p><strong>顶级发现的过滤规则：</strong></p>
 <ul class="simple">
 <li><p>名为 <code class="docutils literal notranslate"><span class="pre">base</span></code> 的模块被明确排除（它定义了抽象基类，而不是一个命令）。</p></li>
@@ -368,21 +379,15 @@
 <li><p>扫描是 <strong>非递归</strong> 的（仅深度 1）——每个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> 仅能看到其所在包的直接子项。</p></li>
 </ul>
 <p><strong>嵌套如何工作：</strong> 如果一个子命令本身是一个 <code class="docutils literal notranslate"><span class="pre">CompositeCommand``（在子包的</span> <span class="pre">``__init__.py</span></code> 中定义），它自己的 <code class="docutils literal notranslate"><span class="pre">register()</span></code> 方法将反过来扫描 <em>它</em> 的包以查找更多子命令。这在没有任何特殊配置的情况下创建了递归嵌套。</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">CLI startup
-</span><span id="line-2">└── __init__.py discovers ALL top-level commands
-</span><span id="line-3">    ├── ping.py          → PingCommand (leaf)
-</span><span id="line-4">    ├── bench/__init__.py → BenchCommand (composite)
-</span><span id="line-5">    │   └── BenchCommand.register() discovers:
-</span><span id="line-6">    │       ├── server_bench/__init__.py → ServerBenchCommand (leaf)
-</span><span id="line-7">    │       ├── l2_adapter_bench/__init__.py → L2AdapterBenchCommand (leaf)
-</span><span id="line-8">    │       └── engine_bench/__init__.py → EngineBenchCommand (leaf)
-</span><span id="line-9">    └── tool/__init__.py → ToolCommand (composite)
-</span><span id="line-10">        └── ToolCommand.register() discovers:
-</span><span id="line-11">            └── cache_simulator/__init__.py → CacheSimulatorCommand (composite)
-</span><span id="line-12">                └── CacheSimulatorCommand.register() discovers:
-</span><span id="line-13">                    ├── simulate_command.py     → SimulateCommand (leaf)
-</span><span id="line-14">                    ├── sweep_command.py        → SweepCommand (leaf)
-</span><span id="line-15">                    └── gen_dataset_command.py  → GenDatasetCommand (leaf)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache tool cache-simulator simulate ...      (one invocation)
+</span><span id="line-2">└── register_commands(route) discovers the top-level wrappers
+</span><span id="line-3">    ├── ping.py             → summary only (unselected)
+</span><span id="line-4">    ├── bench/__init__.py   → summary: children NOT scanned
+</span><span id="line-5">    └── tool/__init__.py    → selected: registers, scans children
+</span><span id="line-6">        └── cache_simulator/__init__.py → selected: registers, scans children
+</span><span id="line-7">            ├── sweep_command.py        → summary only
+</span><span id="line-8">            ├── gen_dataset_command.py  → summary only
+</span><span id="line-9">            └── simulate_command.py     → fully registered (add_arguments runs)
 </span></code></pre></div>
 </div>
 </section>
@@ -454,7 +459,14 @@
 </div>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>这之所以有效，是因为顶层的 <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> 在导入时调用了 <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code>。它使用 <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> 查找所有直接子模块（文件和子包），导入每一个，并收集每个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。结果列表存储在 <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> 中，并在 <code class="docutils literal notranslate"><span class="pre">main.py</span></code> 中与参数解析器注册。因此，只需添加一个带有 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类的新 <code class="docutils literal notranslate"><span class="pre">.py</span></code> 文件即可——不需要编辑其他任何文件。</p>
+<p>This works because <code class="docutils literal notranslate"><span class="pre">main()</span></code> calls <code class="docutils literal notranslate"><span class="pre">register_commands()</span></code> per
+invocation, which runs <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on the package. It
+uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to find all direct submodules (files and
+sub-packages), imports each one, and collects every concrete
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The command matching the invocation route is
+fully registered; the others bind name/help summaries. So adding a
+new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass is all that is needed
+— no edits to any other file.</p>
 </div>
 </section>
 <section id="level-2-adding-a-subcommand-group">
@@ -559,10 +571,14 @@
 </span><span id="line-28">        <span class="n">run_l2_adapter_bench</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
-<p><strong>步骤 2</strong>：完成！父级 <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>) 在启动时会自动发现新的子命令。无需注册代码，无需添加导入，无需在父级中编辑 <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>。</p>
+<p><strong>Step 2</strong>: Done! The parent <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>)
+auto-discovers the new subcommand whenever the route selects it. No
+imports to add, no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> edits in the parent.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>这工作是因为 <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> 每次 CLI 启动时都会扫描其包的所有直接子模块。只要满足以下条件，新文件（或子包）会被自动识别：</p>
+<p>This works because <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> scans all direct
+submodules of its package whenever the route selects it. A new file (or
+sub-package) is automatically picked up as long as:</p>
 <ul class="simple">
 <li><p>它**不**以``_``开头。</p></li>
 <li><p>它包含一个具体的 <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> 子类。</p></li>

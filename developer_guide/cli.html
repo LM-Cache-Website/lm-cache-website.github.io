@@ -333,15 +333,17 @@ every level.  Understanding the two discovery entry points is key to
 extending the CLI.</p>
 <section id="top-level-command-discovery">
 <h3>Top-Level Command Discovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#top-level-command-discovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#top-level-command-discovery'"><span>#</span></a></h3>
-<p>When the CLI starts, <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code> calls
+<p>When an invocation runs, <code class="docutils literal notranslate"><span class="pre">main(argv)</span></code> calls
+<code class="docutils literal notranslate"><span class="pre">register_commands(subparsers,</span> <span class="pre">route)</span></code>, which calls
 <code class="docutils literal notranslate"><span class="pre">discover_subclasses()</span></code> on its own package (<code class="docutils literal notranslate"><span class="pre">lmcache.cli.commands</span></code>).
 This scans all <strong>direct submodules</strong> — both <code class="docutils literal notranslate"><span class="pre">.py</span></code> files and
 sub-packages (via their <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>) — and collects every concrete
-<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py</span>
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass found.  Merely <em>importing</em> the package imports
+no concrete command wrapper modules.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Simplified from lmcache/cli/commands/__init__.py (runs per invocation)</span>
 </span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.utils.subclass_discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_subclasses</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="n">ALL_COMMANDS</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="line-4"><span class="n">commands</span> <span class="o">=</span> <span class="p">[</span>
 </span><span id="line-5">    <span class="bp">cls</span><span class="p">()</span>
 </span><span id="line-6">    <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">discover_subclasses</span><span class="p">(</span>
 </span><span id="line-7">        <span class="vm">__name__</span><span class="p">,</span>                          <span class="c1"># "lmcache.cli.commands"</span>
@@ -351,8 +353,9 @@ sub-packages (via their <code class="docutils literal notranslate"><span class="
 </span><span id="line-11"><span class="p">]</span>
 </span></code></pre></div>
 </div>
-<p>The resulting <code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> list is then registered with the root
-<code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser in <code class="docutils literal notranslate"><span class="pre">main.py</span></code>.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
+<p>The command matching the invocation route is then fully registered with
+the <code class="docutils literal notranslate"><span class="pre">argparse</span></code> parser; unselected commands contribute only name/help,
+so every listing stays complete.  This means any new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file (or
 sub-package) placed under <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/</span></code> is automatically
 available as a top-level command — no manual imports or registration
 needed.</p>
@@ -404,21 +407,15 @@ module are collected.</p></li>
 (defined in a sub-package’s <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>), its own <code class="docutils literal notranslate"><span class="pre">register()</span></code>
 method will in turn scan <em>its</em> package for further children.  This
 creates the recursive nesting without any special configuration.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">CLI startup
-</span><span id="line-2">└── __init__.py discovers ALL top-level commands
-</span><span id="line-3">    ├── ping.py          → PingCommand (leaf)
-</span><span id="line-4">    ├── bench/__init__.py → BenchCommand (composite)
-</span><span id="line-5">    │   └── BenchCommand.register() discovers:
-</span><span id="line-6">    │       ├── server_bench/__init__.py → ServerBenchCommand (leaf)
-</span><span id="line-7">    │       ├── l2_adapter_bench/__init__.py → L2AdapterBenchCommand (leaf)
-</span><span id="line-8">    │       └── engine_bench/__init__.py → EngineBenchCommand (leaf)
-</span><span id="line-9">    └── tool/__init__.py → ToolCommand (composite)
-</span><span id="line-10">        └── ToolCommand.register() discovers:
-</span><span id="line-11">            └── cache_simulator/__init__.py → CacheSimulatorCommand (composite)
-</span><span id="line-12">                └── CacheSimulatorCommand.register() discovers:
-</span><span id="line-13">                    ├── simulate_command.py     → SimulateCommand (leaf)
-</span><span id="line-14">                    ├── sweep_command.py        → SweepCommand (leaf)
-</span><span id="line-15">                    └── gen_dataset_command.py  → GenDatasetCommand (leaf)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache tool cache-simulator simulate ...      (one invocation)
+</span><span id="line-2">└── register_commands(route) discovers the top-level wrappers
+</span><span id="line-3">    ├── ping.py             → summary only (unselected)
+</span><span id="line-4">    ├── bench/__init__.py   → summary: children NOT scanned
+</span><span id="line-5">    └── tool/__init__.py    → selected: registers, scans children
+</span><span id="line-6">        └── cache_simulator/__init__.py → selected: registers, scans children
+</span><span id="line-7">            ├── sweep_command.py        → summary only
+</span><span id="line-8">            ├── gen_dataset_command.py  → summary only
+</span><span id="line-9">            └── simulate_command.py     → fully registered (add_arguments runs)
 </span></code></pre></div>
 </div>
 </section>
@@ -494,14 +491,14 @@ its own package’s direct submodules.</p></li>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This works because the top-level <code class="docutils literal notranslate"><span class="pre">lmcache/cli/commands/__init__.py</span></code>
-calls <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on its own package at import time. It
+<p>This works because <code class="docutils literal notranslate"><span class="pre">main()</span></code> calls <code class="docutils literal notranslate"><span class="pre">register_commands()</span></code> per
+invocation, which runs <code class="docutils literal notranslate"><span class="pre">discover_subclasses</span></code> on the package. It
 uses <code class="docutils literal notranslate"><span class="pre">pkgutil.iter_modules</span></code> to find all direct submodules (files and
 sub-packages), imports each one, and collects every concrete
-<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The resulting list is stored in
-<code class="docutils literal notranslate"><span class="pre">ALL_COMMANDS</span></code> and registered with the argument parser in
-<code class="docutils literal notranslate"><span class="pre">main.py</span></code>. So adding a new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code>
-subclass is all that is needed — no edits to any other file.</p>
+<code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass. The command matching the invocation route is
+fully registered; the others bind name/help summaries. So adding a
+new <code class="docutils literal notranslate"><span class="pre">.py</span></code> file with a <code class="docutils literal notranslate"><span class="pre">BaseCommand</span></code> subclass is all that is needed
+— no edits to any other file.</p>
 </div>
 </section>
 <section id="level-2-adding-a-subcommand-group">
@@ -611,12 +608,12 @@ package directory:</p>
 </span></code></pre></div>
 </div>
 <p><strong>Step 2</strong>: Done! The parent <code class="docutils literal notranslate"><span class="pre">CompositeCommand</span></code> (<code class="docutils literal notranslate"><span class="pre">BenchCommand</span></code>)
-auto-discovers the new subcommand at startup. No registration code, no
+auto-discovers the new subcommand whenever the route selects it. No
 imports to add, no <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> edits in the parent.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This works because <code class="docutils literal notranslate"><span class="pre">CompositeCommand.register()</span></code> scans all direct
-submodules of its package each time the CLI starts. A new file (or
+submodules of its package whenever the route selects it. A new file (or
 sub-package) is automatically picked up as long as:</p>
 <ul class="simple">
 <li><p>It does <strong>not</strong> start with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></li>
