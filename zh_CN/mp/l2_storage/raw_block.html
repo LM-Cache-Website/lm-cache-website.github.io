@@ -320,7 +320,9 @@ power of two.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_magic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_version</span></code>: 元数据检查点的标识符与版本号调节参数。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">meta_checkpoint_interval_sec</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_idle_quiet_ms</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_enable_periodic</span></code> / <code class="docutils literal notranslate"><span class="pre">meta_verify_on_load</span></code>: 从旧版原始块后端沿用的检查点与恢复控制参数。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">load_checkpoint_on_init</span></code>: 在启动时加载现有的设备元数据检查点（默认值为 <code class="docutils literal notranslate"><span class="pre">true</span></code>）。设置为 <code class="docutils literal notranslate"><span class="pre">false</span></code> 以从空的内存索引开始。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code>: 尽可能尝试对齐的直接缓冲区 I/O。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code>: Try aligned direct-buffer I/O when possible. With
+<code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code>, also try to register eligible L1 memory as fixed
+buffers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">io_engine</span></code>: Rust 原始块 I/O 引擎。有效值为 <code class="docutils literal notranslate"><span class="pre">"posix"</span></code>（默认同步 <code class="docutils literal notranslate"><span class="pre">pread</span></code>/<code class="docutils literal notranslate"><span class="pre">pwrite</span></code> 路径），<code class="docutils literal notranslate"><span class="pre">"io_uring"</span></code>（直接 Rust io_uring 系统调用路径）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_uring_cmd</span></code>: 通过 io_uring 命令接口启用 NVMe 直通以直接访问设备。需要 <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> 和 NVMe 字符设备节点（例如，<code class="docutils literal notranslate"><span class="pre">/dev/ng0n1</span></code>）。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iouring_queue_depth</span></code>: <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> 的队列深度。</p></li>
@@ -425,6 +427,64 @@ write directive and is not used to locate data on reads.</p></li>
 <li><p>Metadata checkpoint writes use <code class="docutils literal notranslate"><span class="pre">meta_checkpoint_placement_id</span></code> when
 configured, otherwise they use default NVMe placement with no directive.</p></li>
 </ul>
+<p><strong>Fixed-buffer registration and memlock:</strong></p>
+<p>With <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> and <code class="docutils literal notranslate"><span class="pre">enable_zero_copy=true</span></code>, the adapter
+registers the stable L1 memory range during initialization. An anonymous
+<code class="docutils literal notranslate"><span class="pre">MixedMemoryAllocator</span></code> exposes its full arena; <code class="docutils literal notranslate"><span class="pre">LazyMemoryAllocator</span></code>
+exposes only the currently pinned prefix. POSIX shared-memory arenas do not
+expose an eligible range. Registration uses regions no larger than 1 GiB and
+does not grow when the lazy allocator expands.</p>
+<p>The kernel charges registered buffers against <code class="docutils literal notranslate"><span class="pre">RLIMIT_MEMLOCK</span></code> unless the
+process has <code class="docutils literal notranslate"><span class="pre">CAP_IPC_LOCK</span></code>. The default lazy initial prefix is 20 GiB, so
+allow at least that much locked memory, plus headroom for other registrations
+and locked memory. Splitting the prefix into 1 GiB regions does not reduce
+the total memlock requirement. See the Linux
+<a class="reference external" href="https://man7.org/linux/man-pages/man2/io_uring_register.2.html">io_uring_register(2) manual</a>.</p>
+<p>For a Bash-launched server, inspect the soft and hard limits in KiB and set
+the soft limit before starting the server from the same shell:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">ulimit</span><span class="w"> </span>-Sl
+</span><span id="line-2"><span class="nb">ulimit</span><span class="w"> </span>-Hl
+</span><span id="line-3"><span class="c1"># 20 GiB in KiB; requires a hard limit of at least this value.</span>
+</span><span id="line-4"><span class="nb">ulimit</span><span class="w"> </span>-Sl<span class="w"> </span><span class="m">20971520</span>
+</span></code></pre></div>
+</div>
+<p>If the hard limit is too low, raise it through the service, container, or
+login configuration. A systemd service can use <code class="docutils literal notranslate"><span class="pre">LimitMEMLOCK=infinity</span></code>;
+a Docker container can use <code class="docutils literal notranslate"><span class="pre">--ulimit</span> <span class="pre">memlock=-1:-1</span></code>. Apply the setting to
+the process running the LMCache server, then restart it. Registration is
+attempted once during adapter initialization.</p>
+<p>If registration fails, the adapter logs a warning and continues with ordinary
+io_uring. The adapter can therefore remain healthy even when fixed buffers
+are inactive. Check <code class="docutils literal notranslate"><span class="pre">RawBlockL2Adapter.report_status()["core"]</span></code> for:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fixed_buffers_registered</span></code>: <code class="docutils literal notranslate"><span class="pre">true</span></code> only after successful kernel
+registration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fixed_buffer_registered_bytes</span></code>: Total bytes in the registered regions;
+<code class="docutils literal notranslate"><span class="pre">0</span></code> when no buffers are registered. This is the registered range size,
+not the final L1 capacity or the number of bytes transferred.</p></li>
+</ul>
+<p>Both fields also appear under each raw-block adapter in
+<a class="reference internal" href="../http_api.html"><span class="doc">GET /status</span></a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-fsS<span class="w"> </span>http://localhost:8080/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'</span>
+</span><span id="line-2"><span class="s1">  .storage_manager.l2_adapters[]</span>
+</span><span id="line-3"><span class="s1">  | select(.type == "RawBlockL2Adapter")</span>
+</span><span id="line-4"><span class="s1">  | .core</span>
+</span><span id="line-5"><span class="s1">  | {fixed_buffers_registered, fixed_buffer_registered_bytes}'</span>
+</span></code></pre></div>
+</div>
+<p>For a successfully registered 20 GiB prefix, the result is:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"fixed_buffers_registered"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"fixed_buffer_registered_bytes"</span><span class="p">:</span><span class="w"> </span><span class="mi">21474836480</span>
+</span><span id="line-4"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p>Failed or skipped registration reports <code class="docutils literal notranslate"><span class="pre">false</span></code> and <code class="docutils literal notranslate"><span class="pre">0</span></code>, as does a closed
+adapter. Successful registration does not mean every request uses fixed I/O:
+requests outside the registered prefix or crossing a region boundary still
+use ordinary io_uring. When comparing performance, verify these fields and
+keep <code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code> enabled in both cases to isolate registration from
+direct-buffer I/O.</p>
 <p><strong>配置示例：</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Basic raw_block with posix I/O</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "block_align": 4096, "header_bytes": 4096, "meta_total_bytes": 268435456, "use_odirect": true, "num_store_workers": 2, "num_lookup_workers": 1, "num_load_workers": 4}'</span>
