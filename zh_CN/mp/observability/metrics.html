@@ -1026,6 +1026,79 @@ is unaffected.</p>
 </table>
 <p>有关完整的设计原理以及支持每个指标的进程内访问器，请参阅源代码树中的 <code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/METRICS.md</span></code> 和 <code class="docutils literal notranslate"><span class="pre">docs/design/v1/mp_observability/event-bus.md</span></code>。</p>
 </section>
+<section id="grpc-runtime-metrics">
+<h2>gRPC Runtime Metrics<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#grpc-runtime-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#grpc-runtime-metrics'"><span>#</span></a></h2>
+<p>When metrics are enabled and the MP request transport is gRPC, LMCache also
+registers gRPC Python's OpenTelemetry observability plugin against the same
+OTel <code class="docutils literal notranslate"><span class="pre">MeterProvider</span></code>. ZMQ mode does not register this plugin, so the
+existing LMCache EventBus metrics remain unchanged. The plugin is provided by
+<code class="docutils literal notranslate"><span class="pre">grpcio-observability</span></code> and is installed only on Linux, which is the platform
+currently supported by that upstream package. On non-Linux developer hosts the
+integration is skipped unless the package is available locally. Use
+<code class="docutils literal notranslate"><span class="pre">--disable-grpc-metrics</span></code> to suppress the integration explicitly while
+keeping LMCache's EventBus metrics enabled.</p>
+<p>These metrics describe the gRPC transport itself, not cache hit/miss behavior.
+They use the upstream <code class="docutils literal notranslate"><span class="pre">grpc.*</span></code> namespace. On Prometheus, <code class="docutils literal notranslate"><span class="pre">.</span></code> is converted
+to <code class="docutils literal notranslate"><span class="pre">_</span></code> and counters get a <code class="docutils literal notranslate"><span class="pre">_total</span></code> suffix.</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">gRPC Runtime Metrics</span><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id1"><span>#</span></a></caption>
+<colgroup>
+<col style="width: 34.0%"/>
+<col style="width: 34.0%"/>
+<col style="width: 16.0%"/>
+<col style="width: 16.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>OTel metric name</p></th>
+<th class="head"><p>Prometheus name</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>Unit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.client.attempt.started</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_client_attempt_started_total</span></code></p></td>
+<td><p>计数器</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{attempt}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.client.attempt.duration</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_client_attempt_duration_seconds</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>seconds</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.client.attempt.sent_total_compressed_message_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_client_attempt_sent_total_compressed_message_size_bytes</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>bytes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.client.attempt.rcvd_total_compressed_message_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_client_attempt_rcvd_total_compressed_message_size_bytes</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>bytes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.server.call.started</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_server_call_started_total</span></code></p></td>
+<td><p>计数器</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{call}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.server.call.duration</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_server_call_duration_seconds</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>seconds</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.server.call.sent_total_compressed_message_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_server_call_sent_total_compressed_message_size_bytes</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>bytes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">grpc.server.call.rcvd_total_compressed_message_size</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc_server_call_rcvd_total_compressed_message_size_bytes</span></code></p></td>
+<td><p>直方图</p></td>
+<td><p>bytes</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="prometheus-scrape-configuration">
 <h2>Prometheus 抓取配置<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-scrape-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-scrape-configuration'"><span>#</span></a></h2>
 <p>在 <strong>拉取模式**（没有 ``--otlp-endpoint``）下，将 Prometheus 指向服务器的 HTTP 前端端口 — ``--http-port``，默认 **8080</strong> — 而不是 <code class="docutils literal notranslate"><span class="pre">--prometheus-port</span></code>：</p>
@@ -1118,6 +1191,7 @@ release.</p>
 <li><a :data-current="activeSection === '#engine-counters'" class="reference internal" href="#engine-counters">引擎计数器</a></li>
 <li><a :data-current="activeSection === '#observable-gauges'" class="reference internal" href="#observable-gauges">可观察仪表</a></li>
 <li><a :data-current="activeSection === '#eventbus-self-monitoring'" class="reference internal" href="#eventbus-self-monitoring">事件总线自我监控</a></li>
+<li><a :data-current="activeSection === '#grpc-runtime-metrics'" class="reference internal" href="#grpc-runtime-metrics">gRPC Runtime Metrics</a></li>
 <li><a :data-current="activeSection === '#prometheus-scrape-configuration'" class="reference internal" href="#prometheus-scrape-configuration">Prometheus 抓取配置</a></li>
 <li><a :data-current="activeSection === '#coordinator-metrics'" class="reference internal" href="#coordinator-metrics">Coordinator Metrics</a></li>
 </ul>
