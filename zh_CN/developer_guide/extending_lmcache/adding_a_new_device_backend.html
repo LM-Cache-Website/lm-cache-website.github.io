@@ -601,7 +601,14 @@ when exactly one reports available. If multiple backends report available, set
 </div>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>默认传输模式为 <code class="docutils literal notranslate"><span class="pre">auto``（CUDA</span> <span class="pre">→</span> <span class="pre">LMCache</span> <span class="pre">驱动，其他设备</span> <span class="pre">→</span> <span class="pre">引擎驱动）。上述示例明确设置为</span> <span class="pre">``engine_driven</span></code>，以便新的非 CUDA 设备在没有额外能力检查的情况下正常工作。有关 <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> 模式（IPC 零拷贝），请参见 <a class="reference internal" href="#part-2-performance"><span class="std std-ref">Advanced transfer mode</span></a>。</p>
+<p>The default transfer mode is <code class="docutils literal notranslate"><span class="pre">auto</span></code>, which resolves to the device
+spec's declared default
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">default_mp_transfer_mode()</span></code>):
+devices with a complete LMCache-driven stack (CUDA, NPU) get
+LMCache-driven, everything else engine-driven.  The example above
+explicitly sets <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> so that a new device works without
+additional capability checks.  For the <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> mode
+(IPC zero-copy), see <a class="reference internal" href="#part-2-performance"><span class="std std-ref">Advanced transfer mode</span></a>.</p>
 </div>
 <p>Check the LMCache logs:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">torch_dev</span><span class="o">=...</span><span class="p">,</span> <span class="n">torch_device_type</span><span class="o">=</span><span class="n">foo</span>
@@ -697,7 +704,16 @@ without a separate native module.</p></li>
 </section>
 <section id="advanced-transfer-mode">
 <h3>高级传输模式<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#advanced-transfer-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#advanced-transfer-mode'"><span>#</span></a></h3>
-<p>默认情况下，传输模式为 <strong>AUTO</strong>：路由器严格按照 <code class="docutils literal notranslate"><span class="pre">device_type</span></code> 分发 — <code class="docutils literal notranslate"><span class="pre">device_type</span> <span class="pre">==</span> <span class="pre">\"cuda\"</span></code> 的设备使用 <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferContext``（IPC</span> <span class="pre">零拷贝），其他设备则使用</span> <span class="pre">``EngineDrivenTransferContext</span></code>。支持 IPC 句柄传输的非 CUDA 设备仍然可以显式选择 LMCache 驱动（如下所述）。</p>
+<p>By default, the transfer mode is <strong>AUTO</strong>: <code class="docutils literal notranslate"><span class="pre">auto</span></code> resolves to the
+device spec's declared default
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">default_mp_transfer_mode()</span></code>).
+The base implementation derives that default from
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">is_lmcache_driven_available()</span></code>:
+devices with a complete LMCache-driven stack (CUDA, NPU) default to
+<code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferContext</span></code> (IPC zero-copy), everything else —
+including opt-in-only stacks such as CPU SHM and MUSA handles — to
+<code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferContext</span></code>.  A device whose LMCache-driven stack is
+available but not the default can still opt in explicitly (below).</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>Under PyTorch a ROCm GPU reports <code class="docutils literal notranslate"><span class="pre">device_type</span> <span class="pre">==</span> <span class="pre">"cuda"</span></code>. LMCache
@@ -716,7 +732,9 @@ subclass (exposing a <code class="docutils literal notranslate"><span class="pre
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">ipc_wrapper_cls</span></code>.
 <code class="xref py py-func docutils literal notranslate"><span class="pre">resolve_kv_wrapper_factory()</span></code> reads that
 binding off the registered spec — no separate registry / auto-scan.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.is_handle_transfer_available()</span></code> 必须返回 <code class="docutils literal notranslate"><span class="pre">True``（基类默认值；仅当您的设备缺少</span> <span class="pre">IPC</span> <span class="pre">句柄传输时才重写为</span> <span class="pre">``False</span></code>）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.is_lmcache_driven_available()</span></code> must return <code class="docutils literal notranslate"><span class="pre">True</span></code>
+(the base-class default is <code class="docutils literal notranslate"><span class="pre">False</span></code>; a device with the complete
+handle-transfer stack overrides it to <code class="docutils literal notranslate"><span class="pre">True</span></code>).</p></li>
 </ol>
 <p>Separately, the LMCache-driven server module also requires a
 <code class="docutils literal notranslate"><span class="pre">BaseCacheContext</span></code> subclass next to the backend (for example,
@@ -813,9 +831,9 @@ request and response payloads.</p>
 </span><span id="line-10">
 </span><span id="line-11">        <span class="k">return</span> <span class="n">FooIPCWrapper</span>
 </span><span id="line-12">
-</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">is_handle_transfer_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="line-14"><span class="w">        </span><span class="sd">"""Return True if your device supports IPC handle transfer."""</span>
-</span><span id="line-15">        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># base-class default; override to False if unsupported</span>
+</span><span id="line-13">    <span class="k">def</span><span class="w"> </span><span class="nf">is_lmcache_driven_available</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="line-14"><span class="w">        </span><span class="sd">"""Return True when the device can serve the LMCache-driven path."""</span>
+</span><span id="line-15">        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># base default is False; required to enable lmcache_driven</span>
 </span><span id="line-16">
 </span><span id="line-17">    <span class="nd">@property</span>
 </span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">pin_memory_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
