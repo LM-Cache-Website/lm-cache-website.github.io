@@ -417,8 +417,8 @@ throughput metrics. One workload, <a class="reference internal" href="#bench-rag
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--workload</span> <span class="pre">TYPE</span></code></p></td>
 <td><p>是</p></td>
 <td><p>Workload type: <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code>,
-<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>,
-<code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>, or <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code>, <code class="docutils literal notranslate"><span class="pre">kv-tier-pressure</span></code>,
+<code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code>, <code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>, or <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tokens-per-gb-kvcache</span> <span class="pre">N</span></code></p></td>
 <td><p>*</p></td>
@@ -483,9 +483,10 @@ See <a class="reference internal" href="#bench-warmup"><span class="std std-ref"
 workload-specific -- <code class="docutils literal notranslate"><span class="pre">long-doc-qa</span></code> prefills each document, <code class="docutils literal notranslate"><span class="pre">rag-qa-quality</span></code>
 prefills each document behind the system block, <code class="docutils literal notranslate"><span class="pre">prefix-suffix-tuner</span></code> sends a
 full pass over its prefix pool, <code class="docutils literal notranslate"><span class="pre">multi-round-chat</span></code> primes each session, and
-<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code> sends a single dummy request. <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code> has no
-warmup at all. Warmup requests are sent with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> and their stats
-are discarded, so they never appear in the reported numbers.</p>
+<code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code> sends a single dummy request, and <code class="docutils literal notranslate"><span class="pre">kv-tier-pressure</span></code>
+sweeps its whole document pool once. <code class="docutils literal notranslate"><span class="pre">random-prefill</span></code> has no warmup at all.
+Warmup requests are sent with <code class="docutils literal notranslate"><span class="pre">max_tokens=1</span></code> and their stats are discarded,
+so they never appear in the reported numbers.</p>
 <p>Warmup serves two purposes: it absorbs the engine's one-time first-request cost
 (<code class="docutils literal notranslate"><span class="pre">torch.compile</span></code>, CUDA-graph capture, weight paging), and -- for the workloads
 that prefill their data -- it puts the KV cache in the state the measured run is
@@ -674,6 +675,136 @@ for a reproducible decode phase.</p></td>
 </span><span id="line-8"><span class="w">    </span>--ldp-num-inflight-requests<span class="w"> </span><span class="m">2</span>
 </span></code></pre></div>
 </div>
+</section>
+<section id="kv-tier-pressure">
+<h4>kv-tier-pressure<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-tier-pressure"><span>#</span></a></h4>
+<p>Exercises the <strong>L2 storage tier</strong>. Where <code class="docutils literal notranslate"><span class="pre">long-doc-permutator</span></code> puts every
+document in every request -- so the distinct working set equals one prompt and
+can never overflow L1 -- this workload keeps a document <em>pool</em> larger than the
+cache and samples a subset into each request:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">[System Prompt] + [Doc_a] + [Doc_b] + ... + [Doc_k]   (k of D, k &lt;&lt; D)
+</span></code></pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>This workload assumes <strong>CacheBlend</strong> (<code class="docutils literal notranslate"><span class="pre">enable_blending</span></code>). Each request
+concatenates a random subset of the pool in random order, so without
+blending a document is reused only when everything before it in the prompt
+also matches — which these prompts almost never satisfy. Such a run writes
+a great deal to storage and reads very little back, while the <em>share</em> of
+reads served by storage still looks healthy.</p>
+<p>Watch <strong>cache-hit tokens per request</strong>, reported whenever <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>
+is given, rather than the storage read share — the share is a ratio between
+tiers and cannot tell the two cases apart.</p>
+<p>Without blending, use <code class="docutils literal notranslate"><span class="pre">--ktp-docs-per-request</span> <span class="pre">1</span></code>. Each prompt is then
+<code class="docutils literal notranslate"><span class="pre">[system</span> <span class="pre">prompt][document]</span></code>, which is prefix-stable and reuses normally.
+When <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> is given the workload verifies this for you. After
+the warm-up sweep it checks which lookup counter family moved: the blend
+counters move only when the server runs the blend module <em>and</em> vLLM drives
+it through <code class="docutils literal notranslate"><span class="pre">CBKVConnector</span></code>. If a multi-document run was not blended it
+stops there, rather than producing a result that looks reasonable and
+means nothing.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--ktp-pool-size</span></code> is what decides whether the storage tier is reached: the
+working set is <code class="docutils literal notranslate"><span class="pre">pool_size</span> <span class="pre">x</span> <span class="pre">--ktp-context-length</span></code> tokens, and only what
+exceeds cache capacity can be evicted and read back. Omit it and the pool is
+sized automatically from the capacity the LMCache server reports via
+<code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code>, multiplied by <code class="docutils literal notranslate"><span class="pre">--ktp-overflow-factor</span></code>. To size it by hand
+against a cache of <code class="docutils literal notranslate"><span class="pre">V</span></code> GB with a factor of <code class="docutils literal notranslate"><span class="pre">F</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">pool_size = ceil(F * V * tokens_per_gb_kvcache / context_length)
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">tokens_per_gb_kvcache</span></code> comes from the engine's KV layout and is resolved
+automatically from <code class="docutils literal notranslate"><span class="pre">--lmcache-url</span></code> (see <a class="reference internal" href="#bench-tokens-per-gb"><span class="std std-ref">查找 --tokens-per-gb-kvcache</span></a>). An
+<code class="docutils literal notranslate"><span class="pre">F</span></code> of 2 means half the working set cannot be resident, so roughly half of
+all cache reads must come from L2.</p>
+<p>Treat that only as a dial. The idealised share <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">1</span> <span class="pre">/</span> <span class="pre">F</span></code> assumes pure LRU
+over uniformly-drawn whole documents and ignores prefetch re-admission and
+chunk-level sharing: 45% was measured at <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">=</span> <span class="pre">1</span></code> on one stack and 36% at
+<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">=</span> <span class="pre">2</span></code> on another. Size the pool with it, then read the share that actually
+occurred from the cache's tier counters.</p>
+<p>Warmup is a deterministic sweep: the pool is partitioned into
+<code class="docutils literal notranslate"><span class="pre">ceil(pool_size</span> <span class="pre">/</span> <span class="pre">docs_per_request)</span></code> non-overlapping groups and each is sent
+once, so every document is cached exactly once before measurement. This matters
+because until L1 fills there is no eviction and therefore no L2 read -- a share
+measured across a cold start describes run length, not the system.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%"/>
+<col style="width: 10.0%"/>
+<col style="width: 55.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>标志</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-pool-size</span></code></p></td>
+<td><p>derived</p></td>
+<td><p>Total documents in the corpus. Sets the working set, and therefore
+whether the storage tier is reached. Derived from the server's cache
+capacity and <code class="docutils literal notranslate"><span class="pre">--ktp-overflow-factor</span></code> when omitted.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-overflow-factor</span></code></p></td>
+<td><p>2.0</p></td>
+<td><p>Working set as a multiple of the server's cache capacity. Used only
+when <code class="docutils literal notranslate"><span class="pre">--ktp-pool-size</span></code> is omitted. Above 1.0 forces eviction to
+storage.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-docs-per-request</span></code></p></td>
+<td><p>16</p></td>
+<td><p>Documents sampled into each request. Bounded by the engine's context
+limit, not by the pool size.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-context-length</span></code></p></td>
+<td><p>2560</p></td>
+<td><p>Token length of each document (10 whole 256-token chunks).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-system-prompt-length</span></code></p></td>
+<td><p>256</p></td>
+<td><p>Token length of the shared system prompt. Use <code class="docutils literal notranslate"><span class="pre">0</span></code> for none.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-num-requests</span></code></p></td>
+<td><p>200</p></td>
+<td><p>Number of measured requests. The warmup sweep is separate and sized
+automatically from the pool.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-access-skew</span></code></p></td>
+<td><p>0.0</p></td>
+<td><p>Zipf exponent for document popularity. <code class="docutils literal notranslate"><span class="pre">0.0</span></code> is uniform; larger
+values concentrate reads on a hot subset, raising the L1 hit rate and
+lowering the L2 share.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-num-inflight-requests</span></code></p></td>
+<td><p>8</p></td>
+<td><p>最大并发在途请求数。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ktp-max-output-length</span></code></p></td>
+<td><p>1</p></td>
+<td><p>Maximum tokens to generate per request. The default isolates prefill,
+the phase the cache tier affects; larger values add decode time that
+dilutes the measurement.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The run reports a <strong>Document pool</strong> section alongside the standard metrics,
+giving the resolved pool size, working set, access skew and sweep size. These are inputs: the share of reads actually served by L2 comes
+from the cache's own tier counters, not from this workload.</p>
+<p><strong>Example</strong> -- target ~50% of cache reads from L2 against a 100 GB L1:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>engine<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--engine-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--workload<span class="w"> </span>kv-tier-pressure<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--lmcache-url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--ktp-pool-size<span class="w"> </span><span class="m">910</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--ktp-docs-per-request<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--ktp-context-length<span class="w"> </span><span class="m">2560</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--ktp-num-requests<span class="w"> </span><span class="m">200</span>
+</span></code></pre></div>
+</div>
+<p>Raise <code class="docutils literal notranslate"><span class="pre">--ktp-pool-size</span></code> for a larger share of reads from storage, and keep
+it pinned when reproducing an earlier run so the corpus is identical.</p>
 </section>
 <section id="prefix-suffix-tuner">
 <h4>prefix-suffix-tuner<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefix-suffix-tuner"><span>#</span></a></h4>
@@ -1823,6 +1954,7 @@ completed.</p>
 <li><a :data-current="activeSection === '#long-doc-qa'" class="reference internal" href="#long-doc-qa">long-doc-qa</a></li>
 <li><a :data-current="activeSection === '#multi-round-chat'" class="reference internal" href="#multi-round-chat">multi-round-chat</a></li>
 <li><a :data-current="activeSection === '#long-doc-permutator'" class="reference internal" href="#long-doc-permutator">long-doc-permutator</a></li>
+<li><a :data-current="activeSection === '#kv-tier-pressure'" class="reference internal" href="#kv-tier-pressure">kv-tier-pressure</a></li>
 <li><a :data-current="activeSection === '#prefix-suffix-tuner'" class="reference internal" href="#prefix-suffix-tuner">prefix-suffix-tuner</a></li>
 <li><a :data-current="activeSection === '#rag-qa-quality'" class="reference internal" href="#rag-qa-quality">rag-qa-quality</a></li>
 <li><a :data-current="activeSection === '#random-prefill'" class="reference internal" href="#random-prefill">random-prefill</a></li>
