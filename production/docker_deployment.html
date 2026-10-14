@@ -310,19 +310,29 @@
 <section id="running-the-container">
 <h2>Running the container<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-the-container" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-the-container'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">IMAGE</span><span class="o">=</span>&lt;IMAGE_NAME&gt;:&lt;TAG&gt;
-</span><span id="line-2">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"HF_TOKEN=&lt;REPLACE_WITH_YOUR_HF_TOKEN&gt;"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_CHUNK_SIZE=256"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_LOCAL_CPU=True"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_MAX_LOCAL_CPU_SIZE=5"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>--volume<span class="w"> </span>~/.cache/huggingface:/root/.cache/huggingface<span class="w"> </span><span class="se">\</span>
-</span><span id="line-8"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-</span><span id="line-9"><span class="w">    </span><span class="nv">$IMAGE</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-10"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-11"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}'</span>
+</span><span id="line-2">mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.cache/huggingface"</span>
+</span><span id="line-3">docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="w"> </span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"HF_TOKEN=&lt;REPLACE_WITH_YOUR_HF_TOKEN&gt;"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_CHUNK_SIZE=256"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_LOCAL_CPU=True"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>--env<span class="w"> </span><span class="s2">"LMCACHE_MAX_LOCAL_CPU_SIZE=5"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--volume<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.cache/huggingface:/home/lmcache/.cache/huggingface"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span><span class="nv">$IMAGE</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>meta-llama/Llama-3.1-8B-Instruct<span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-12"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
 <p>See the <a class="reference external" href="https://github.com/LMCache/LMCache/tree/dev/docker">docker run example</a> for more details.</p>
+<p>The official CUDA vLLM and standalone images run as <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> (uid 1000).
+The bind mount above reuses the host’s existing Hugging Face cache. Its directory
+and contents must be readable and writable by container uid 1000; configure host
+permissions or ACLs if the cache has different ownership.</p>
+<p>For a separate Docker-managed cache, replace the mount with
+<code class="docutils literal notranslate"><span class="pre">--volume</span> <span class="pre">hf-cache:/home/lmcache/.cache/huggingface</span></code>. A new empty named volume
+inherits the image’s pre-created cache directory ownership; existing volumes
+retain their permissions. It does not reuse models in the host’s cache.
+To reuse an old <code class="docutils literal notranslate"><span class="pre">/root</span></code> cache, use <code class="docutils literal notranslate"><span class="pre">--user</span> <span class="pre">0</span></code> and retain its original mount path.</p>
 </section>
 <section id="rocm-amd">
 <h2>ROCm (AMD)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#rocm-amd" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#rocm-amd'"><span>#</span></a></h2>
