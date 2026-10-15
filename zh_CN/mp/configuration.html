@@ -310,25 +310,26 @@
 <li><p><a class="reference internal" href="#http-frontend" id="id5">HTTP 前端</a></p></li>
 <li><p><a class="reference internal" href="#p2p" id="id6">P2P</a></p></li>
 <li><p><a class="reference internal" href="#l1-memory-manager" id="id7">L1 内存管理器</a></p></li>
-<li><p><a class="reference internal" href="#gds-l1-tier" id="id8">GDS L1 层</a></p></li>
-<li><p><a class="reference internal" href="#l1-manager-ttls" id="id9">L1 管理器 TTLs</a></p></li>
-<li><p><a class="reference internal" href="#eviction-policy" id="id10">逐出策略</a></p></li>
-<li><p><a class="reference internal" href="#l2-policies" id="id11">L2 策略</a></p></li>
-<li><p><a class="reference internal" href="#l2-adapters" id="id12">L2 适配器</a></p>
+<li><p><a class="reference internal" href="#locked-l1-on-rocm" id="id8">Locked L1 on ROCm</a></p></li>
+<li><p><a class="reference internal" href="#gds-l1-tier" id="id9">GDS L1 层</a></p></li>
+<li><p><a class="reference internal" href="#l1-manager-ttls" id="id10">L1 管理器 TTLs</a></p></li>
+<li><p><a class="reference internal" href="#eviction-policy" id="id11">逐出策略</a></p></li>
+<li><p><a class="reference internal" href="#l2-policies" id="id12">L2 策略</a></p></li>
+<li><p><a class="reference internal" href="#l2-adapters" id="id13">L2 适配器</a></p>
 <ul>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id13">多个适配器（级联）</a></p></li>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id14">多个适配器（级联）</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#observability" id="id14">可观察性</a></p></li>
-<li><p><a class="reference internal" href="#vllm-client-configuration" id="id15">vLLM 客户端配置</a></p>
+<li><p><a class="reference internal" href="#observability" id="id15">可观察性</a></p></li>
+<li><p><a class="reference internal" href="#vllm-client-configuration" id="id16">vLLM 客户端配置</a></p>
 <ul>
-<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id16">Decode context parallelism (DCP)</a></p></li>
-<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id17">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a></p></li>
+<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id17">Decode context parallelism (DCP)</a></p></li>
+<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id18">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#environment-variables" id="id18">环境变量</a></p></li>
-<li><p><a class="reference internal" href="#full-example" id="id19">完整示例</a></p></li>
-<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id20">匿名使用统计</a></p></li>
+<li><p><a class="reference internal" href="#environment-variables" id="id19">环境变量</a></p></li>
+<li><p><a class="reference internal" href="#full-example" id="id20">完整示例</a></p></li>
+<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id21">匿名使用统计</a></p></li>
 </ul>
 </nav>
 <section id="per-request-lmcache-configuration">
@@ -711,11 +712,35 @@ DAX L2 adapter with the same <code class="docutils literal notranslate"><span cl
 adapter's <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> is used as the L1 Device-DAX overflow
 size.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-mlock</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>ROCm only. <code class="docutils literal notranslate"><span class="pre">mlock</span></code> the DRAM L1 so memory compaction cannot migrate
+it. See <em>Locked L1 on ROCm</em> below. <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> key: <code class="docutils literal notranslate"><span class="pre">mlock</span></code>.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
+<section id="locked-l1-on-rocm">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Locked L1 on ROCm</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#locked-l1-on-rocm" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#locked-l1-on-rocm'"><span>#</span></a></h2>
+<p>On ROCm, <code class="docutils literal notranslate"><span class="pre">hipHostRegister</span></code> does not page-lock memory: when the kernel
+migrates a registered L1 page (memory compaction), the driver evicts all GPU
+queues of the server until the mapping is restored, which stalls transfers for
+seconds. <code class="docutils literal notranslate"><span class="pre">--l1-mlock</span></code> keeps the L1 as ordinary anonymous memory (O_DIRECT,
+RDMA registration and memory-cgroup accounting are unchanged) and locks it.
+Requirements, checked at startup:</p>
+<ul class="simple">
+<li><p>the node sets <code class="docutils literal notranslate"><span class="pre">sysctl</span> <span class="pre">-w</span> <span class="pre">vm.compact_unevictable_allowed=0</span></code>; otherwise
+compaction still moves locked pages;</p></li>
+<li><p>the server may lock the whole L1: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">run</span> <span class="pre">--ulimit</span> <span class="pre">memlock=-1</span></code> or
+<code class="docutils literal notranslate"><span class="pre">CAP_IPC_LOCK</span></code>.</p></li>
+</ul>
+<p>Not covered: explicit page migration (<code class="docutils literal notranslate"><span class="pre">move_pages</span></code>, <code class="docutils literal notranslate"><span class="pre">migrate_pages</span></code>,
+NUMA balancing), khugepaged when transparent huge pages are <code class="docutils literal notranslate"><span class="pre">always</span></code>
+(use <code class="docutils literal notranslate"><span class="pre">madvise</span></code> or <code class="docutils literal notranslate"><span class="pre">never</span></code>), and host memory registered by other
+processes such as vLLM. Device-DAX L1 is rejected.</p>
+</section>
 <section id="gds-l1-tier">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">GDS L1 层</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-l1-tier" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-l1-tier'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">GDS L1 层</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-l1-tier" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-l1-tier'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <p>选择加入。设置 <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> 将 L1 媒介从固定 DRAM 切换到通过 GPUDirect Storage DMA 访问的 NVMe 块文件。然后禁用 CPU 固定 DRAM 层，并且 <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> 设置块的大小。当此选项开启时，禁用字节数组 L2 适配器（GDS 层不提供 L1 内存缓冲区供它们注册）。</p>
 <p>DMA 路径由平台自动选择：NVIDIA 上使用 <strong>cuFile</strong> (<code class="docutils literal notranslate"><span class="pre">libcufile.so</span></code>)，而 AMD ROCm 上使用 <strong>hipFile</strong> (<code class="docutils literal notranslate"><span class="pre">libhipfile.so</span></code>，<a class="reference external" href="https://github.com/ROCm/hipFile">ROCm/hipFile</a>)。这两个平台适用相同的标志；切换供应商无需更改配置。</p>
@@ -816,7 +841,7 @@ ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">u
 </table>
 </section>
 <section id="l1-manager-ttls">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">L1 管理器 TTLs</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-manager-ttls" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-manager-ttls'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">L1 管理器 TTLs</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-manager-ttls" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-manager-ttls'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -843,7 +868,7 @@ ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">u
 </table>
 </section>
 <section id="eviction-policy">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">逐出策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction-policy" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction-policy'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">逐出策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction-policy" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction-policy'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -887,7 +912,7 @@ so its data is evicted at the next eviction cycle
 </table>
 </section>
 <section id="l2-policies">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">L2 策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-policies'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">L2 策略</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-policies'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -922,7 +947,7 @@ so its data is evicted at the next eviction cycle
 </table>
 </section>
 <section id="l2-adapters">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">L2 适配器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">L2 适配器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
 <p>源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p>
 <p>L2 adapters are configured via repeatable <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">&lt;JSON&gt;</span></code> arguments.
 Each JSON object must include a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field that selects the adapter type.
@@ -941,7 +966,7 @@ documented on its own page under <a class="reference internal" href="l2_storage/
 <code class="docutils literal notranslate"><span class="pre">raw_block</span></code>, <code class="docutils literal notranslate"><span class="pre">dax</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code>, <code class="docutils literal notranslate"><span class="pre">aerospike</span></code>, <code class="docutils literal notranslate"><span class="pre">bigtable</span></code>,
 <code class="docutils literal notranslate"><span class="pre">sagemaker-hyperpod</span></code>, <code class="docutils literal notranslate"><span class="pre">hfbucket</span></code>, <code class="docutils literal notranslate"><span class="pre">resp</span></code>, <code class="docutils literal notranslate"><span class="pre">valkey</span></code>).</p>
 <section id="multiple-adapters-cascade">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">多个适配器（级联）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">多个适配器（级联）</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
 <p>多次传递 <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code>。适配器按给定顺序使用：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/ssd/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "GDS", "backend_params": {"file_path": "/data/nvme/l2", "use_direct_io": "true"}, "pool_size": 128}'</span>
@@ -950,7 +975,7 @@ documented on its own page under <a class="reference internal" href="l2_storage/
 </section>
 </section>
 <section id="observability">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">可观察性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observability'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">可观察性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observability'"><span>#</span></a></h2>
 <p>源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p>
 <p>三种模式（指标、日志记录、链路追踪）的完整说明，请参见 <a class="reference internal" href="observability/index.html"><span class="doc">可观察性</span></a>。</p>
 <table class="docutils align-default">
@@ -1033,7 +1058,7 @@ logged at INFO.</p></td>
 </table>
 </section>
 <section id="vllm-client-configuration">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">vLLM 客户端配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">vLLM 客户端配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The URL scheme selects the request
 transport: use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC, matching the
@@ -1052,7 +1077,7 @@ server's <code class="docutils literal notranslate"><span class="pre">--transpor
 </span></code></pre></div>
 </div>
 <section id="decode-context-parallelism-dcp">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--decode-context-parallel-size</span></code> is supported. Under DCP, vLLM shards the
 attention KV cache across ranks along the token axis, so each rank holds only
 a strided <code class="docutils literal notranslate"><span class="pre">1/dcp</span></code> slice and one block ID spans <code class="docutils literal notranslate"><span class="pre">block_size</span> <span class="pre">*</span> <span class="pre">dcp</span></code> tokens.
@@ -1114,7 +1139,7 @@ itself, so this connector does not re-check it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> 从 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 中读取以下键：</p>
 </section>
 <section id="connector-extra-config-keys">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
 <p>所有连接器级别的选项都通过 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 传递，并使用 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.</span></code> 前缀。</p>
 <p>By default, MP caches only prompt tokens, avoiding new cache entries from
 sampled output when fixed prompts are replayed.</p>
@@ -1328,7 +1353,7 @@ auto-start disabled in vLLM:</p>
 </section>
 </section>
 <section id="environment-variables">
-<h2><a class="toc-backref" href="#id18" role="doc-backlink">环境变量</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">环境变量</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1360,7 +1385,7 @@ auto-start disabled in vLLM:</p>
 </table>
 </section>
 <section id="full-example">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">完整示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">完整示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
@@ -1395,7 +1420,7 @@ auto-start disabled in vLLM:</p>
 </div>
 </section>
 <section id="anonymous-usage-statistics">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">匿名使用统计</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">匿名使用统计</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
 <p>MP 服务器报告匿名使用统计信息：在启动时进行一次环境/配置快照，并每 <code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_INTERVAL</span></code> 秒报告一次间隔计数器（检索/存储的令牌、存储的字节、正常运行时间）。绝不会发送提示、密钥、KV Cache 数据、模型名称或 <code class="docutils literal notranslate"><span class="pre">--instance-id</span></code>，并且报告绝不会影响服务。可以通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_TRACK_USAGE=false</span></code> 或 <code class="docutils literal notranslate"><span class="pre">DO_NOT_TRACK=1</span></code> 选择退出；有关详细信息，请参见 <a class="reference internal" href="../developer_guide/usage/usage_stats_collection.html#usage-stats-collection"><span class="std std-ref">使用统计收集</span></a>。</p>
 </section>
 </section>
@@ -1425,6 +1450,7 @@ auto-start disabled in vLLM:</p>
 <li><a :data-current="activeSection === '#http-frontend'" class="reference internal" href="#http-frontend">HTTP 前端</a></li>
 <li><a :data-current="activeSection === '#p2p'" class="reference internal" href="#p2p">P2P</a></li>
 <li><a :data-current="activeSection === '#l1-memory-manager'" class="reference internal" href="#l1-memory-manager">L1 内存管理器</a></li>
+<li><a :data-current="activeSection === '#locked-l1-on-rocm'" class="reference internal" href="#locked-l1-on-rocm">Locked L1 on ROCm</a></li>
 <li><a :data-current="activeSection === '#gds-l1-tier'" class="reference internal" href="#gds-l1-tier">GDS L1 层</a></li>
 <li><a :data-current="activeSection === '#l1-manager-ttls'" class="reference internal" href="#l1-manager-ttls">L1 管理器 TTLs</a></li>
 <li><a :data-current="activeSection === '#eviction-policy'" class="reference internal" href="#eviction-policy">逐出策略</a></li>
