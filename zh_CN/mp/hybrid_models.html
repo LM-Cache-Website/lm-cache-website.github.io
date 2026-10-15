@@ -212,6 +212,7 @@
 </ul>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">常见问题</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
 </ul>
@@ -464,7 +465,9 @@ end without any model-specific transfer code.</p>
 <p>本节是 <strong>任何此类模型的一般过程</strong>。唯一的每模型变量是统一块大小<code class="docutils literal notranslate"><span class="pre">N</span></code>（步骤 1）；其他所有内容在模型之间是相同的。</p>
 <section id="step-1-find-the-model-s-unified-block-size-n">
 <span id="mamba-block-size"></span><h3><a class="toc-backref" href="#id6" role="doc-backlink">步骤 1 — 找到模型的统一块大小 <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-1-find-the-model-s-unified-block-size-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-1-find-the-model-s-unified-block-size-n'"><span>#</span></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">N</span></code> 是驱动所有其他设置的 <strong>单一数字</strong>：LMCache 服务器的 <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> 和 vLLM 的 <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> 都源自它（步骤 2）。如果设置错误，LMCache 在引擎启动时会抛出错误。</p>
+<p><code class="docutils literal notranslate"><span class="pre">N</span></code> is the <strong>single number</strong> that drives every other setting: LMCache uses it
+to negotiate a compatible chunk size, and vLLM's
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> is derived from it (step 2).</p>
 <p>对于 Mamba / GDN 混合模型，vLLM 强制所有 KV Cache 组使用 <strong>一个</strong> 块大小，选择足够大以确保注意力页面至少与 Mamba 状态页面一样大。它依赖于模型的头部维度和 GDN 状态大小，因此是 <strong>模型特定的 — 切勿假设一个值，请从模型中读取</strong>。vLLM 在启动时打印一次：</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">INFO</span> <span class="o">...</span> <span class="n">interface</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">670</span><span class="p">]</span> <span class="n">Setting</span> <span class="n">attention</span> <span class="n">block</span> <span class="n">size</span> <span class="n">to</span> <span class="mi">784</span> <span class="n">tokens</span> <span class="n">to</span>
 </span><span id="line-2"><span class="n">ensure</span> <span class="n">that</span> <span class="n">attention</span> <span class="n">page</span> <span class="n">size</span> <span class="ow">is</span> <span class="o">&gt;=</span> <span class="n">mamba</span> <span class="n">page</span> <span class="n">size</span><span class="o">.</span>
@@ -529,16 +532,18 @@ end without any model-specific transfer code.</p>
 <section id="step-2-derive-the-required-flags-from-n">
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">Step 2 — derive the required flags from <code class="docutils literal notranslate"><span class="pre">N</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-2-derive-the-required-flags-from-n" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-2-derive-the-required-flags-from-n'"><span>#</span></a></h3>
 <ol class="arabic">
-<li><p><strong>LMCache server</strong> <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> <strong>= N</strong> (or any multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>) <strong>and</strong>
-<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>. The chunk-size rule is enforced by the
-connector (it must be a multiple of vLLM's unified block size, or
-registration fails); <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> gives the
-linear-attention layers their own cache objects and is required for these
-hybrids:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">784</span> <span class="o">--</span><span class="n">separate</span><span class="o">-</span><span class="nb">object</span><span class="o">-</span><span class="n">groups</span> \
+<li><p><strong>LMCache server</strong> uses <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> as a minimum and requires
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>. The connector automatically negotiates the
+smallest multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code> that is at least the configured minimum;
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> gives the linear-attention layers their own
+cache objects and is required for these hybrids:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">256</span> <span class="o">--</span><span class="n">separate</span><span class="o">-</span><span class="nb">object</span><span class="o">-</span><span class="n">groups</span> \
 </span><span id="line-2">    <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
 </span></code></pre></div>
 </div>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">784</span></code> resolves this minimum to 784, while <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code>
+resolves it to 544. See <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a> for the full
+lifecycle and mixed-model constraints.</p>
 </li>
 <li><p><strong>vLLM</strong> <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> <strong>≥ N</strong> — a scheduler step must advance
 at least one whole block (<code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the Mamba state only at the
@@ -559,9 +564,10 @@ block).</p></li>
 </div>
 </li>
 </ol>
-<p>So for a freshly-probed model the whole derivation is: read <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1), then
-pass <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span> <span class="pre">--separate-object-groups</span></code> to the server and
-<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">N</span></code> to vLLM.</p>
+<p>So for a freshly-probed model the whole derivation is: read <code class="docutils literal notranslate"><span class="pre">N</span></code> (step 1),
+pass <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> to the server, and use
+<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">N</span></code> for the simplest vLLM configuration. The
+server's configured chunk-size minimum can stay at its default.</p>
 <p>不需要 <code class="docutils literal notranslate"><span class="pre">--no-disable-hybrid-kv-cache-manager</span></code> 或 attention-backend 标志；<code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> 声明支持混合模型，vLLM 会自动选择 GDN 后端。</p>
 </section>
 <section id="caveats">

@@ -212,6 +212,7 @@
 </ul>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">常见问题</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
 </ul>
@@ -321,7 +322,10 @@ of Mamba / linear-attention models.</p>
 vLLM</label><div class="sd-tab-content docutils">
 <p><strong>引擎文档：</strong> <a class="reference external" href="https://docs.vllm.ai/en/latest/models/supported_models.html#text-generation">vLLM 支持的模型中的 Qwen3.5</a>（架构 <code class="docutils literal notranslate"><span class="pre">Qwen3_5ForConditionalGeneration</span></code>）。</p>
 <p><strong>状态:</strong> 已通过 LMCache 验证。</p>
-<p>该系列中的每个模型都需要相同的三项设置：<code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba 缓存模式、前缀缓存，以及与 vLLM 的统一块大小匹配的分块大小。该块大小因模型而异——vLLM 在启动时会输出 <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code>：</p>
+<p>Every model in this family needs the same three settings: the <code class="docutils literal notranslate"><span class="pre">align</span></code>
+Mamba cache mode, prefix caching, and a chunk size negotiated from vLLM's
+<em>unified block size</em>. That block size is model-specific — vLLM logs
+<code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> at startup:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 50.0%"/>
@@ -349,8 +353,7 @@ vLLM</label><div class="sd-tab-content docutils">
 </tr>
 </tbody>
 </table>
-<p>Set the LMCache server's <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> to that <code class="docutils literal notranslate"><span class="pre">N</span></code> (or a multiple of
-it) and enable <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>, then set vLLM's
+<p>Enable <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> on the LMCache server, then set vLLM's
 <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to at least <code class="docutils literal notranslate"><span class="pre">N</span></code>. Keeping it below <code class="docutils literal notranslate"><span class="pre">2N</span></code>
 (e.g. <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>) snapshots the Mamba state at every block boundary for the
 finest cache reuse; larger values raise prefill throughput at coarser
@@ -377,7 +380,10 @@ id.</p>
 <div class="line-block">
 <div class="line"><br/></div>
 </div>
-<p><strong>Qwen3.5-0.8B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code> → <code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">=</span> <span class="pre">1087</span></code>): 与上述相同，使用 <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">544</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">1087</span></code>。</p>
+<p><strong>Qwen3.5-0.8B</strong> (1 GPU, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">544</span></code> → <code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">=</span> <span class="pre">1087</span></code>): identical to the
+above, with <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">544</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span> <span class="pre">1087</span></code>.
+A lower configured chunk-size minimum, including the default 256,
+negotiates to 544; see <a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span></code> is required (GDN does not support the
 <code class="docutils literal notranslate"><span class="pre">all</span></code> mode). <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> (server) is required for
 hybrid models so the Mamba layers get their own cache objects; it is also

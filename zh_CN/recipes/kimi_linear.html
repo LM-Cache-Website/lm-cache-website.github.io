@@ -212,6 +212,7 @@
 </ul>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">常见问题</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
 </ul>
@@ -326,7 +327,8 @@ vLLM</label><div class="sd-tab-content docutils">
 <p><strong>Status:</strong> Validated with LMCache.</p>
 <p>As a Mamba / linear-attention hybrid, Kimi-Linear needs the same three
 settings as the other GDN hybrids: the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix
-caching, and a chunk size matched to vLLM's <em>unified block size</em> <code class="docutils literal notranslate"><span class="pre">N</span></code>.
+caching, and a chunk size negotiated from vLLM's <em>unified block size</em>
+<code class="docutils literal notranslate"><span class="pre">N</span></code>.
 That block size is model- and parallelism-specific — vLLM logs
 <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> at startup. Because the KDA
 state is sharded across tensor-parallel ranks (while the MLA cache is
@@ -351,8 +353,7 @@ for your own configuration:</p>
 </tr>
 </tbody>
 </table>
-<p>Set the LMCache server's <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> to that <code class="docutils literal notranslate"><span class="pre">N</span></code> (or a multiple of
-it) and enable <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code>, then set vLLM's
+<p>Enable <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> on the LMCache server, then set vLLM's
 <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to at least <code class="docutils literal notranslate"><span class="pre">N</span></code>. Keeping it below <code class="docutils literal notranslate"><span class="pre">2N</span></code>
 (e.g. <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>) snapshots the KDA state at every block boundary for the
 finest cache reuse; larger values raise prefill throughput at the cost of
@@ -367,10 +368,10 @@ divided by the TP degree). vLLM picks <code class="docutils literal notranslate"
 least as large as a KDA state page, so a smaller per-rank KDA state
 yields a smaller <code class="docutils literal notranslate"><span class="pre">N</span></code> — and vice versa. Concretely, going from
 <strong>TP=2 → TP=1</strong> doubles the per-rank KDA state, so <code class="docutils literal notranslate"><span class="pre">N</span></code> doubles from
-<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code>; <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">N</span></code>) and the recommended
-<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> (<code class="docutils literal notranslate"><span class="pre">2N-1</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">3775</span></code>) both double to
-match. Always re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from the startup log after changing the TP
-degree — do not scale it by hand.</p>
+<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code>; the server negotiates a compatible chunk size,
+while the recommended <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> (<code class="docutils literal notranslate"><span class="pre">2N-1</span></code>, i.e.
+<code class="docutils literal notranslate"><span class="pre">3775</span></code>) doubles to match. Always re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from the startup log
+after changing the TP degree — do not scale it by hand.</p>
 </div>
 <p>Start the LMCache MP server (<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">944</span></code>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">944</span><span class="w"> </span>--separate-object-groups<span class="w"> </span><span class="se">\</span>
@@ -407,9 +408,9 @@ cache objects so their recurrent state is stored and loaded
 independently of the MLA layers. It is what allows
 <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> to exceed <code class="docutils literal notranslate"><span class="pre">2N</span></code>; without it the budget
 must stay in <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) must be a multiple of the unified block size
-<code class="docutils literal notranslate"><span class="pre">N</span></code> — <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">N</span></code> is the simplest choice and gives the finest
-cache granularity. LMCache raises at engine startup if it is not.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector negotiates the
+smallest multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code> that is at least that value. See
+<a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be <strong>at least</strong> <code class="docutils literal notranslate"><span class="pre">N</span></code>: a scheduler
 step must advance at least one whole block, since <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots
 the KDA state only at the <em>end</em> of each step, on a block boundary, and
