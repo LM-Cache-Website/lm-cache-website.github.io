@@ -212,6 +212,7 @@
 </ul>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">Community<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">Frequently asked questions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
 </ul>
@@ -618,7 +619,7 @@ The server picks which paths to load via <code class="docutils literal notransla
 <li><p><code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> <em>(default)</em> – load only the server-driven
 transfer path.  Supports CUDA devices (IPC) and CPU devices (SHM),
 and skips allocating the engine-driven prepare/commit resources
-(pickle codec).</p></li>
+(inline tensor codec).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> – load only the engine-driven path.  Use when
 serving CPU-only or non-CUDA accelerator workers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">auto</span></code> – load both paths.  Workers of either device
@@ -626,9 +627,12 @@ type can connect without manual configuration; the server has no
 upfront knowledge of the connecting worker’s device.</p></li>
 </ul>
 <p>When the engine-driven path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>),
-KV transfers between the server and vLLM workers use a pickle-based
+KV transfers between the server and vLLM workers use a typed inline tensor
 path by default.  Pass <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> with a segment name to create a
 shared-memory (SHM) pool instead:</p>
+<p>The typed inline protocol is not compatible with older workers or servers.
+Upgrade both sides together; payloads from the previous untyped protocol are
+rejected rather than accepted as a fallback.</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -641,7 +645,7 @@ shared-memory (SHM) pool instead:</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">""</span></code> (empty string, default)</p></td>
-<td><p>No SHM pool; KV transfer uses the pickle-based path.  Works
+<td><p>No SHM pool; KV transfer uses the typed inline path.  Works
 when <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> is unavailable or when running without
 <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> in Docker.</p></td>
 </tr>
@@ -653,7 +657,7 @@ helps with monitoring and debugging.</p></td>
 </tbody>
 </table>
 <p><strong>Examples:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Engine-driven path with pickle transfer (no SHM) -- the default:</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Engine-driven path with typed inline transfer (no SHM) -- the default:</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven
 </span><span id="line-4">

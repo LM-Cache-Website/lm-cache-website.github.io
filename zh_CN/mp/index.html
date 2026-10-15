@@ -212,6 +212,7 @@
 </ul>
 <ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">社区<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">常见问题</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">社区会议</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">博客</a></li>
 </ul>
@@ -489,7 +490,12 @@ name; see <a class="reference internal" href="request_transport.html"><span clas
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code></p></td>
 <td><p>同步</p></td>
-<td><p>注册一个引擎驱动的 KV Cache 上下文（使用 PREPARE/COMMIT 传输路径的 CPU/加速器工作线程）。仅在 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 为 <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> 或 <code class="docutils literal notranslate"><span class="pre">auto</span></code> 时加载。当使用 SHM 路径时，返回一个 <code class="docutils literal notranslate"><span class="pre">RegisterEngineDrivenContextResponse</span></code>，携带 SHM 段名称和池大小（对于 pickle 路径为空）。</p></td>
+<td><p>Register an engine-driven KV cache context (CPU/accelerator
+workers using the PREPARE/COMMIT transfer path). Loaded only when
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>.
+Returns a <code class="docutils literal notranslate"><span class="pre">RegisterEngineDrivenContextResponse</span></code> carrying the
+SHM segment name and pool size when the SHM path is in use
+(empty for the inline path).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UNREGISTER_KV_CACHE_ENGINE_DRIVEN_CONTEXT</span></code></p></td>
 <td><p>同步</p></td>
@@ -509,11 +515,16 @@ name; see <a class="reference internal" href="request_transport.html"><span clas
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">COMMIT_STORE</span></code></p></td>
 <td><p>阻塞</p></td>
-<td><p>（引擎驱动路径）工作线程提交块的序列化字节（pickle 路径），或释放已准备好的共享内存槽（SHM 路径），以便服务器将数据持久化到 L1 存储。</p></td>
+<td><p>(Engine-driven path) Worker commits the chunk's serialized bytes
+(typed inline path) or releases the prepared SHM slot (SHM path) so the
+server can persist into L1 storage.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PREPARE_RETRIEVE</span></code></p></td>
 <td><p>阻塞</p></td>
-<td><p>（引擎驱动路径）工作线程请求服务器为指定键准备检索负载。pickle 路径直接内联返回字节；SHM 路径返回槽位信息，供工作线程从共享内存中读取。</p></td>
+<td><p>(Engine-driven path) Worker asks the server to prepare the
+retrieval payload for a key. The typed inline path returns the bytes
+inline; the SHM path returns slot info so the worker can read
+from shared memory.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">COMMIT_RETRIEVE</span></code></p></td>
 <td><p>阻塞</p></td>
