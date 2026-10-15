@@ -1376,19 +1376,23 @@ uses the engine-driven (worker-side gather/scatter) path by default.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
 <td><p>连续子通道之间的延迟。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Number of clients sending requests at the same time (see below).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
 <td><p>KV Cache 形状规格（见下文）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
 <td><p>最终指标摘要的标准输出格式。可用格式：<code class="docutils literal notranslate"><span class="pre">terminal</span></code>、<code class="docutils literal notranslate"><span class="pre">json</span></code>。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
 <td><p>(未设置)</p></td>
 <td><p>将最终的指标摘要保存到 PATH 指定的文件中（格式由 <code class="docutils literal notranslate"><span class="pre">--format</span></code> 选择）。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
 <td><p>(未设置)</p></td>
 <td><p>在运行期间抑制所有进度消息。仅输出最终的结构化指标摘要（除非也通过 <code class="docutils literal notranslate"><span class="pre">--output</span></code> 重定向）。</p></td>
 </tr>
@@ -1514,6 +1518,28 @@ handles per-rank <code class="docutils literal notranslate"><span class="pre">in
 <p>完整的解析规则和验证错误说明请参阅 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/kv_layer_groups.py</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">parse_kvcache_shape_spec</span></code>。</p>
 </section>
 </section>
+<section id="concurrent-clients">
+<h3>Concurrent clients<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#concurrent-clients" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#concurrent-clients'"><span>#</span></a></h3>
+<p>With the default <code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">1</span></code> a single client sends one request at a
+time, so the run measures per-request latency but never queues work on the
+server. <code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code> runs <code class="docutils literal notranslate"><span class="pre">N</span></code> clients in parallel, each with its own
+connection and KV tensors, and its Workers registered under their own
+<code class="docutils literal notranslate"><span class="pre">instance_id</span></code> block. Sequences are dealt round-robin (client <code class="docutils literal notranslate"><span class="pre">k</span></code> runs
+<code class="docutils literal notranslate"><span class="pre">start</span> <span class="pre">+</span> <span class="pre">k</span></code>, <code class="docutils literal notranslate"><span class="pre">start</span> <span class="pre">+</span> <span class="pre">k</span> <span class="pre">+</span> <span class="pre">N</span></code>, ...), so no two clients touch the same
+keys and the cold/warm checks stay valid.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span>--mode<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">400</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">0</span><span class="w"> </span>--concurrency<span class="w"> </span><span class="m">8</span>
+</span></code></pre></div>
+</div>
+<p>The summary adds <code class="docutils literal notranslate"><span class="pre">Concurrency</span></code>, <code class="docutils literal notranslate"><span class="pre">Elapsed</span> <span class="pre">(s)</span></code>, and <code class="docutils literal notranslate"><span class="pre">Requests</span> <span class="pre">/</span> <span class="pre">s</span></code>.
+Use <code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">0</span></code> when comparing throughput, otherwise the delay
+dominates. <code class="docutils literal notranslate"><span class="pre">Requests</span> <span class="pre">/</span> <span class="pre">s</span></code> counts cold/warm sequence pairs, matching
+<code class="docutils literal notranslate"><span class="pre">Total</span> <span class="pre">requests</span></code>.</p>
+<p>Size the server's L1 to hold the whole run. If stores arrive faster than
+the eviction controller frees memory, the server drops them, and the
+affected warm lookups miss and fail their checks.</p>
+</section>
 <section id="profiling-the-server">
 <h3>对服务器进行性能分析<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-the-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-the-server'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> 是一个 ZMQ 客户端：它所使用的存储路径（哈希、分配、收集、D2H）在 <strong>server</strong> 进程内部运行，而不是在这个基准测试中。因此，<code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> 会将分析器附加到您提供的服务器进程 ID，记录负载持续时间，并渲染服务器的火焰图，而不是客户端的火焰图。</p>
@@ -1534,8 +1560,10 @@ handles per-rank <code class="docutils literal notranslate"><span class="pre">in
 <h3>输出<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id3" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id3'"><span>#</span></a></h3>
 <p>运行完成后（或被 <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> 中断后），将打印结构化的指标摘要，内容包括：</p>
 <ul class="simple">
-<li><p><strong>配置</strong> —— RPC URL、模式、传输模式、每请求 token 数、间隔。</p></li>
-<li><p><strong>结果</strong> —— 总请求数、校验和 OK／FAIL 计数、通过率。</p></li>
+<li><p><strong>Configuration</strong> -- RPC URL, mode, transfer mode, tokens per request,
+interval, concurrency.</p></li>
+<li><p><strong>Results</strong> -- total requests, checksum OK / FAIL counts, pass rate,
+elapsed time, requests per second.</p></li>
 <li><p><strong>延迟部分</strong> —— 每个操作的延迟统计信息（count、mean、min、max、p50、p99），涵盖冷查找、冷存储、热查找和热检索。</p></li>
 </ul>
 <p>使用 <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> 获取机器可读的输出，或使用 <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">FILE</span></code> 将摘要保存到文件中。</p>
@@ -1986,6 +2014,7 @@ completed.</p>
 <li><a :data-current="activeSection === '#tensor-parallel-tp-1'" class="reference internal" href="#tensor-parallel-tp-1">Tensor Parallel (TP &gt; 1)</a></li>
 </ul>
 </li>
+<li><a :data-current="activeSection === '#concurrent-clients'" class="reference internal" href="#concurrent-clients">Concurrent clients</a></li>
 <li><a :data-current="activeSection === '#profiling-the-server'" class="reference internal" href="#profiling-the-server">对服务器进行性能分析</a></li>
 <li><a :data-current="activeSection === '#id3'" class="reference internal" href="#id3">输出</a></li>
 <li><a :data-current="activeSection === '#example-output-progress'" class="reference internal" href="#example-output-progress">示例输出（进度）</a></li>
