@@ -317,7 +317,7 @@ site-local observability/control modules that reuse LMCache’s shared
 <p>For new extension protocols, prefer a transport-specific service when the
 extension owns a real client protocol. A plugin can register its own generated
 gRPC service or its own ZMQ service during LMCache server startup, while the
-same package also returns server modules for status, cleanup, and shared
+same module also provides status, cleanup, and shared
 <code class="docutils literal notranslate"><span class="pre">MPCacheServerContext</span></code> access.</p>
 <p>For small control-plane calls that do not need a first-class service, plugins
 may use the stable <code class="docutils literal notranslate"><span class="pre">SERVER_MODULE_CALL</span></code> envelope. The core wire contract
@@ -341,16 +341,14 @@ LMCache core instead.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--server-module<span class="w"> </span><span class="s1">'{</span>
 </span><span id="line-3"><span class="s1">      "module_path": "my_package.server_module",</span>
-</span><span id="line-4"><span class="s1">      "factory_name": "build_server_modules",</span>
-</span><span id="line-5"><span class="s1">      "config": {</span>
-</span><span id="line-6"><span class="s1">        "mode": "shadow"</span>
-</span><span id="line-7"><span class="s1">      }</span>
-</span><span id="line-8"><span class="s1">    }'</span>
+</span><span id="line-4"><span class="s1">      "config": {</span>
+</span><span id="line-5"><span class="s1">        "mode": "shadow"</span>
+</span><span id="line-6"><span class="s1">      }</span>
+</span><span id="line-7"><span class="s1">    }'</span>
 </span></code></pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">factory_name</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">build_server_modules</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code> defaults
-to an empty object. The flag can be repeated, and a single flag may contain a
-JSON list of module specs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">config</span></code> defaults to an empty object. The flag can be repeated, and a single
+flag may contain a JSON list of module specs.</p>
 <table class="docutils align-default" id="id1">
 <caption><span class="caption-text">Server module spec fields</span><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id1"><span>#</span></a></caption>
 <colgroup>
@@ -367,95 +365,34 @@ JSON list of module specs.</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">module_path</span></code></p></td>
 <td><p>yes</p></td>
-<td><p>Dotted Python import path containing the module factory.</p></td>
+<td><p>Dotted Python import path defining one or more concrete
+<code class="docutils literal notranslate"><span class="pre">DiscoverableModule</span></code> subclasses.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">factory_name</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">config</span></code></p></td>
 <td><p>no</p></td>
-<td><p>Callable name inside <code class="docutils literal notranslate"><span class="pre">module_path</span></code>. Defaults to
-<code class="docutils literal notranslate"><span class="pre">build_server_modules</span></code>.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">config</span></code></p></td>
-<td><p>no</p></td>
-<td><p>Plugin-specific JSON object passed to the factory.</p></td>
+<td><p>Plugin-specific JSON object available through
+<code class="docutils literal notranslate"><span class="pre">ModuleBuildContext.config_for()</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="factory-contract">
-<h2>Factory contract<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#factory-contract" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#factory-contract'"><span>#</span></a></h2>
-<p>The factory receives one <code class="docutils literal notranslate"><span class="pre">ExtServerModuleBuildContext</span></code> and returns
-<code class="docutils literal notranslate"><span class="pre">ExtServerModuleComponents</span></code>. For backwards compatibility, returning one
-module, a sequence of modules, or <code class="docutils literal notranslate"><span class="pre">None</span></code> is also accepted:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.multiprocess.ext_server_module</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="line-2">    <span class="n">ExtServerModuleBuildContext</span><span class="p">,</span>
-</span><span id="line-3">    <span class="n">ExtServerModuleComponents</span><span class="p">,</span>
-</span><span id="line-4"><span class="p">)</span>
-</span><span id="line-5">
-</span><span id="line-6">
-</span><span id="line-7"><span class="k">def</span><span class="w"> </span><span class="nf">build_server_modules</span><span class="p">(</span>
-</span><span id="line-8">    <span class="n">ctx</span><span class="p">:</span> <span class="n">ExtServerModuleBuildContext</span><span class="p">,</span>
-</span><span id="line-9"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExtServerModuleComponents</span><span class="p">:</span>
-</span><span id="line-10">    <span class="n">module</span> <span class="o">=</span> <span class="n">MyServerModule</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">server_context</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-</span><span id="line-11">    <span class="k">return</span> <span class="n">ExtServerModuleComponents</span><span class="p">(</span>
-</span><span id="line-12">        <span class="n">modules</span><span class="o">=</span><span class="p">[</span><span class="n">module</span><span class="p">],</span>
-</span><span id="line-13">        <span class="n">grpc_service_registrars</span><span class="o">=</span><span class="p">[</span><span class="n">module</span><span class="o">.</span><span class="n">register_grpc_services</span><span class="p">],</span>
-</span><span id="line-14">        <span class="n">zmq_service_registrars</span><span class="o">=</span><span class="p">[</span><span class="n">module</span><span class="o">.</span><span class="n">register_zmq_services</span><span class="p">],</span>
-</span><span id="line-15">    <span class="p">)</span>
-</span></code></pre></div>
-</div>
-<p>A service-only package can return no modules:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span><span class="w"> </span><span class="nf">build_server_modules</span><span class="p">(</span>
-</span><span id="line-2">    <span class="n">ctx</span><span class="p">:</span> <span class="n">ExtServerModuleBuildContext</span><span class="p">,</span>
-</span><span id="line-3"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExtServerModuleComponents</span><span class="p">:</span>
-</span><span id="line-4">    <span class="k">return</span> <span class="n">ExtServerModuleComponents</span><span class="p">(</span>
-</span><span id="line-5">        <span class="n">grpc_service_registrars</span><span class="o">=</span><span class="p">[</span><span class="n">build_echo_grpc_service</span><span class="p">(</span><span class="n">ctx</span><span class="p">)],</span>
-</span><span id="line-6">    <span class="p">)</span>
-</span></code></pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">ExtServerModuleBuildContext</span></code> contains:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">server_context</span></code>: the shared <code class="docutils literal notranslate"><span class="pre">MPCacheServerContext</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">mp_config</span></code>: parsed <code class="docutils literal notranslate"><span class="pre">MPServerConfig</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">coordinator_config</span></code>: parsed coordinator configuration.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">modules</span></code>: built-in modules, plus modules returned by earlier plugin
-factories in command-line order.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config</span></code>: the JSON object from this plugin’s server-module spec.</p></li>
-</ul>
-</section>
 <section id="module-contract">
 <h2>Module contract<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#module-contract" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#module-contract'"><span>#</span></a></h2>
-<p>A returned module must expose the regular server module contract:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nd">@property</span>
-</span><span id="line-2"><span class="k">def</span><span class="w"> </span><span class="nf">context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="o">...</span>
-</span><span id="line-3">
-</span><span id="line-4"><span class="k">def</span><span class="w"> </span><span class="nf">report_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span> <span class="o">...</span>
-</span><span id="line-5">
-</span><span id="line-6"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</span></code></pre></div>
-</div>
-<p>Request handlers are ordinary transport-neutral handlers decorated with
-<code class="docutils literal notranslate"><span class="pre">@request_handler</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.multiprocess.request_handler</span><span class="w"> </span><span class="kn">import</span> <span class="n">request_handler</span>
-</span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.multiprocess.protocol</span><span class="w"> </span><span class="kn">import</span> <span class="n">RequestType</span>
-</span><span id="line-3"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.v1.multiprocess.protocols.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">HandlerType</span>
-</span><span id="line-4">
-</span><span id="line-5">
-</span><span id="line-6"><span class="k">class</span><span class="w"> </span><span class="nc">MyServerModule</span><span class="p">:</span>
-</span><span id="line-7">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-</span><span id="line-8">        <span class="bp">self</span><span class="o">.</span><span class="n">_ctx</span> <span class="o">=</span> <span class="n">ctx</span>
-</span><span id="line-9">        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
-</span><span id="line-10">
-</span><span id="line-11">    <span class="nd">@property</span>
-</span><span id="line-12">    <span class="k">def</span><span class="w"> </span><span class="nf">context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="line-13">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ctx</span>
-</span><span id="line-14">
-</span><span id="line-15">    <span class="k">def</span><span class="w"> </span><span class="nf">report_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="line-16">        <span class="k">return</span> <span class="p">{</span><span class="s2">"my_module"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"is_healthy"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}}</span>
-</span><span id="line-17">
-</span><span id="line-18">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-19">        <span class="k">return</span> <span class="kc">None</span>
-</span></code></pre></div>
-</div>
+<p>External modules use the same discovery, dependency, construction, and runtime
+contract as built-ins. LMCache imports <code class="docutils literal notranslate"><span class="pre">module_path</span></code>, finds its concrete
+<code class="docutils literal notranslate"><span class="pre">DiscoverableModule</span></code> subclasses, merges them into the built-in dependency
+graph, and calls <code class="docutils literal notranslate"><span class="pre">create(build_ctx)</span></code>. There is no external-only base class or
+factory contract: follow the existing <code class="docutils literal notranslate"><span class="pre">DiscoverableModule</span></code> implementations
+under <code class="docutils literal notranslate"><span class="pre">lmcache.v1.multiprocess.modules</span></code>. Plugin-specific configuration is
+available from <code class="docutils literal notranslate"><span class="pre">build_ctx.config_for(module_class)</span></code>.</p>
+<p>Dependencies are class references, just as for built-ins. An external module
+may depend on a built-in class or on another explicitly loaded external class.
+Every dependency must be included in the discovered/configured class set.
+At startup, LMCache logs every constructed module and its declared
+dependencies as <code class="docutils literal notranslate"><span class="pre">name(dependencies=[...])</span></code>.
+Handlers are registered in construction order, so a dependent module can
+override its dependency’s handler. Modules close in reverse construction order;
+<code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code> stops its reaper before liveness targets release their state.</p>
 <p>Plugin modules can also expose extension protocol methods with
 <code class="docutils literal notranslate"><span class="pre">@server_module_handler</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">import</span><span class="w"> </span><span class="nn">msgspec</span>
@@ -471,7 +408,7 @@ factories in command-line order.</p></li>
 </span><span id="line-11">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="line-12">
 </span><span id="line-13">
-</span><span id="line-14"><span class="k">class</span><span class="w"> </span><span class="nc">MyServerModule</span><span class="p">:</span>
+</span><span id="line-14"><span class="k">class</span><span class="w"> </span><span class="nc">MyServerModule</span><span class="p">(</span><span class="n">DiscoverableModule</span><span class="p">):</span>
 </span><span id="line-15">    <span class="c1"># context/report_status/close omitted for brevity</span>
 </span><span id="line-16">
 </span><span id="line-17">    <span class="nd">@server_module_handler</span><span class="p">(</span><span class="s2">"my_package.echo"</span><span class="p">)</span>
@@ -480,47 +417,46 @@ factories in command-line order.</p></li>
 </span><span id="line-20">        <span class="k">return</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">msgpack</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">EchoResponse</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
 </span></code></pre></div>
 </div>
-<p>Plugin modules are appended after built-in modules. If two modules register
-the same existing request type, the later module wins for transport handler
-registration. If two plugin modules register the same <code class="docutils literal notranslate"><span class="pre">SERVER_MODULE_CALL</span></code>
-method name, startup fails.</p>
+<p>If two modules register the same <code class="docutils literal notranslate"><span class="pre">SERVER_MODULE_CALL</span></code> method name, startup
+fails.</p>
 </section>
 <section id="transport-specific-services">
 <h2>Transport-specific services<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transport-specific-services" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transport-specific-services'"><span>#</span></a></h2>
-<p>When an extension owns its protocol, return transport registrars in
-<code class="docutils literal notranslate"><span class="pre">ExtServerModuleComponents</span></code>. LMCache calls the registrar that matches the
-configured transport before the request server starts.</p>
+<p>When an extension owns its protocol, expose the registrar matching the
+configured transport as a method on the module. LMCache calls it before the
+request server starts.</p>
 <p>For gRPC, register generated services against the concrete <code class="docutils literal notranslate"><span class="pre">grpc.Server</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">my_package.protos</span><span class="w"> </span><span class="kn">import</span> <span class="n">echo_pb2_grpc</span>
 </span><span id="line-2">
 </span><span id="line-3">
-</span><span id="line-4"><span class="k">def</span><span class="w"> </span><span class="nf">register_echo_grpc_service</span><span class="p">(</span><span class="n">server</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-5">    <span class="n">echo_pb2_grpc</span><span class="o">.</span><span class="n">add_EchoServiceServicer_to_server</span><span class="p">(</span>
-</span><span id="line-6">        <span class="n">MyEchoServicer</span><span class="p">(),</span>
-</span><span id="line-7">        <span class="n">server</span><span class="p">,</span>
-</span><span id="line-8">    <span class="p">)</span>
+</span><span id="line-4"><span class="k">class</span><span class="w"> </span><span class="nc">MyServerModule</span><span class="p">(</span><span class="n">DiscoverableModule</span><span class="p">):</span>
+</span><span id="line-5">    <span class="c1"># regular module contract omitted</span>
+</span><span id="line-6">
+</span><span id="line-7">    <span class="k">def</span><span class="w"> </span><span class="nf">register_grpc_services</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-8">        <span class="n">echo_pb2_grpc</span><span class="o">.</span><span class="n">add_EchoServiceServicer_to_server</span><span class="p">(</span>
+</span><span id="line-9">            <span class="n">MyEchoServicer</span><span class="p">(),</span>
+</span><span id="line-10">            <span class="n">server</span><span class="p">,</span>
+</span><span id="line-11">        <span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p>For ZMQ, register or start a package-owned ZMQ service against the concrete
 <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">def</span><span class="w"> </span><span class="nf">register_echo_zmq_service</span><span class="p">(</span><span class="n">server</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="line-2">    <span class="n">echo_service</span> <span class="o">=</span> <span class="n">MyZmqEchoService</span><span class="p">(</span>
-</span><span id="line-3">        <span class="n">context</span><span class="o">=</span><span class="n">server</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span>
-</span><span id="line-4">        <span class="n">bind_url</span><span class="o">=</span><span class="s2">"tcp://127.0.0.1:6001"</span><span class="p">,</span>
-</span><span id="line-5">    <span class="p">)</span>
-</span><span id="line-6">    <span class="n">echo_service</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="k">class</span><span class="w"> </span><span class="nc">MyServerModule</span><span class="p">(</span><span class="n">DiscoverableModule</span><span class="p">):</span>
+</span><span id="line-2">    <span class="c1"># regular module contract omitted</span>
+</span><span id="line-3">
+</span><span id="line-4">    <span class="k">def</span><span class="w"> </span><span class="nf">register_zmq_services</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="line-5">        <span class="bp">self</span><span class="o">.</span><span class="n">echo_service</span> <span class="o">=</span> <span class="n">MyZmqEchoService</span><span class="p">(</span>
+</span><span id="line-6">            <span class="n">context</span><span class="o">=</span><span class="n">server</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span>
+</span><span id="line-7">            <span class="n">bind_url</span><span class="o">=</span><span class="s2">"tcp://127.0.0.1:6001"</span><span class="p">,</span>
+</span><span id="line-8">        <span class="p">)</span>
+</span><span id="line-9">        <span class="bp">self</span><span class="o">.</span><span class="n">echo_service</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
-<p>If a ZMQ registrar starts a sidecar socket, the plugin should also return a
-module whose <code class="docutils literal notranslate"><span class="pre">close()</span></code> method stops that sidecar. Do not use
+<p>If a ZMQ registrar starts a sidecar socket, the module’s <code class="docutils literal notranslate"><span class="pre">close()</span></code> method
+must stop that sidecar. Do not use
 <code class="docutils literal notranslate"><span class="pre">register_zmq_services</span></code> to add <code class="docutils literal notranslate"><span class="pre">HandlerType.BLOCKING</span></code> handlers to the core
 <code class="docutils literal notranslate"><span class="pre">MessageQueueServer</span></code> unless the registrar also assigns an executor with
 <code class="docutils literal notranslate"><span class="pre">add_normal_thread_pool</span></code> or <code class="docutils literal notranslate"><span class="pre">add_affinity_thread_pool</span></code> before startup.</p>
-<p>For compatibility with simple module-shaped plugins, LMCache also calls
-<code class="docutils literal notranslate"><span class="pre">register_grpc_services(server)</span></code> and <code class="docutils literal notranslate"><span class="pre">register_zmq_services(server)</span></code>
-methods when a returned module exposes them. New packages should prefer the
-explicit <code class="docutils literal notranslate"><span class="pre">ExtServerModuleComponents</span></code> fields so modules and transport services
-stay separate.</p>
 </section>
 <section id="envelope-client-calls">
 <h2>Envelope client calls<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#envelope-client-calls" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#envelope-client-calls'"><span>#</span></a></h2>
@@ -578,7 +514,6 @@ module in the management reaper targets.</p>
 <ul>
 <li><a :data-current="activeSection === '#when-to-use-it'" class="reference internal" href="#when-to-use-it">When to use it</a></li>
 <li><a :data-current="activeSection === '#configuration'" class="reference internal" href="#configuration">Configuration</a></li>
-<li><a :data-current="activeSection === '#factory-contract'" class="reference internal" href="#factory-contract">Factory contract</a></li>
 <li><a :data-current="activeSection === '#module-contract'" class="reference internal" href="#module-contract">Module contract</a></li>
 <li><a :data-current="activeSection === '#transport-specific-services'" class="reference internal" href="#transport-specific-services">Transport-specific services</a></li>
 <li><a :data-current="activeSection === '#envelope-client-calls'" class="reference internal" href="#envelope-client-calls">Envelope client calls</a></li>

@@ -428,17 +428,16 @@ gRPC) + FastAPI HTTP frontend — see <a class="reference internal" href="http_a
 <section id="engine-and-modules">
 <h2><a class="toc-backref" href="#id6" role="doc-backlink">引擎和模块</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine-and-modules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine-and-modules'"><span>#</span></a></h2>
 <p>所有服务器入口点共享相同的 <code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code> 和 <code class="docutils literal notranslate"><span class="pre">StorageManager</span></code> 核心。<code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code> 现在是一个轻量级合成器：它持有一个 <code class="docutils literal notranslate"><span class="pre">MPCacheServerContext</span></code> 和一个由 <code class="docutils literal notranslate"><span class="pre">_build_modules()</span></code>（在 <code class="docutils literal notranslate"><span class="pre">server.py</span></code> 中）基于 <code class="docutils literal notranslate"><span class="pre">--engine-type</span></code> 和 <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> 组装的 <code class="docutils literal notranslate"><span class="pre">EngineModule</span></code> 实例列表。</p>
-<p><strong>``server.py``</strong> -- The transport-neutral server compositor. Creates an
-<code class="docutils literal notranslate"><span class="pre">MPCacheServer</span></code>, assembles the engine modules
-(<code class="docutils literal notranslate"><span class="pre">LookupModule</span></code> + <code class="docutils literal notranslate"><span class="pre">ManagementModule</span></code> + <code class="docutils literal notranslate"><span class="pre">KVEventModule</span></code> + <code class="docutils literal notranslate"><span class="pre">LMCacheDrivenTransferModule</span></code>
-and/or <code class="docutils literal notranslate"><span class="pre">EngineDrivenTransferModule</span></code> depending on
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> — <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> (default) or
-<code class="docutils literal notranslate"><span class="pre">engine_driven</span></code> loads just one,
-<code class="docutils literal notranslate"><span class="pre">auto</span></code> loads both — plus the blend module when
-<code class="docutils literal notranslate"><span class="pre">--engine-type</span> <span class="pre">blend</span></code> is set). It calls <code class="docutils literal notranslate"><span class="pre">create_request_server()</span></code> to build
-the ZMQ or gRPC request server selected by <code class="docutils literal notranslate"><span class="pre">--transport</span></code>, discovers the
-annotated operations exposed by the loaded modules, and blocks in a keep-alive
-loop.</p>
+<p><strong>``server.py``</strong> -- The transport-neutral server compositor. It discovers
+<code class="docutils literal notranslate"><span class="pre">DiscoverableModule</span></code> classes under the <code class="docutils literal notranslate"><span class="pre">modules</span></code> package, orders their
+class-referenced <code class="docutils literal notranslate"><span class="pre">module_dependencies</span></code>, and calls <code class="docutils literal notranslate"><span class="pre">create()</span></code> with a shared
+<code class="docutils literal notranslate"><span class="pre">ModuleBuildContext</span></code>. Out-of-tree <code class="docutils literal notranslate"><span class="pre">--server-module</span></code> paths explicitly add
+classes to the same graph and lifecycle; their configuration comes from
+<code class="docutils literal notranslate"><span class="pre">ModuleBuildContext.config_for()</span></code>. This includes <code class="docutils literal notranslate"><span class="pre">KVEventModule</span></code> and the
+transfer, lookup, management, P2P, blend, and experimental modules. The
+compositor then creates the ZMQ or gRPC request server selected by
+<code class="docutils literal notranslate"><span class="pre">--transport</span></code>, registers module handlers and optional transport services,
+and blocks in a keep-alive loop.</p>
 <p><strong>``modules/blend.py``</strong> -- Defines <code class="docutils literal notranslate"><span class="pre">BlendModule</span></code>, the paged-aware
 blend pipeline that enables non-prefix KV cache reuse (e.g. across
 document paragraphs) on the sparse-prefetch path. KV-cache registration
