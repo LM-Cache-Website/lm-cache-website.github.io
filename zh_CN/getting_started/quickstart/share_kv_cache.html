@@ -310,13 +310,13 @@
 <p>LMCache 应该能够减少第二次及后续调用的生成时间。</p>
 <p>我们有以下类型的跨实例 KV Cache 共享的示例：</p>
 <ul class="simple">
-<li><p>通过集中式缓存服务器的 KV Cache 共享：<code class="docutils literal notranslate"><span class="pre">centralized_sharing</span></code></p></li>
+<li><p>KV cache sharing through Redis: <code class="docutils literal notranslate"><span class="pre">centralized_sharing</span></code></p></li>
 <li><p>通过点对点缓存传输共享 KV 缓存: <code class="docutils literal notranslate"><span class="pre">p2p_sharing</span></code></p></li>
 </ul>
 <section id="prerequisites">
 <h2>先决条件<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
 <p>您的服务器应至少配备 2 个 GPU。</p>
-<p>对于集中式共享，这将使用端口 8000 和 8001（用于 vLLM）以及端口 65432（用于 LMCache）。</p>
+<p>For centralized sharing, this uses ports 8000 and 8001 for vLLM and port 6379 for Redis.</p>
 <p>对于 P2P 共享：</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/ai-dynamo/nixl">NIXL</a> 安装在主机上。</p></li>
@@ -331,14 +331,14 @@
 </section>
 <section id="centralized-kv-cache-sharing">
 <h2>集中式 KV Cache 共享<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#centralized-kv-cache-sharing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#centralized-kv-cache-sharing'"><span>#</span></a></h2>
-<p>本节演示如何通过集中式 LMCache 服务器在多个 vLLM 实例之间共享 KV Cache。</p>
+<p>This section demonstrates how to share KV cache across multiple vLLM instances using Redis.</p>
 <p><strong>重要</strong>：对于集中式缓存共享（跨进程情况），确保所有进程使用相同的 <cite>PYTHONHASHSEED</cite> 以保持 KV 缓存在进程之间的一致性：<code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PYTHONHASHSEED=0</span></code>。</p>
 <section id="setup-centralized-sharing">
 <h3>设置集中式共享<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-centralized-sharing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-centralized-sharing'"><span>#</span></a></h3>
 <p>首先，创建一个名为 <code class="docutils literal notranslate"><span class="pre">lmcache_config.yaml</span></code> 的配置文件，内容如下：</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://localhost:6379"</span>
 </span><span id="line-4"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"cachegen"</span>
 </span></code></pre></div>
 </div>
@@ -346,9 +346,9 @@
 <section id="run-centralized-sharing-example">
 <h3>运行集中式共享示例<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#run-centralized-sharing-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#run-centralized-sharing-example'"><span>#</span></a></h3>
 <ol class="arabic simple">
-<li><p>启动 LMCache 中央服务器，</p></li>
+<li><p>Start Redis,</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache_server<span class="w"> </span>localhost<span class="w"> </span><span class="m">65432</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span>:6379<span class="w"> </span>redis:7
 </span></code></pre></div>
 </div>
 <ol class="arabic simple" start="2">

@@ -310,13 +310,13 @@
 <p>LMCache should be able to reduce the generation time of the second and following calls.</p>
 <p>We have examples for the following types of across-instance KV cache sharing:</p>
 <ul class="simple">
-<li><p>KV cache sharing through a centralized cache server: <code class="docutils literal notranslate"><span class="pre">centralized_sharing</span></code></p></li>
+<li><p>KV cache sharing through Redis: <code class="docutils literal notranslate"><span class="pre">centralized_sharing</span></code></p></li>
 <li><p>KV cache sharing through p2p cache transfer: <code class="docutils literal notranslate"><span class="pre">p2p_sharing</span></code></p></li>
 </ul>
 <section id="prerequisites">
 <h2>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
 <p>Your server should have at least 2 GPUs.</p>
-<p>For Centralized sharing, this will use the port 8000 and 8001 (for vLLM) and port 65432 (for LMCache).</p>
+<p>For centralized sharing, this uses ports 8000 and 8001 for vLLM and port 6379 for Redis.</p>
 <p>For P2P sharing:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/ai-dynamo/nixl">NIXL</a> installed on the host.</p></li>
@@ -331,14 +331,14 @@
 </section>
 <section id="centralized-kv-cache-sharing">
 <h2>Centralized KV cache sharing<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#centralized-kv-cache-sharing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#centralized-kv-cache-sharing'"><span>#</span></a></h2>
-<p>This section demonstrates how to share KV cache across multiple vLLM instances using a centralized LMCache server.</p>
+<p>This section demonstrates how to share KV cache across multiple vLLM instances using Redis.</p>
 <p><strong>Important</strong>: For centralized cache sharing (which is cross-process cases), ensure all processes use the same <cite>PYTHONHASHSEED</cite> to keep the hash of the KV cache consistent across processes: <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PYTHONHASHSEED=0</span></code>.</p>
 <section id="setup-centralized-sharing">
 <h3>Setup centralized sharing<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#setup-centralized-sharing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#setup-centralized-sharing'"><span>#</span></a></h3>
 <p>First, create a configuration file named <code class="docutils literal notranslate"><span class="pre">lmcache_config.yaml</span></code> with the following content:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
 </span><span id="line-2"><span class="nt">local_cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"lm://localhost:65432"</span>
+</span><span id="line-3"><span class="nt">remote_url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://localhost:6379"</span>
 </span><span id="line-4"><span class="nt">remote_serde</span><span class="p">:</span><span class="w"> </span><span class="s">"cachegen"</span>
 </span></code></pre></div>
 </div>
@@ -346,9 +346,9 @@
 <section id="run-centralized-sharing-example">
 <h3>Run centralized sharing example<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#run-centralized-sharing-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#run-centralized-sharing-example'"><span>#</span></a></h3>
 <ol class="arabic simple">
-<li><p>Start the LMCache centralized server,</p></li>
+<li><p>Start Redis,</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache_server<span class="w"> </span>localhost<span class="w"> </span><span class="m">65432</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span>:6379<span class="w"> </span>redis:7
 </span></code></pre></div>
 </div>
 <ol class="arabic simple" start="2">
