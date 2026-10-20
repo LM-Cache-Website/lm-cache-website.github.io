@@ -311,27 +311,31 @@ server.  Arguments are grouped by the config module that defines them.</p>
 <li><p><a class="reference internal" href="#lookup-hash-logging" id="id3">Lookup Hash Logging</a></p></li>
 <li><p><a class="reference internal" href="#http-frontend" id="id4">HTTP Frontend</a></p></li>
 <li><p><a class="reference internal" href="#p2p" id="id5">P2P</a></p></li>
-<li><p><a class="reference internal" href="#l1-memory-manager" id="id6">L1 Memory Manager</a></p></li>
-<li><p><a class="reference internal" href="#locked-l1-on-rocm" id="id7">Locked L1 on ROCm</a></p></li>
-<li><p><a class="reference internal" href="#gds-l1-tier" id="id8">GDS L1 Tier</a></p></li>
-<li><p><a class="reference internal" href="#l1-manager-ttls" id="id9">L1 Manager TTLs</a></p></li>
-<li><p><a class="reference internal" href="#eviction-policy" id="id10">Eviction Policy</a></p></li>
-<li><p><a class="reference internal" href="#l2-policies" id="id11">L2 Policies</a></p></li>
-<li><p><a class="reference internal" href="#l2-adapters" id="id12">L2 Adapters</a></p>
+<li><p><a class="reference internal" href="#l1-memory-manager" id="id6">L1 Memory Manager</a></p>
 <ul>
-<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id13">Multiple adapters (cascade)</a></p></li>
+<li><p><a class="reference internal" href="#device-dax-cxl-l1" id="id7">Device-DAX / CXL L1</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#observability" id="id14">Observability</a></p></li>
-<li><p><a class="reference internal" href="#vllm-client-configuration" id="id15">vLLM Client Configuration</a></p>
+<li><p><a class="reference internal" href="#locked-l1-on-rocm" id="id8">Locked L1 on ROCm</a></p></li>
+<li><p><a class="reference internal" href="#gds-l1-tier" id="id9">GDS L1 Tier</a></p></li>
+<li><p><a class="reference internal" href="#l1-manager-ttls" id="id10">L1 Manager TTLs</a></p></li>
+<li><p><a class="reference internal" href="#eviction-policy" id="id11">Eviction Policy</a></p></li>
+<li><p><a class="reference internal" href="#l2-policies" id="id12">L2 Policies</a></p></li>
+<li><p><a class="reference internal" href="#l2-adapters" id="id13">L2 Adapters</a></p>
 <ul>
-<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id16">Decode context parallelism (DCP)</a></p></li>
-<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id17">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a></p></li>
+<li><p><a class="reference internal" href="#multiple-adapters-cascade" id="id14">Multiple adapters (cascade)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#environment-variables" id="id18">Environment Variables</a></p></li>
-<li><p><a class="reference internal" href="#full-example" id="id19">Full Example</a></p></li>
-<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id20">Anonymous Usage Statistics</a></p></li>
+<li><p><a class="reference internal" href="#observability" id="id15">Observability</a></p></li>
+<li><p><a class="reference internal" href="#vllm-client-configuration" id="id16">vLLM Client Configuration</a></p>
+<ul>
+<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id17">Decode context parallelism (DCP)</a></p></li>
+<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id18">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#environment-variables" id="id19">Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="#full-example" id="id20">Full Example</a></p></li>
+<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id21">Anonymous Usage Statistics</a></p></li>
 </ul>
 </nav>
 <section id="per-request-lmcache-configuration">
@@ -724,7 +728,8 @@ peers. Setting it enables P2P (also requires <code class="docutils literal notra
 <p>Use repeatable <code class="docutils literal notranslate"><span class="pre">--l1-manager</span> <span class="pre">'&lt;JSON&gt;'</span></code> for tagged DRAM, Device-DAX, and
 GDS managers. See <a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a> for the schema, placement order, fixed
 L2 affinity, and per-manager reporting. The flags below remain the legacy
-single-L1 interface.</p>
+single-L1 interface. For placing L1 on CXL-attached memory see
+<em>Device-DAX / CXL L1</em> below.</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -773,18 +778,90 @@ backing arena.  When set, disable lazy allocation with
 mapping.  If a
 DAX L2 adapter with the same <code class="docutils literal notranslate"><span class="pre">device_path</span></code> is registered, that
 adapter’s <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> is used as the L1 Device-DAX overflow
-size.</p></td>
+size. Pass the device node, for example
+<code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span> <span class="pre">/dev/dax0.0</span> <span class="pre">--l1-size-gb</span> <span class="pre">512</span> <span class="pre">--no-l1-use-lazy</span>
+<span class="pre">--shm-name</span> <span class="pre">""</span></code>; find the node for a CXL region with <code class="docutils literal notranslate"><span class="pre">daxctl</span> <span class="pre">list</span></code>.
+See <em>Device-DAX / CXL L1</em> below.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-mlock</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-devdax-offset-gb</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Offset into <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code>, in GiB, where the L1 mapping starts.
+Lets several LMCache servers share one CXL device by mapping disjoint
+ranges, for example offset 0 and 512 with <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span> <span class="pre">512</span></code> each.
+The range must fit within the device, and offset and size must be
+multiples of the device alignment (usually 2 MiB).
+<code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> key: <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-mlock</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td><p>ROCm only. <code class="docutils literal notranslate"><span class="pre">mlock</span></code> the DRAM L1 so memory compaction cannot migrate
 it. See <em>Locked L1 on ROCm</em> below. <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> key: <code class="docutils literal notranslate"><span class="pre">mlock</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
+<section id="device-dax-cxl-l1">
+<span id="mp-devdax-l1"></span><h3><a class="toc-backref" href="#id7" role="doc-backlink">Device-DAX / CXL L1</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#device-dax-cxl-l1" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#device-dax-cxl-l1'"><span>#</span></a></h3>
+<p>L1 can live on CXL or persistent memory exposed as a Device-DAX node
+<code class="docutils literal notranslate"><span class="pre">/dev/daxX.Y</span></code>. The server maps the device with <code class="docutils literal notranslate"><span class="pre">mmap(MAP_SHARED)</span></code> and
+allocates KV objects inside the mapping. The index is in server memory, so
+the tier restarts empty.</p>
+<p><strong>Device path and offset.</strong> The mapping covers <code class="docutils literal notranslate"><span class="pre">[offset,</span> <span class="pre">offset</span> <span class="pre">+</span> <span class="pre">size)</span></code>
+of the device, with the offset defaulting to 0. Several servers can share
+one CXL device by giving each a disjoint range: <code class="docutils literal notranslate"><span class="pre">--l1-devdax-offset-gb</span></code>
+in the legacy form, <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> in the tagged form. LMCache does not
+coordinate offsets between servers; overlapping ranges, or two nodes that
+alias the same physical CXL range, write over each other. The device must
+be in <code class="docutils literal notranslate"><span class="pre">devdax</span></code> mode (CXL memory is often onlined as <code class="docutils literal notranslate"><span class="pre">system-ram</span></code>), the
+range must fit within the device, and offset and size must be multiples of
+the device alignment (usually 2 MiB); a range that does not is rejected:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cxl<span class="w"> </span>list<span class="w"> </span>-r<span class="w">                                   </span><span class="c1"># CXL regions and ids</span>
+</span><span id="line-2">daxctl<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># dax devices: region, size, mode, align</span>
+</span><span id="line-3">daxctl<span class="w"> </span>reconfigure-device<span class="w"> </span>--mode<span class="o">=</span>devdax<span class="w"> </span>dax0.0
+</span><span id="line-4">ls<span class="w"> </span>-l<span class="w"> </span>/dev/dax0.0<span class="w">                             </span><span class="c1"># path to pass to LMCache</span>
+</span></code></pre></div>
+</div>
+<p><strong>Tagged form (recommended).</strong> <code class="docutils literal notranslate"><span class="pre">size_gb</span></code> is mapped from <code class="docutils literal notranslate"><span class="pre">path</span></code> starting
+at <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> (default 0); there is no implicit DRAM pool. Set every L2
+adapter’s <code class="docutils literal notranslate"><span class="pre">affinity_tag</span></code> in a Device-DAX-only server, since the default
+<code class="docutils literal notranslate"><span class="pre">_default</span></code> means DRAM. This is the second of two servers sharing a 1 TiB
+device:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DEVDAX","tag":"cxl","size_gb":512,"offset_gb":512,"path":"/dev/dax0.0"}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/mnt/archive/lmcache","affinity_tag":"cxl"}'</span>
+</span></code></pre></div>
+</div>
+<p>List a <code class="docutils literal notranslate"><span class="pre">DRAM</span></code> manager first to spill into CXL only on <code class="docutils literal notranslate"><span class="pre">OUT_OF_MEMORY</span></code>.
+Schema in <a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a>.</p>
+<p><strong>Legacy form.</strong> <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> is the mapped size and
+<code class="docutils literal notranslate"><span class="pre">--l1-devdax-offset-gb</span></code> where it starts; lazy allocation and SHM must be
+off:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-devdax-path<span class="w"> </span>/dev/dax0.0<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">512</span><span class="w"> </span>--l1-devdax-offset-gb<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--no-l1-use-lazy<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">""</span>
+</span></code></pre></div>
+</div>
+<p>Hybrid DRAM + Device-DAX has no overflow flag: a <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter whose
+<code class="docutils literal notranslate"><span class="pre">device_path</span></code> matches <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code> is consumed, its
+<code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> becomes the overflow size, and <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> becomes
+the DRAM half.</p>
+<p><strong>Verify.</strong> <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code> reports <code class="docutils literal notranslate"><span class="pre">l1_capacity_bytes_by_backend</span></code> with a
+<code class="docutils literal notranslate"><span class="pre">devdax</span></code> entry equal to the mapped size; Prometheus
+<code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_memory_usage_bytes</span></code> carries <code class="docutils literal notranslate"><span class="pre">backend="devdax"</span></code>. Host
+pinning of the mapping is best-effort; check the startup log for a
+fallback to pageable copies.</p>
+<p><strong>Runtime changes and limits.</strong> With the legacy interface, whole ranges
+can be added and drained while serving via
+<code class="docutils literal notranslate"><span class="pre">/reconfigure/dax/l1/{status,add,remove}</span></code> (<a class="reference internal" href="http_api.html"><span class="doc">HTTP API</span></a>), each with
+its own <code class="docutils literal notranslate"><span class="pre">offset</span></code>; the initial range is the primary arena and cannot be
+removed, and tagged multi-L1 topologies are fixed at startup. P2P, NIXL, and Mooncake-over-RDMA L2
+adapters are unsupported because they need one contiguous L1 region; the
+SHM transfer channel is disabled; GDS L1 and <code class="docutils literal notranslate"><span class="pre">--l1-mlock</span></code> cannot be
+combined with it. For a persistent Device-DAX tier use the L2 adapter in
+<a class="reference internal" href="l2_storage/dax.html"><span class="doc">DAX</span></a>.</p>
+</section>
 </section>
 <section id="locked-l1-on-rocm">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Locked L1 on ROCm</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#locked-l1-on-rocm" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#locked-l1-on-rocm'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Locked L1 on ROCm</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#locked-l1-on-rocm" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#locked-l1-on-rocm'"><span>#</span></a></h2>
 <p>On ROCm, <code class="docutils literal notranslate"><span class="pre">hipHostRegister</span></code> does not page-lock memory: when the kernel
 migrates a registered L1 page (memory compaction), the driver evicts all GPU
 queues of the server until the mapping is restored, which stalls transfers for
@@ -803,7 +880,7 @@ NUMA balancing), khugepaged when transparent huge pages are <code class="docutil
 processes such as vLLM. Device-DAX L1 is rejected.</p>
 </section>
 <section id="gds-l1-tier">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">GDS L1 Tier</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-l1-tier" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-l1-tier'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">GDS L1 Tier</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#gds-l1-tier" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#gds-l1-tier'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <p>Opt-in. Setting <code class="docutils literal notranslate"><span class="pre">--gds-l1-path</span></code> switches the L1 medium from pinned DRAM to
 an NVMe slab file accessed via GPUDirect Storage DMA. The CPU pinned-DRAM tier
@@ -915,7 +992,7 @@ ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">u
 </table>
 </section>
 <section id="l1-manager-ttls">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">L1 Manager TTLs</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-manager-ttls" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-manager-ttls'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">L1 Manager TTLs</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-manager-ttls" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-manager-ttls'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -942,7 +1019,7 @@ ext4). Ignored by <code class="docutils literal notranslate"><span class="pre">u
 </table>
 </section>
 <section id="eviction-policy">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">Eviction Policy</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction-policy" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction-policy'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Eviction Policy</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#eviction-policy" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#eviction-policy'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -986,7 +1063,7 @@ so its data is evicted at the next eviction cycle
 </table>
 </section>
 <section id="l2-policies">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">L2 Policies</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-policies'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">L2 Policies</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-policies" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-policies'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <table class="docutils align-default">
 <colgroup>
@@ -1038,7 +1115,7 @@ async completion callbacks.</p></td>
 </table>
 </section>
 <section id="l2-adapters">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">L2 Adapters</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">L2 Adapters</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l2-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l2-adapters'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p>
 <p>L2 adapters are configured via repeatable <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">&lt;JSON&gt;</span></code> arguments.
 Each JSON object must include a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field that selects the adapter type.
@@ -1057,7 +1134,7 @@ documented on its own page under <a class="reference internal" href="l2_storage/
 <code class="docutils literal notranslate"><span class="pre">raw_block</span></code>, <code class="docutils literal notranslate"><span class="pre">dax</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code>, <code class="docutils literal notranslate"><span class="pre">aerospike</span></code>, <code class="docutils literal notranslate"><span class="pre">bigtable</span></code>,
 <code class="docutils literal notranslate"><span class="pre">sagemaker-hyperpod</span></code>, <code class="docutils literal notranslate"><span class="pre">hfbucket</span></code>, <code class="docutils literal notranslate"><span class="pre">resp</span></code>, <code class="docutils literal notranslate"><span class="pre">valkey</span></code>).</p>
 <section id="multiple-adapters-cascade">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Multiple adapters (cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Multiple adapters (cascade)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#multiple-adapters-cascade" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#multiple-adapters-cascade'"><span>#</span></a></h3>
 <p>Pass <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> multiple times.  Adapters are used in the order given:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/ssd/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "GDS", "backend_params": {"file_path": "/data/nvme/l2", "use_direct_io": "true"}, "pool_size": 128}'</span>
@@ -1066,7 +1143,7 @@ documented on its own page under <a class="reference internal" href="l2_storage/
 </section>
 </section>
 <section id="observability">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">Observability</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observability'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Observability</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#observability" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#observability'"><span>#</span></a></h2>
 <p>Source: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/mp_observability/config.py</span></code></p>
 <p>See <a class="reference internal" href="observability/index.html"><span class="doc">Observability</span></a> for full details on the three modes (metrics,
 logging, tracing).</p>
@@ -1151,7 +1228,7 @@ usage. See <a class="reference internal" href="observability/logs.html"><span cl
 </table>
 </section>
 <section id="vllm-client-configuration">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">vLLM Client Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">vLLM Client Configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The URL scheme selects the request
 transport: use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC, matching the
@@ -1178,7 +1255,7 @@ data parallelism (<code class="docutils literal notranslate"><span class="pre">d
 </span></code></pre></div>
 </div>
 <section id="decode-context-parallelism-dcp">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--decode-context-parallel-size</span></code> is supported. Under DCP, vLLM shards the
 attention KV cache across ranks along the token axis, so each rank holds only
 a strided <code class="docutils literal notranslate"><span class="pre">1/dcp</span></code> slice and one block ID spans <code class="docutils literal notranslate"><span class="pre">block_size</span> <span class="pre">*</span> <span class="pre">dcp</span></code> tokens.
@@ -1241,7 +1318,7 @@ itself, so this connector does not re-check it.</p>
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>:</p>
 </section>
 <section id="connector-extra-config-keys">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
 <p>All connector-level options are passed through
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> and use the <code class="docutils literal notranslate"><span class="pre">lmcache.mp.</span></code> prefix.</p>
 <p>By default, MP caches only prompt tokens, avoiding new cache entries from
@@ -1468,7 +1545,7 @@ auto-start disabled in vLLM:</p>
 </section>
 </section>
 <section id="environment-variables">
-<h2><a class="toc-backref" href="#id18" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1503,7 +1580,7 @@ convention).</p></td>
 </table>
 </section>
 <section id="full-example">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
@@ -1538,7 +1615,7 @@ convention).</p></td>
 </div>
 </section>
 <section id="anonymous-usage-statistics">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
 <p>The MP server reports anonymous usage statistics: a one-time
 environment/configuration snapshot at startup and interval counters
 (tokens retrieved/stored, bytes stored, uptime) every
@@ -1573,7 +1650,10 @@ never affect serving. Opt out with <code class="docutils literal notranslate"><s
 <li><a :data-current="activeSection === '#lookup-hash-logging'" class="reference internal" href="#lookup-hash-logging">Lookup Hash Logging</a></li>
 <li><a :data-current="activeSection === '#http-frontend'" class="reference internal" href="#http-frontend">HTTP Frontend</a></li>
 <li><a :data-current="activeSection === '#p2p'" class="reference internal" href="#p2p">P2P</a></li>
-<li><a :data-current="activeSection === '#l1-memory-manager'" class="reference internal" href="#l1-memory-manager">L1 Memory Manager</a></li>
+<li><a :data-current="activeSection === '#l1-memory-manager'" class="reference internal" href="#l1-memory-manager">L1 Memory Manager</a><ul>
+<li><a :data-current="activeSection === '#device-dax-cxl-l1'" class="reference internal" href="#device-dax-cxl-l1">Device-DAX / CXL L1</a></li>
+</ul>
+</li>
 <li><a :data-current="activeSection === '#locked-l1-on-rocm'" class="reference internal" href="#locked-l1-on-rocm">Locked L1 on ROCm</a></li>
 <li><a :data-current="activeSection === '#gds-l1-tier'" class="reference internal" href="#gds-l1-tier">GDS L1 Tier</a></li>
 <li><a :data-current="activeSection === '#l1-manager-ttls'" class="reference internal" href="#l1-manager-ttls">L1 Manager TTLs</a></li>
