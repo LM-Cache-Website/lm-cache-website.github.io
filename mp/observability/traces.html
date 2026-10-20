@@ -389,39 +389,6 @@ is zero.  <code class="docutils literal notranslate"><span class="pre">request</
 is zero.  Sums with <code class="docutils literal notranslate"><span class="pre">l1_hit_rate</span></code> to <code class="docutils literal notranslate"><span class="pre">hit_rate</span></code> up to float
 rounding.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">apc_covered_tokens</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p>Prefix tokens the engine’s prefix cache already held.  The lookup
-skips them, so they are not in <code class="docutils literal notranslate"><span class="pre">requested_tokens</span></code> or any hit
-count.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prompt_tokens</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p>Whole prompt length of the request, sub-chunk tail included.
-<code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">engine_hit_tokens</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p>Tokens the engine’s own prefix cache held, from the connector’s
-hint; not rounded to a chunk boundary.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">request_hit_tokens</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
-<td><p>Prefix of the prompt served by the engine or LMCache: the longer of
-<code class="docutils literal notranslate"><span class="pre">engine_hit_tokens</span></code> and <code class="docutils literal notranslate"><span class="pre">apc_covered_tokens</span> <span class="pre">+</span> <span class="pre">hit_tokens</span></code>.
-<code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">engine_hit_rate</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">engine_hit_tokens</span> <span class="pre">/</span> <span class="pre">prompt_tokens</span></code>; <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the prompt is
-empty.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">request_hit_rate</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">request_hit_tokens</span> <span class="pre">/</span> <span class="pre">prompt_tokens</span></code>; <code class="docutils literal notranslate"><span class="pre">0.0</span></code> when the prompt is
-empty.  The request-level hit rate: what share of the prompt either
-cache served.  <code class="docutils literal notranslate"><span class="pre">request</span></code> span only.</p></td>
-</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">l1_hit_keys</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
 <td><p>Hit keys (one per object group, kv rank and chunk) L1 already
@@ -461,14 +428,11 @@ their root span will not carry these attributes.</p>
 </span><span id="line-10"># Requests that had to go to L2 for most of their hit
 </span><span id="line-11">{ name = "request" &amp;&amp; span.l2_hit_rate &gt; 0.5 }
 </span><span id="line-12">
-</span><span id="line-13"># Requests where neither the engine nor LMCache served half the prompt
-</span><span id="line-14">{ name = "request" &amp;&amp; span.request_hit_rate &lt; 0.5 }
+</span><span id="line-13"># Requests that loaded anything from L2
+</span><span id="line-14">{ name = "request" &amp;&amp; span.l2_hit_keys &gt; 0 }
 </span><span id="line-15">
-</span><span id="line-16"># Requests that loaded anything from L2
-</span><span id="line-17">{ name = "request" &amp;&amp; span.l2_hit_keys &gt; 0 }
-</span><span id="line-18">
-</span><span id="line-19"># Lookups that exited early rather than genuinely missing
-</span><span id="line-20">{ name = "request" &amp;&amp; span.early_exit_reason != "" }
+</span><span id="line-16"># Lookups that exited early rather than genuinely missing
+</span><span id="line-17">{ name = "request" &amp;&amp; span.early_exit_reason != "" }
 </span></code></pre></div>
 </div>
 <p>For the full event-to-span mapping and the registry pattern that links

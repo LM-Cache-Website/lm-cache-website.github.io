@@ -665,16 +665,6 @@ chunk, so the count is not divided by the TP world size.</p></td>
 <td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
 <td><p>Hit keys loaded from L2 into L1.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_prompt</span></code></p></td>
-<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
-<td><p>Whole prompt length of each looked-up request, sub-chunk tail
-included (denominator of the request-level hit rate).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookup_request_hit</span></code></p></td>
-<td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
-<td><p>Prefix of the prompt served by the engine’s prefix cache or LMCache
-(numerator of the request-level hit rate).</p></td>
-</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_mp.lookups</span></code></p></td>
 <td><p>Counter (attrs: <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>)</p></td>
 <td><p>Completed lookups (denominator for <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>).</p></td>
@@ -688,47 +678,35 @@ included (denominator of the request-level hit rate).</p></td>
 </table>
 <p>All lookup counters are driven by the same event (<code class="docutils literal notranslate"><span class="pre">MP_LOOKUP_PREFETCH_END</span></code>),
 so they always advance together per completed lookup. Early-exit lookups
-contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to the lookup-level token counters, <code class="docutils literal notranslate"><span class="pre">0</span></code> keys to
-both key counters, and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to <code class="docutils literal notranslate"><span class="pre">lookups</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>; they
-still advance the request-level counters (<code class="docutils literal notranslate"><span class="pre">lookup_prompt</span></code> and
-<code class="docutils literal notranslate"><span class="pre">lookup_request_hit</span></code>), which describe the request rather than the
-lookup. Abandoned lookups contribute to none of them.</p>
+contribute <code class="docutils literal notranslate"><span class="pre">0</span></code> tokens to all four token counters, <code class="docutils literal notranslate"><span class="pre">0</span></code> keys to both
+key counters, and <code class="docutils literal notranslate"><span class="pre">+1</span></code> to
+<code class="docutils literal notranslate"><span class="pre">lookups</span></code> / <code class="docutils literal notranslate"><span class="pre">lookup_early_exit</span></code>, and abandoned lookups contribute to neither.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">model_name</span></code> and <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> attributes are captured at lookup
 time from <code class="docutils literal notranslate"><span class="pre">IPCCacheServerKey</span></code> so dashboards can compute per-model or
 per-tenant hit rate. <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> can be high-cardinality (one entry
 per tenant or isolation domain); drop it at scrape time with
 <code class="docutils literal notranslate"><span class="pre">metric_relabel_configs</span></code> if storage cost matters.</p>
-<p><strong>PromQL for hit rate</strong> (both ratios use the whole prompt as denominator):</p>
-<div class="highlight-promql notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># LMCache token hit rate, share of prompt tokens (all models, all salts):</span>
+<p><strong>PromQL for hit rate:</strong></p>
+<div class="highlight-promql notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Aggregate (all models, all salts):</span>
 </span><span id="line-2"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-3"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_prompt_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-3"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_requested_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
 </span><span id="line-4">
-</span><span id="line-5"><span class="c1"># Request-level: share of prompt tokens served by the engine's prefix</span>
-</span><span id="line-6"><span class="c1"># cache or LMCache:</span>
-</span><span id="line-7"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_request_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-8"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_prompt_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-9">
-</span><span id="line-10"><span class="c1"># Per-model:</span>
-</span><span id="line-11"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
-</span><span id="line-12"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_prompt_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
-</span><span id="line-13">
-</span><span id="line-14"><span class="c1"># LMCache hit rate on only the range it was asked to look up (past the</span>
-</span><span id="line-15"><span class="c1"># prefix the engine already held):</span>
-</span><span id="line-16"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-17"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_requested_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-18">
-</span><span id="line-19"><span class="c1"># Share of hit tokens L1 could serve on its own:</span>
-</span><span id="line-20"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-21"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-22">
-</span><span id="line-23"><span class="c1"># Fraction of lookups that early-exited, by reason:</span>
-</span><span id="line-24"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_early_exit_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">reason</span><span class="o">)</span>
-</span><span id="line-25"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookups_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
-</span><span id="line-26">
-</span><span id="line-27"><span class="c1"># Share of hit keys L1 already held:</span>
-</span><span id="line-28"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-29"><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
-</span><span id="line-30"><span class="w">   </span><span class="o">+</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l2_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-5"><span class="c1"># Per-model:</span>
+</span><span id="line-6"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
+</span><span id="line-7"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_requested_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">model_name</span><span class="o">)</span>
+</span><span id="line-8">
+</span><span id="line-9"><span class="c1"># Share of hit tokens L1 could serve on its own:</span>
+</span><span id="line-10"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-11"><span class="o">/</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_tokens_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-12">
+</span><span id="line-13"><span class="c1"># Fraction of lookups that early-exited, by reason:</span>
+</span><span id="line-14"><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_early_exit_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">reason</span><span class="o">)</span>
+</span><span id="line-15"><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookups_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
+</span><span id="line-16">
+</span><span id="line-17"><span class="c1"># Share of hit keys L1 already held:</span>
+</span><span id="line-18"><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-19"><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l1_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+</span><span id="line-20"><span class="w">   </span><span class="o">+</span><span class="w"> </span><span class="kr">rate</span><span class="o">(</span><span class="nv">lmcache_mp_lookup_hit_l2_keys_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span>
 </span></code></pre></div>
 </div>
 <p><strong>Tokens vs. keys on hybrid models.</strong> The token split credits L1 only with
