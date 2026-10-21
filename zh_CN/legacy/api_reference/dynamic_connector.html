@@ -405,7 +405,9 @@
 <h2>Upstream Integration:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#upstream-integration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#upstream-integration'"><span>#</span></a></h2>
 <p>LMCache integration with official upstream vLLM was introduced in <a class="reference external" href="https://github.com/vllm-project/vllm/pull/12953">early February 2025</a>.</p>
 <p>vLLM imports the connector from the lmcache package and wraps it in <a class="reference external" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/kv_transfer/kv_connector/v1/lmcache_connector.py">vllm/distributed/kv_transfer/kv_connector/v1/lmcache_connector.py</a>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.integration.vllm.vllm_v1_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">LMCacheConnectorV1Impl</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.inprocess.integration.vllm.vllm_v1_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="line-2">    <span class="n">LMCacheConnectorV1Impl</span><span class="p">,</span>
+</span><span id="line-3"><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p>This means that any updates to LMCache connector need to be synced/updated in the upstream vLLM.</p>
@@ -429,19 +431,22 @@
 <h2>Dynamic Connector:<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dynamic-connector" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dynamic-connector'"><span>#</span></a></h2>
 <p><a class="reference external" href="https://github.com/vllm-project/vllm/pull/18142">In June 2025</a>, vLLM supports dynamic loading of KV connector implementations so we can directly reference connectors from the LMCache package without having to update vLLM.</p>
 <p>Example usage of dynamic connector from LMCache:</p>
+<p>The canonical dynamic connector path is under <code class="docutils literal notranslate"><span class="pre">lmcache.inprocess</span></code>. The old
+<code class="docutils literal notranslate"><span class="pre">lmcache.integration.vllm.lmcache_connector_v1</span></code> path remains available for
+compatibility with existing configurations.</p>
 <p><strong>Pythonic Transfer Config:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="kn">from</span><span class="w"> </span><span class="nn">vllm.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVTransferConfig</span>
 </span><span id="line-2"><span class="n">ktc</span> <span class="o">=</span> <span class="n">KVTransferConfig</span><span class="p">(</span>
 </span><span id="line-3">    <span class="n">kv_connector</span><span class="o">=</span><span class="s2">"LMCacheConnectorV1Dynamic"</span><span class="p">,</span>
 </span><span id="line-4">    <span class="n">kv_role</span><span class="o">=</span><span class="s2">"kv_both"</span><span class="p">,</span>
-</span><span id="line-5">    <span class="n">kv_connector_module_path</span><span class="o">=</span><span class="s2">"lmcache.integration.vllm.lmcache_connector_v1"</span><span class="p">,</span>
+</span><span id="line-5">    <span class="n">kv_connector_module_path</span><span class="o">=</span><span class="s2">"lmcache.inprocess.integration.vllm.lmcache_connector_v1"</span><span class="p">,</span>
 </span><span id="line-6"><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <p><strong>Command Line Transfer Config:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span><span class="s2">"YOUR_MODEL"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1Dynamic","kv_role":"kv_both","kv_connector_module_path":"lmcache.integration.vllm.lmcache_connector_v1"}'</span>
+</span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheConnectorV1Dynamic","kv_role":"kv_both","kv_connector_module_path":"lmcache.inprocess.integration.vllm.lmcache_connector_v1"}'</span>
 </span></code></pre></div>
 </div>
 <p>This allows LMCache to modify/develop connectors and quickly plug-and-play.</p>
