@@ -405,13 +405,28 @@
 </ul>
 <p><strong>可选字段：</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code>（int，默认值 <code class="docutils literal notranslate"><span class="pre">4</span></code>，&gt; 0）：连接器内部的 C++ 工作线程数量。这是真正的 I/O 队列深度——提高此值以在总带宽超过每个流带宽的文件系统上提升吞吐量。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">4</span></code>, &gt; 0): Number of C++ worker threads
+inside the connector.  With <code class="docutils literal notranslate"><span class="pre">num_read_workers</span></code> at <code class="docutils literal notranslate"><span class="pre">0</span></code> this is also the
+read queue depth against the device, since each worker reads one object
+at a time.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">relative_tmp_dir</span></code>（str，默认值 <code class="docutils literal notranslate"><span class="pre">""</span></code>）：写入临时文件所使用的相对子目录，写入完成后执行原子重命名。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_odirect</span></code>（bool，默认值 <code class="docutils literal notranslate"><span class="pre">false</span></code>）：通过 <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> 绕过页面缓存，启用后方可测量真实的磁盘带宽。请参阅下方的对齐注意事项。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">read_ahead_size</span></code> (int, optional): Trigger filesystem readahead by
 issuing a warm-up read of this many bytes at open time.  This is skipped
 for reads that use <code class="docutils literal notranslate"><span class="pre">O_DIRECT</span></code> because direct I/O bypasses the page cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span></code>（float，默认值 <code class="docutils literal notranslate"><span class="pre">0</span></code>）：用于客户端使用量跟踪的最大 L2 容量（单位：GB）。默认值 <code class="docutils literal notranslate"><span class="pre">0</span></code> 表示禁用跟踪。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_read_workers</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">256</span></code>): Threads dedicated to reads,
+and so the maximum reads in flight.  <code class="docutils literal notranslate"><span class="pre">0</span></code> keeps the legacy path, where
+the depth equals <code class="docutils literal notranslate"><span class="pre">num_workers</span></code>, usually far below what an array of
+several devices needs.  Each reader thread holds one file open at a time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">read_max_bytes_in_flight</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">0</span></code>): With <code class="docutils literal notranslate"><span class="pre">num_read_workers</span></code>
+positive, the bytes kept outstanding against the device.  <code class="docutils literal notranslate"><span class="pre">0</span></code>
+selects 1536 MiB, chosen for its worst
+case across local and network-latency storage; a single slow device
+does better with a smaller value.  Bytes in flight also never exceed
+<code class="docutils literal notranslate"><span class="pre">num_read_workers</span></code> x object size, so <code class="docutils literal notranslate"><span class="pre">num_read_workers</span></code> must be
+large enough for the budget to bind.  Sizing notes:
+<code class="docutils literal notranslate"><span class="pre">docs/design/v1/distributed/l2_adapters/fs_native_read_depth.md</span></code>.</p></li>
 </ul>
 <div class="admonition important">
 <p class="admonition-title">重要</p>
