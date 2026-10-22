@@ -1122,11 +1122,17 @@ so its data is evicted at the next eviction cycle
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
 <td><p>L2 预取策略。当多个适配器均持有某个键时，决定由哪个适配器加载该键。<code class="docutils literal notranslate"><span class="pre">default</span></code> 策略选择第一个适配器（索引最小）。预取的键是临时的（读取完成后删除）。<code class="docutils literal notranslate"><span class="pre">retain</span></code> 策略采用相同的加载计划，但将预取的键永久保留在 L1 中。可选项：<code class="docutils literal notranslate"><span class="pre">default</span></code>、<code class="docutils literal notranslate"><span class="pre">retain</span></code>。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-max-in-flight</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
-<td><p>最大并发预取（L2 加载）请求数量。限制 PrefetchController 同时发起的在途加载数，防止 L1 内存压力过大。</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-inflight-watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
+<td><p>Fraction of L1 capacity, in (0, 1], that in-flight prefetch
+(L2 load) requests may stage in L1.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--periodic-notifier-interval-ms</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-max-in-flight</span></code></p></td>
+<td><p>(none)</p></td>
+<td><p>Deprecated and ignored; prefetch admission follows
+<code class="docutils literal notranslate"><span class="pre">--l2-prefetch-inflight-watermark</span></code>.  Logs a warning when set.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--periodic-notifier-interval-ms</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
 <td><p>定期事件通知器心跳的间隔（毫秒）。一个原生 C++ 后台线程按此间隔向所有已注册的文件描述符写入数据，以唤醒缺少原生异步完成回调的 L2 适配器的控制器轮询循环。</p></td>
 </tr>
@@ -1596,7 +1602,7 @@ auto-start disabled in vLLM:</p>
 </span><span id="line-21"><span class="w">    </span>--eviction-trigger-watermark<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span><span class="se">\</span>
 </span><span id="line-22"><span class="w">    </span>--eviction-ratio<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
 </span><span id="line-23"><span class="w">    </span>--l2-prefetch-policy<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
-</span><span id="line-24"><span class="w">    </span>--l2-prefetch-max-in-flight<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-24"><span class="w">    </span>--l2-prefetch-inflight-watermark<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span><span class="se">\</span>
 </span><span id="line-25"><span class="w">    </span>--periodic-notifier-interval-ms<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-26"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type": "nixl_store", "backend": "POSIX", "backend_params": {"file_path": "/data/lmcache/l2", "use_direct_io": "false"}, "pool_size": 64}'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-27"><span class="w">    </span>--prometheus-port<span class="w"> </span><span class="m">9090</span><span class="w"> </span><span class="se">\</span>
