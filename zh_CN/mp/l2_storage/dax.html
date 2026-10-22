@@ -403,11 +403,18 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: 可映射的 DAX 设备或测试文件的路径。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: 从 <code class="docutils literal notranslate"><span class="pre">device_path</span></code> 映射的 GiB 数量。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> (optional, default <code class="docutils literal notranslate"><span class="pre">0</span></code>): GiB offset where the mapping
+starts, so several servers, or L1 and L2 in one server, can share one CXL
+device on disjoint ranges. The range must fit within the device and be a
+multiple of the device alignment.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: 固定槽大小（以字节为单位）。该值必须足够大，能够容纳一个完整的 LMCache 块，因为 MP 内存描述符不公开非 MP 模式下完整块的大小。</p></li>
 </ul>
 <p><strong>多设备形式的必填字段：</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>：包含 <code class="docutils literal notranslate"><span class="pre">device_path</span></code> 和 <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> 的对象列表。只有在 <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> 为 <code class="docutils literal notranslate"><span class="pre">true</span></code> 时，列表可以为空。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>: List of objects with <code class="docutils literal notranslate"><span class="pre">device_path</span></code>, <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>, and
+optional <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code>. The same device may appear more than once with
+disjoint ranges. The list may be empty only when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is
+<code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: 适配器门面中所有 DAX 设备共用的固定槽大小（以字节为单位）。</p></li>
 </ul>
 <p><strong>可选字段：</strong></p>
@@ -443,7 +450,7 @@
 </span><span id="line-3"><span class="s1">  "type": "dax",</span>
 </span><span id="line-4"><span class="s1">  "devices": [</span>
 </span><span id="line-5"><span class="s1">    {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100},</span>
-</span><span id="line-6"><span class="s1">    {"device_path": "/dev/daxY.Y", "max_dax_size_gb": 100}</span>
+</span><span id="line-6"><span class="s1">    {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100, "offset_gb": 100}</span>
 </span><span id="line-7"><span class="s1">  ],</span>
 </span><span id="line-8"><span class="s1">  "slot_bytes": 268435456,</span>
 </span><span id="line-9"><span class="s1">  "hotplug_enabled": true,</span>
@@ -457,9 +464,11 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
+</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB", "offset": "200GiB"}'</span>
 </span></code></pre></div>
 </div>
+<p>Pass the same <code class="docutils literal notranslate"><span class="pre">device_path</span></code> and <code class="docutils literal notranslate"><span class="pre">offset</span></code> to <code class="docutils literal notranslate"><span class="pre">remove</span></code> and <code class="docutils literal notranslate"><span class="pre">resize</span></code>.
+A range overlapping one this server already maps, in L1 or L2, returns <code class="docutils literal notranslate"><span class="pre">409</span></code>.</p>
 <p><strong>当前限制：</strong></p>
 <ul class="simple">
 <li><p>运行时热插拔仅更改 LMCache 映射和元数据。它不会创建、销毁或重新配置内核 CXL 或 DAX 设备。</p></li>

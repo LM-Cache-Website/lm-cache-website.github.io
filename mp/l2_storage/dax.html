@@ -408,14 +408,20 @@ the DAX device, but they are unreachable after the LMCache server restarts.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">device_path</span></code>: Path to the mmap-able DAX device or test file.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>: Number of GiB to map from <code class="docutils literal notranslate"><span class="pre">device_path</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> (optional, default <code class="docutils literal notranslate"><span class="pre">0</span></code>): GiB offset where the mapping
+starts, so several servers, or L1 and L2 in one server, can share one CXL
+device on disjoint ranges. The range must fit within the device and be a
+multiple of the device alignment.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: Fixed slot size in bytes. This must be large enough for one
 full LMCache chunk because MP memory descriptors do not expose the
 non-MP full-chunk size.</p></li>
 </ul>
 <p><strong>Required fields for the multi-device form:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>: List of objects with <code class="docutils literal notranslate"><span class="pre">device_path</span></code> and <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>.
-The list may be empty only when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>: List of objects with <code class="docutils literal notranslate"><span class="pre">device_path</span></code>, <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code>, and
+optional <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code>. The same device may appear more than once with
+disjoint ranges. The list may be empty only when <code class="docutils literal notranslate"><span class="pre">hotplug_enabled</span></code> is
+<code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_bytes</span></code>: Fixed slot size in bytes shared by every DAX device in the
 adapter facade.</p></li>
 </ul>
@@ -454,7 +460,7 @@ effect for <code class="docutils literal notranslate"><span class="pre">dax</spa
 </span><span id="line-3"><span class="s1">  "type": "dax",</span>
 </span><span id="line-4"><span class="s1">  "devices": [</span>
 </span><span id="line-5"><span class="s1">    {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100},</span>
-</span><span id="line-6"><span class="s1">    {"device_path": "/dev/daxY.Y", "max_dax_size_gb": 100}</span>
+</span><span id="line-6"><span class="s1">    {"device_path": "/dev/daxX.X", "max_dax_size_gb": 100, "offset_gb": 100}</span>
 </span><span id="line-7"><span class="s1">  ],</span>
 </span><span id="line-8"><span class="s1">  "slot_bytes": 268435456,</span>
 </span><span id="line-9"><span class="s1">  "hotplug_enabled": true,</span>
@@ -473,9 +479,11 @@ future adapters such as P2P.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/status
 </span><span id="line-2">curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:9000/reconfigure/dax/l2/add<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB"}'</span>
+</span><span id="line-4"><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"device_path": "/dev/daxX.X", "size": "100GiB", "offset": "200GiB"}'</span>
 </span></code></pre></div>
 </div>
+<p>Pass the same <code class="docutils literal notranslate"><span class="pre">device_path</span></code> and <code class="docutils literal notranslate"><span class="pre">offset</span></code> to <code class="docutils literal notranslate"><span class="pre">remove</span></code> and <code class="docutils literal notranslate"><span class="pre">resize</span></code>.
+A range overlapping one this server already maps, in L1 or L2, returns <code class="docutils literal notranslate"><span class="pre">409</span></code>.</p>
 <p><strong>Current limits:</strong></p>
 <ul class="simple">
 <li><p>Runtime hotplug changes only LMCache mappings and metadata. It does not
