@@ -248,7 +248,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">集成</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">存储插件</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">使用数据模块</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/basic_check.html">基本检查工具</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">添加原生后端</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/adding_a_new_device_backend.html">添加新的设备后端</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/server_modules.html">Server Module Plugins</a></li>
@@ -366,6 +365,7 @@
 </li>
 <li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../legacy/developer_guide/index.html">Developer Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
 <li class="toctree-l3"><a class="reference internal" href="../legacy/developer_guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../legacy/developer_guide/usage/basic_check.html">Basic Check Tool</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../legacy/developer_guide/extending_lmcache/remote_storage_plugins.html">Remote Storage Plugins</a></li>
 </ul>
 </li>
@@ -776,8 +776,8 @@ and <code class="docutils literal notranslate"><span class="pre">/healthcheck</s
 <h2><a class="toc-backref" href="#id7" role="doc-backlink">L1 内存管理器</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#l1-memory-manager" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#l1-memory-manager'"><span>#</span></a></h2>
 <p>来源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/config.py</span></code></p>
 <p>Use repeatable <code class="docutils literal notranslate"><span class="pre">--l1-manager</span> <span class="pre">'&lt;JSON&gt;'</span></code> for tagged DRAM, Device-DAX, and
-GDS managers. See <a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a> for the schema, placement order, fixed
-L2 affinity, and per-manager reporting. The flags below remain the legacy
+GDS managers. See <a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a> for the schema, placement order,
+automatic L2 affinity, and per-manager reporting. The flags below remain the legacy
 single-L1 interface. For placing L1 on CXL-attached memory see
 <em>Device-DAX / CXL L1</em> below.</p>
 <table class="docutils align-default">
@@ -867,13 +867,12 @@ and offset and size must be multiples of the device alignment:</p>
 </span></code></pre></div>
 </div>
 <p><strong>Tagged form (recommended).</strong> <code class="docutils literal notranslate"><span class="pre">size_gb</span></code> is mapped from <code class="docutils literal notranslate"><span class="pre">path</span></code> starting
-at <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> (default 0); there is no implicit DRAM pool. Set every L2
-adapter's <code class="docutils literal notranslate"><span class="pre">affinity_tag</span></code> in a Device-DAX-only server, since the default
-<code class="docutils literal notranslate"><span class="pre">_default</span></code> means DRAM. This is the second of two servers sharing a 1 TiB
-device:</p>
+at <code class="docutils literal notranslate"><span class="pre">offset_gb</span></code> (default 0); there is no implicit DRAM pool. With no DRAM
+manager, L2 adapters use the Device-DAX L1. This is the second of two servers
+sharing a 1 TiB device:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DEVDAX","tag":"cxl","size_gb":512,"offset_gb":512,"path":"/dev/dax0.0"}'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/mnt/archive/lmcache","affinity_tag":"cxl"}'</span>
+</span><span id="line-3"><span class="w">    </span>--l2-adapter<span class="w"> </span><span class="s1">'{"type":"fs","base_path":"/mnt/archive/lmcache"}'</span>
 </span></code></pre></div>
 </div>
 <p>List a <code class="docutils literal notranslate"><span class="pre">DRAM</span></code> manager first to spill into CXL only on <code class="docutils literal notranslate"><span class="pre">OUT_OF_MEMORY</span></code>.
@@ -1143,8 +1142,8 @@ so its data is evicted at the next eviction cycle
 <p>源: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/distributed/l2_adapters/config.py</span></code></p>
 <p>L2 adapters are configured via repeatable <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span> <span class="pre">&lt;JSON&gt;</span></code> arguments.
 Each JSON object must include a <code class="docutils literal notranslate"><span class="pre">"type"</span></code> field that selects the adapter type.
-The optional <code class="docutils literal notranslate"><span class="pre">"affinity_tag"</span></code> field (default <code class="docutils literal notranslate"><span class="pre">"_default"</span></code>) names the
-host-backed L1 used for both stores and reloads; see <a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a>.
+Each adapter stores from and reloads into an L1 chosen automatically; see
+<a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a>.
 The order of <code class="docutils literal notranslate"><span class="pre">--l2-adapter</span></code> arguments determines the adapter order (cascade).</p>
 <p>Registered adapter types: <code class="docutils literal notranslate"><span class="pre">nixl_store</span></code>, <code class="docutils literal notranslate"><span class="pre">nixl_store_dynamic</span></code>, <code class="docutils literal notranslate"><span class="pre">fs</span></code>,
 <code class="docutils literal notranslate"><span class="pre">fs_native</span></code>, <code class="docutils literal notranslate"><span class="pre">mock</span></code>, <code class="docutils literal notranslate"><span class="pre">mooncake_store</span></code>, <code class="docutils literal notranslate"><span class="pre">aerospike</span></code>, <code class="docutils literal notranslate"><span class="pre">bigtable</span></code>,
