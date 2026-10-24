@@ -433,12 +433,12 @@ vLLM release yet — use the upstream pre-release Docker image for now
 (see <a class="reference internal" href="../getting_started/installation.html"><span class="doc">Installation</span></a>); stable LMCache releases
 include K3 support starting from <strong>0.5.3</strong>.</p>
 </div>
-<p>As a Mamba / linear-attention hybrid, Kimi K3 needs the same three
-settings as the other KDA / GDN hybrids: the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode,
-prefix caching, and a chunk size negotiated from vLLM’s <em>unified block
-size</em> <code class="docutils literal notranslate"><span class="pre">N</span></code> (see <a class="reference internal" href="../mp/hybrid_models.html#mamba-block-size"><span class="std std-ref">Step 1 — find the model’s unified block size N</span></a> for how <code class="docutils literal notranslate"><span class="pre">N</span></code> is determined). For
-Kimi K3 at <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">8</span></code> the unified block size is
-<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>:</p>
+<p>As a Mamba / linear-attention hybrid, Kimi K3 needs the same settings as
+the other KDA / GDN hybrids: the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix
+caching, and <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> on the LMCache server. The
+chunk size is negotiated from vLLM’s <em>unified block size</em> <code class="docutils literal notranslate"><span class="pre">N</span></code> (see
+<a class="reference internal" href="../mp/hybrid_models.html#mamba-block-size"><span class="std std-ref">Unified block size and chunk size</span></a>). For Kimi K3 at <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">8</span></code>
+the unified block size is <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 50.0%"/>
@@ -460,9 +460,8 @@ Kimi K3 at <code class="docutils literal notranslate"><span class="pre">--tensor
 </table>
 <p><code class="docutils literal notranslate"><span class="pre">N</span></code> depends on the tensor-parallel size (the KDA state is sharded
 across TP ranks while the MLA cache is not), so after changing
-<code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> always re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from vLLM’s
-<code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> startup log line and
-re-derive <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> from it.</p>
+<code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from vLLM’s
+<code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> startup log line.</p>
 <p>Start the LMCache MP server with an explicitly compatible minimum
 (a lower minimum would negotiate to <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
@@ -492,9 +491,8 @@ re-derive <code class="docutils literal notranslate"><span class="pre">--max-num
 </span><span id="line-12"><span class="w">    </span>--reasoning-parser<span class="w"> </span>kimi_k3<span class="w"> </span><span class="se">\</span>
 </span><span id="line-13"><span class="w">    </span>--enable-prefix-caching<span class="w"> </span><span class="se">\</span>
 </span><span id="line-14"><span class="w">    </span>--mamba-cache-mode<span class="w"> </span>align<span class="w"> </span><span class="se">\</span>
-</span><span id="line-15"><span class="w">    </span>--max-num-batched-tokens<span class="w"> </span><span class="m">1500</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-16"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-17"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.port":6555}}'</span>
+</span><span id="line-15"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-16"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.port":6555}}'</span>
 </span></code></pre></div>
 </div>
 <div class="line-block">
@@ -508,18 +506,10 @@ supports, and prefix caching must be on for LMCache to store and reuse
 the recurrent state.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> (server) is <strong>required</strong> for hybrid
 Mamba / linear-attention models: it gives the KDA layers their own
-cache objects and is what lets <code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> exceed
-<code class="docutils literal notranslate"><span class="pre">2N</span></code>.</p></li>
+cache objects.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector negotiates the
 smallest multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code> that is at least that value. See
 <a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be <strong>at least</strong> <code class="docutils literal notranslate"><span class="pre">N</span></code> (= <code class="docutils literal notranslate"><span class="pre">768</span></code>); the
-validated value is <code class="docutils literal notranslate"><span class="pre">1500</span></code>. <code class="docutils literal notranslate"><span class="pre">align</span></code> snapshots the KDA state only on a
-block boundary at the end of a scheduler step. Within <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">2N)</span></code> every
-step advances exactly one block, snapshotting every boundary (finest
-reuse); with <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> values <code class="docutils literal notranslate"><span class="pre">≥</span> <span class="pre">2N</span></code> are allowed
-too, trading coarser reuse for higher prefill throughput. See
-<a class="reference internal" href="../mp/hybrid_models.html"><span class="doc">Hybrid Attention Models</span></a> for the full rationale.</p></li>
 <li><p>The server’s <code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">6555</span></code> must match <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in the
 connector config.</p></li>
 </ul>
@@ -538,8 +528,7 @@ startup.</p></li>
 stack can be validated without downloading the full checkpoint —
 <strong>drop it to serve the real weights</strong>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">8</span></code> shards the weights across eight GPUs.
-Adjust it to your hardware — but note it changes <code class="docutils literal notranslate"><span class="pre">N</span></code> and the two
-derived flags (see above).</p></li>
+Adjust it to your hardware — but note it changes <code class="docutils literal notranslate"><span class="pre">N</span></code> (see above).</p></li>
 </ul>
 <p>No attention-backend or <code class="docutils literal notranslate"><span class="pre">--no-disable-hybrid-kv-cache-manager</span></code> flag is
 needed; <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> advertises hybrid support and vLLM

@@ -424,10 +424,11 @@ vLLM</label><div class="sd-tab-content docutils">
 <a class="reference external" href="https://docs.vllm.ai/en/latest/models/supported_models.html#text-generation">Qwen3.8-Flash-Next in vLLM supported models</a>
 (architecture <code class="docutils literal notranslate"><span class="pre">Qwen4ExpForConditionalGeneration</span></code>).</p>
 <p><strong>Status:</strong> Validated with LMCache.</p>
-<p>Like the other GDN hybrids, this model needs three matched settings: the
-<code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix caching, and a chunk size negotiated
-from vLLM’s <em>unified block size</em>. vLLM logs that block size at startup as
-<code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code>:</p>
+<p>Like the other GDN hybrids, this model needs the same settings: the
+<code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix caching, and
+<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> on the LMCache server. The chunk size is
+negotiated from vLLM’s <em>unified block size</em>, which vLLM logs at startup
+as <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code>:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 50.0%"/>
@@ -459,15 +460,13 @@ minimum up to <code class="docutils literal notranslate"><span class="pre">N</sp
 <div class="line-block">
 <div class="line"><br/></div>
 </div>
-<p>Start vLLM with the LMCache MP connector (8 GPUs, <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">400</span></code> →
-<code class="docutils literal notranslate"><span class="pre">2N-1</span> <span class="pre">=</span> <span class="pre">799</span></code>):</p>
+<p>Start vLLM with the LMCache MP connector (8 GPUs):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3.8-Flash-Next<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--tensor-parallel-size<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--enable-prefix-caching<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--mamba-cache-mode<span class="w"> </span>align<span class="w"> </span><span class="se">\</span>
-</span><span id="line-5"><span class="w">    </span>--max-num-batched-tokens<span class="w"> </span><span class="m">799</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-6"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
+</span><span id="line-5"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both"}'</span>
 </span></code></pre></div>
 </div>
 <div class="line-block">
@@ -475,13 +474,7 @@ minimum up to <code class="docutils literal notranslate"><span class="pre">N</sp
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span></code> is required (GDN does not support the <code class="docutils literal notranslate"><span class="pre">all</span></code>
 mode). <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> (server) is required for hybrid models
-so the linear-attention layers get their own cache objects.
-<code class="docutils literal notranslate"><span class="pre">--max-num-batched-tokens</span></code> must be <strong>at least</strong> <code class="docutils literal notranslate"><span class="pre">N</span></code>; prefer <code class="docutils literal notranslate"><span class="pre">2N-1</span></code>,
-whose spare <code class="docutils literal notranslate"><span class="pre">N-1</span></code> budget lets decodes co-schedule with a prefill block —
-setting it to exactly <code class="docutils literal notranslate"><span class="pre">N</span></code> serializes execution to one request at a time.
-Values <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">2N</span></code> raise prefill throughput but snapshot only the last block
-of each step. See the <a class="reference internal" href="qwen3_5.html"><span class="doc">Qwen3.5 recipe</span></a> for the full
-discussion of this trade-off, which applies unchanged here.</p>
+so the linear-attention layers get their own cache objects.</p>
 <p>Adjust <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> to match your hardware. For the generic
 LMCache + vLLM wiring (ports, remote hosts), see
 <a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">Quickstart</span></a>.</p>
