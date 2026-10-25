@@ -464,7 +464,7 @@ from <code class="docutils literal notranslate"><span class="pre">lmcache/v1/int
 <td><p><code class="docutils literal notranslate"><span class="pre">8080</span></code></p></td>
 <td><p>Port to bind the HTTP server.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--http-api-key-file</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code></p></td>
 <td><p>unset</p></td>
 <td><p>Read a bearer API key from a file. Repeat the option to accept multiple
 keys during rotation. Authentication is disabled when no CLI or
@@ -472,28 +472,38 @@ environment key source is configured.</p></td>
 </tr>
 </tbody>
 </table>
-<p>The environment variables <code class="docutils literal notranslate"><span class="pre">LMCACHE_HTTP_API_KEY_FILE</span></code> and
-<code class="docutils literal notranslate"><span class="pre">LMCACHE_HTTP_API_KEY</span></code> provide deployment-friendly alternatives for one key
+<p>The environment variables <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY_FILE</span></code> and
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code> provide deployment-friendly alternatives for one key
 file or one key value. Environment sources and repeated
-<code class="docutils literal notranslate"><span class="pre">--http-api-key-file</span></code> options are cumulative, so old and new keys can overlap
-during rotation. The <code class="docutils literal notranslate"><span class="pre">/env</span></code> endpoint redacts <code class="docutils literal notranslate"><span class="pre">LMCACHE_HTTP_API_KEY</span></code> while
+<code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code> options are cumulative, so old and new keys can overlap
+during rotation. The <code class="docutils literal notranslate"><span class="pre">/env</span></code> endpoint redacts <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code> while
 leaving the non-secret key-file path visible.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--http-api-key-file</span></code> remains a compatibility alias. The legacy
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_HTTP_API_KEY</span></code> and <code class="docutils literal notranslate"><span class="pre">LMCACHE_HTTP_API_KEY_FILE</span></code> variables are used
+when their corresponding <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code> variables are unset or empty.
+The unified key sources are shared by authentication-enabled HTTP and request
+transport adapters; separate per-protocol keys are not configured.</p>
 <p>Example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--http-host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--http-port<span class="w"> </span><span class="m">8080</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--http-api-key-file<span class="w"> </span>/run/secrets/lmcache-http-api-key
+</span><span id="line-4"><span class="w">    </span>--api-key-file<span class="w"> </span>/run/secrets/lmcache-http-api-key
 </span></code></pre></div>
 </div>
 <p>All examples below assume the server is reachable at
 <code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code>. When authentication is enabled, include the key as
-<code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;api-key&gt;</span></code>. The <code class="docutils literal notranslate"><span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">/healthcheck</span></code> routes
+<code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;api-key&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">X-LMCache-API-Key:</span> <span class="pre">&lt;api-key&gt;</span></code>.
+Both headers use the same accepted keys; if both are present, either valid
+key authenticates the request. The <code class="docutils literal notranslate"><span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">/healthcheck</span></code> routes
 remain public for liveness and readiness probes; every other route requires a
 valid key. For example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="k">$(</span>cat<span class="w"> </span>/run/secrets/lmcache-http-api-key<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>http://localhost:8080/status
 </span></code></pre></div>
 </div>
+<p>For proxies that consume <code class="docutils literal notranslate"><span class="pre">Authorization</span></code>, such as the Kubernetes API-server
+proxy, send the raw LMCache key in <code class="docutils literal notranslate"><span class="pre">X-LMCache-API-Key</span></code> instead. Treat this
+header as a secret in proxy and access-log configurations as well.</p>
 <p>Use a high-entropy value such as <code class="docutils literal notranslate"><span class="pre">openssl</span> <span class="pre">rand</span> <span class="pre">-hex</span> <span class="pre">32</span></code> and restrict the key
 file so only the LMCache server process can read it. API-key authentication
 does not encrypt traffic; use TLS at a trusted reverse proxy when requests
