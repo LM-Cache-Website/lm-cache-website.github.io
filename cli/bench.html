@@ -1474,25 +1474,26 @@ rather than averaging a parsing failure in as a wrong answer.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> command is an end-to-end sanity test for the
 LMCache Multi-Process (MP) cache server. It connects to a running server
 over ZMQ and exercises the full KV-cache data path for a sequence of
-synthetic requests, then optionally verifies per-chunk checksums through
-the HTTP API.</p>
+synthetic requests, then verifies per-chunk checksums in local worker buffers.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
 <p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
 <strong>not</strong> require an inference engine. It only needs a running LMCache MP
-server (ZMQ + HTTP). GPU mode additionally requires a CUDA-capable device.
+server (ZMQ). GPU mode additionally requires a CUDA-capable device.
 It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install (not the lightweight
 <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
 <section id="what-it-does">
 <h3>What it does<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
-<p>For each sequence in <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code>, the tool runs two passes:</p>
+<p>For each sequence in <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code>, the tool runs two passes. Each
+pass reserves request-exclusive KV blocks and releases them when it finishes.</p>
 <ol class="arabic simple">
-<li><p><strong>Cold pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to miss, so the generated KV
-tensors are <code class="docutils literal notranslate"><span class="pre">STORE</span></code>d on the server.</p></li>
-<li><p><strong>Warm pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to hit; the tool issues
-<code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> and compares the retrieved KV chunks’ checksums to the
-originals.</p></li>
+<li><p><strong>Cold pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to miss. The benchmark records
+local per-chunk checksums before <code class="docutils literal notranslate"><span class="pre">STORE</span></code>.</p></li>
+<li><p><strong>Warm pass</strong> – <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to hit. The benchmark clears the
+allocated destination blocks, retrieves the cached KV, and compares each
+reader’s checksums with the cold-pass reference. The two passes may use
+different physical block IDs.</p></li>
 </ol>
 <p>The full RPC path exercised is:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">REGISTER_KV_CACHE → GET_CHUNK_SIZE → LOOKUP
@@ -1500,10 +1501,8 @@ originals.</p></li>
 </span><span id="line-3">  → END_SESSION
 </span></code></pre></div>
 </div>
-<p>When <code class="docutils literal notranslate"><span class="pre">--url</span></code> points to the server’s HTTP endpoint, per-chunk checksums
-are additionally cross-checked against the server-side computation, so a
-mismatch between producer and consumer surfaces as a loud
-<code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code> log line.</p>
+<p>Both transfer modes verify local buffers. <code class="docutils literal notranslate"><span class="pre">--url</span></code> remains accepted for
+compatibility but is unused.</p>
 </section>
 <section id="id2">
 <h3>Quick start<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
@@ -1544,8 +1543,7 @@ mismatch between producer and consumer surfaces as a loud
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
-<td><p>HTTP base URL of the server’s checksum API. Used to
-verify per-chunk checksums end-to-end.</p></td>
+<td><p>Accepted for compatibility; unused by local checksum verification.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
@@ -1566,46 +1564,50 @@ which supports both CUDA IPC and CPU SHM zero-copy transfers.
 <td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
 <td><p>Tokens per synthetic request.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-allocation</span> <span class="pre">{sequential,random}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sequential</span></code></p></td>
+<td><p>Allocate the lowest free block IDs or sample from all free IDs.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
-<td><p>Number of paged blocks allocated on the GPU.</p></td>
+<td><p>Fallback block capacity per KV group; overridden by the shape spec.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
-<td><p>Tokens per paged block.</p></td>
+<td><p>Fallback tokens per block; overridden by the shape spec.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td><p>First sequence number to run.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>Exclusive upper bound on sequence numbers. When omitted the
 loop runs forever.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
 <td><p>Delay between successive sub-passes.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Number of clients sending requests at the same time (see below).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
 <td><p>KV cache shape spec (see below).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
 <td><p>Stdout output format for the final metrics summary. Available:
 <code class="docutils literal notranslate"><span class="pre">terminal</span></code>, <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>Save the final metrics summary to a file at PATH (format chosen
 by <code class="docutils literal notranslate"><span class="pre">--format</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>Suppress all progress messages during the run. Only the final
 structured metrics summary is emitted (unless also redirected
@@ -1613,6 +1615,24 @@ via <code class="docutils literal notranslate"><span class="pre">--output</span>
 </tr>
 </tbody>
 </table>
+</section>
+<section id="block-allocation">
+<h3>Block allocation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#block-allocation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#block-allocation'"><span>#</span></a></h3>
+<p>Each KV group has an independent block pool. Active requests reserve
+exclusive blocks; all TP ranks use the same block IDs for a group in their
+separate KV buffers. Each concurrent client owns its own pools.
+Blocks are currently not shared between requests, even when their token
+prefixes match.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--block-allocation</span> <span class="pre">sequential</span></code> selects the lowest free IDs; <code class="docutils literal notranslate"><span class="pre">random</span></code>
+samples free IDs to exercise non-contiguous block mappings. Blocks become
+reusable after request release. Allocation fails immediately if any group
+lacks capacity, without reserving blocks in other groups.</p>
+<p>Capacity and block size come from <code class="docutils literal notranslate"><span class="pre">NB</span></code> and <code class="docutils literal notranslate"><span class="pre">BS</span></code> in
+<code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span></code>, overriding <code class="docutils literal notranslate"><span class="pre">--num-blocks</span></code> and <code class="docutils literal notranslate"><span class="pre">--block-size</span></code>.
+For example, 512 tokens in complete chunks with a block size of 16 require
+32 blocks per group.</p>
+<p>If transfer completion is uncertain, the client rejects further operations
+and retains its blocks until teardown.</p>
 </section>
 <section id="cpu-mode-no-gpu">
 <h3>CPU mode (no GPU)<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-mode-no-gpu" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-mode-no-gpu'"><span>#</span></a></h3>
@@ -1799,7 +1819,7 @@ metrics summary is printed. The summary includes:</p>
 <ul class="simple">
 <li><p><strong>Configuration</strong> – RPC URL, mode, transfer mode, tokens per request,
 interval, concurrency.</p></li>
-<li><p><strong>Results</strong> – total requests, checksum OK / FAIL counts, pass rate,
+<li><p><strong>Results</strong> – total requests, checksum OK / FAIL counts, checksum pass rate,
 elapsed time, requests per second.</p></li>
 <li><p><strong>Latency sections</strong> – per-operation latency statistics (count, mean,
 min, max, p50, p99) for cold lookup, cold store, warm lookup, and warm
@@ -1818,7 +1838,7 @@ to save the summary to a file.</p>
 </span><span id="line-9">Total requests:                   3
 </span><span id="line-10">Checksum OK:                      3
 </span><span id="line-11">Checksum FAIL:                    0
-</span><span id="line-12">Pass rate (%):                    100.0
+</span><span id="line-12">Checksum pass rate (%):           100.0
 </span><span id="line-13">-------------------- Cold Lookup (ms) ---------------
 </span><span id="line-14">count:                            3
 </span><span id="line-15">mean:                             1.647
@@ -2582,6 +2602,7 @@ mixes models, since the simulated cache is shared.</p></td>
 <li><a :data-current="activeSection === '#what-it-does'" class="reference internal" href="#what-it-does">What it does</a></li>
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">Quick start</a></li>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">Options</a></li>
+<li><a :data-current="activeSection === '#block-allocation'" class="reference internal" href="#block-allocation">Block allocation</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU mode (no GPU)</a></li>
 <li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV cache shape spec</a><ul>
 <li><a :data-current="activeSection === '#mla-multi-head-latent-attention'" class="reference internal" href="#mla-multi-head-latent-attention">MLA (Multi-head Latent Attention)</a></li>

@@ -1400,17 +1400,29 @@ rather than averaging a parsing failure in as a wrong answer.</p>
 </section>
 <section id="server">
 <span id="lmcache-bench-server"></span><h2>server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> 命令是针对 LMCache MP 模式（多进程）缓存服务器的端到端健全性测试。它通过 ZMQ 连接至正在运行的服务器，对一系列合成请求执行完整的 KV Cache 数据路径，并可选地通过 HTTP API 验证每个块的校验和。</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> command is an end-to-end sanity test for the
+LMCache Multi-Process (MP) cache server. It connects to a running server
+over ZMQ and exercises the full KV-cache data path for a sequence of
+synthetic requests, then verifies per-chunk checksums in local worker buffers.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
-<p>与 <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a> 不同，此命令<strong>不</strong>需要推理引擎，只需要一个正在运行的 LMCache MP 服务器（ZMQ + HTTP）。GPU 模式还额外需要支持 CUDA 的设备，同时需要完整安装 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>（而非轻量级的 <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> 包）。</p>
+<p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
+<strong>not</strong> require an inference engine. It only needs a running LMCache MP
+server (ZMQ). GPU mode additionally requires a CUDA-capable device.
+It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install (not the lightweight
+<code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
 <section id="what-it-does">
 <h3>它的功能<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#what-it-does" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#what-it-does'"><span>#</span></a></h3>
-<p>对于 <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code> 范围内的每个序列，该工具执行两个阶段：</p>
+<p>For each sequence in <code class="docutils literal notranslate"><span class="pre">[--start,</span> <span class="pre">--end)</span></code>, the tool runs two passes. Each
+pass reserves request-exclusive KV blocks and releases them when it finishes.</p>
 <ol class="arabic simple">
-<li><p><strong>冷通道</strong> —— <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> 预计未命中，因此生成的 KV 张量将通过 <code class="docutils literal notranslate"><span class="pre">STORE</span></code>\ 写入服务器。</p></li>
-<li><p><strong>热通道</strong> —— <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> 预计命中；工具发出 <code class="docutils literal notranslate"><span class="pre">RETRIEVE</span></code> 并将检索到的 KV 块校验和与原始值进行比对。</p></li>
+<li><p><strong>Cold pass</strong> -- <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to miss. The benchmark records
+local per-chunk checksums before <code class="docutils literal notranslate"><span class="pre">STORE</span></code>.</p></li>
+<li><p><strong>Warm pass</strong> -- <code class="docutils literal notranslate"><span class="pre">LOOKUP</span></code> is expected to hit. The benchmark clears the
+allocated destination blocks, retrieves the cached KV, and compares each
+reader's checksums with the cold-pass reference. The two passes may use
+different physical block IDs.</p></li>
 </ol>
 <p>完整的 RPC 路径是:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">REGISTER_KV_CACHE → GET_CHUNK_SIZE → LOOKUP
@@ -1418,7 +1430,8 @@ rather than averaging a parsing failure in as a wrong answer.</p>
 </span><span id="line-3">  → END_SESSION
 </span></code></pre></div>
 </div>
-<p>当 <code class="docutils literal notranslate"><span class="pre">--url</span></code> 指向服务器的 HTTP 端点时，逐块校验和还会与服务器端的计算结果进行交叉核验，生产者与消费者之间的任何不一致都将以醒目的 <code class="docutils literal notranslate"><span class="pre">CHECKSUM</span> <span class="pre">MISMATCH</span></code> 日志行呈现。</p>
+<p>Both transfer modes verify local buffers. <code class="docutils literal notranslate"><span class="pre">--url</span></code> remains accepted for
+compatibility but is unused.</p>
 </section>
 <section id="id2">
 <h3>快速开始<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id2" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#id2'"><span>#</span></a></h3>
@@ -1458,7 +1471,7 @@ rather than averaging a parsing failure in as a wrong answer.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
-<td><p>服务器校验和 API 的 HTTP 基础 URL，用于端到端逐块校验和验证。</p></td>
+<td><p>Accepted for compatibility; unused by local checksum verification.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">{gpu,cpu}</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">gpu</span></code></p></td>
@@ -1474,48 +1487,70 @@ uses the engine-driven (worker-side gather/scatter) path by default.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">512</span></code></p></td>
 <td><p>每个合成请求的 token 数。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-allocation</span> <span class="pre">{sequential,random}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sequential</span></code></p></td>
+<td><p>Allocate the lowest free block IDs or sample from all free IDs.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num-blocks</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1024</span></code></p></td>
-<td><p>在 GPU 上分配的分页 KV 块数量。</p></td>
+<td><p>Fallback block capacity per KV group; overridden by the shape spec.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--block-size</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
-<td><p>每个分页块的 token 数。</p></td>
+<td><p>Fallback tokens per block; overridden by the shape spec.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td><p>运行的第一个序列号。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
 <td><p>(未设置)</p></td>
 <td><p>序列号的独占上限，省略时循环将无限运行。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--interval</span> <span class="pre">SECS</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
 <td><p>连续子通道之间的延迟。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">N</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Number of clients sending requests at the same time (see below).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span> <span class="pre">SPEC</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(2,1024,16,8,128):float16:32</span></code></p></td>
 <td><p>KV Cache 形状规格（见下文）。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">FORMAT</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">terminal</span></code></p></td>
 <td><p>最终指标摘要的标准输出格式。可用格式：<code class="docutils literal notranslate"><span class="pre">terminal</span></code>、<code class="docutils literal notranslate"><span class="pre">json</span></code>。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code></p></td>
 <td><p>(未设置)</p></td>
 <td><p>将最终的指标摘要保存到 PATH 指定的文件中（格式由 <code class="docutils literal notranslate"><span class="pre">--format</span></code> 选择）。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
 <td><p>(未设置)</p></td>
 <td><p>在运行期间抑制所有进度消息。仅输出最终的结构化指标摘要（除非也通过 <code class="docutils literal notranslate"><span class="pre">--output</span></code> 重定向）。</p></td>
 </tr>
 </tbody>
 </table>
+</section>
+<section id="block-allocation">
+<h3>Block allocation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#block-allocation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#block-allocation'"><span>#</span></a></h3>
+<p>Each KV group has an independent block pool. Active requests reserve
+exclusive blocks; all TP ranks use the same block IDs for a group in their
+separate KV buffers. Each concurrent client owns its own pools.
+Blocks are currently not shared between requests, even when their token
+prefixes match.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--block-allocation</span> <span class="pre">sequential</span></code> selects the lowest free IDs; <code class="docutils literal notranslate"><span class="pre">random</span></code>
+samples free IDs to exercise non-contiguous block mappings. Blocks become
+reusable after request release. Allocation fails immediately if any group
+lacks capacity, without reserving blocks in other groups.</p>
+<p>Capacity and block size come from <code class="docutils literal notranslate"><span class="pre">NB</span></code> and <code class="docutils literal notranslate"><span class="pre">BS</span></code> in
+<code class="docutils literal notranslate"><span class="pre">--kvcache-shape-spec</span></code>, overriding <code class="docutils literal notranslate"><span class="pre">--num-blocks</span></code> and <code class="docutils literal notranslate"><span class="pre">--block-size</span></code>.
+For example, 512 tokens in complete chunks with a block size of 16 require
+32 blocks per group.</p>
+<p>If transfer completion is uncertain, the client rejects further operations
+and retains its blocks until teardown.</p>
 </section>
 <section id="cpu-mode-no-gpu">
 <h3>CPU 模式（无 GPU）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cpu-mode-no-gpu" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cpu-mode-no-gpu'"><span>#</span></a></h3>
@@ -1678,7 +1713,7 @@ affected warm lookups miss and fail their checks.</p>
 <ul class="simple">
 <li><p><strong>Configuration</strong> -- RPC URL, mode, transfer mode, tokens per request,
 interval, concurrency.</p></li>
-<li><p><strong>Results</strong> -- total requests, checksum OK / FAIL counts, pass rate,
+<li><p><strong>Results</strong> -- total requests, checksum OK / FAIL counts, checksum pass rate,
 elapsed time, requests per second.</p></li>
 <li><p><strong>延迟部分</strong> —— 每个操作的延迟统计信息（count、mean、min、max、p50、p99），涵盖冷查找、冷存储、热查找和热检索。</p></li>
 </ul>
@@ -1694,7 +1729,7 @@ elapsed time, requests per second.</p></li>
 </span><span id="line-9">Total requests:                   3
 </span><span id="line-10">Checksum OK:                      3
 </span><span id="line-11">Checksum FAIL:                    0
-</span><span id="line-12">Pass rate (%):                    100.0
+</span><span id="line-12">Checksum pass rate (%):           100.0
 </span><span id="line-13">-------------------- Cold Lookup (ms) ---------------
 </span><span id="line-14">count:                            3
 </span><span id="line-15">mean:                             1.647
@@ -2344,6 +2379,7 @@ mixes models, since the simulated cache is shared.</p></td>
 <li><a :data-current="activeSection === '#what-it-does'" class="reference internal" href="#what-it-does">它的功能</a></li>
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">快速开始</a></li>
 <li><a :data-current="activeSection === '#options'" class="reference internal" href="#options">选项</a></li>
+<li><a :data-current="activeSection === '#block-allocation'" class="reference internal" href="#block-allocation">Block allocation</a></li>
 <li><a :data-current="activeSection === '#cpu-mode-no-gpu'" class="reference internal" href="#cpu-mode-no-gpu">CPU 模式（无 GPU）</a></li>
 <li><a :data-current="activeSection === '#kv-cache-shape-spec'" class="reference internal" href="#kv-cache-shape-spec">KV 缓存形状规格</a><ul>
 <li><a :data-current="activeSection === '#mla-multi-head-latent-attention'" class="reference internal" href="#mla-multi-head-latent-attention">MLA (Multi-head Latent Attention)</a></li>
