@@ -93,6 +93,21 @@
 </li>
 </ul>
 <ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../platform/index.html">Platform<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/cpu/index.html">CPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/cuda/index.html">CUDA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/hpu/index.html">HPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/musa/index.html">musa-aiter with LMCache on MUSA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/neuron/index.html">Neuron</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/npu/index.html">NPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/rbln/index.html">RBLN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/rocm/index.html">ROCm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/supa/index.html">SUPA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../platform/devices/xpu/index.html">XPU</a></li>
+</ul>
+</li>
+</ul>
+<ul>
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../interacting_with_server.html">KV Cache Operations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
 <li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../../cli/index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
 <li class="toctree-l3"><a class="reference internal" href="../../cli/server.html">lmcache server</a></li>
@@ -251,7 +266,6 @@
 <li class="toctree-l2"><a class="reference internal" href="native_connectors.html">Adding Native Backends</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Adding a New Device Backend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="server_modules.html">Server Module Plugins</a></li>
-<li class="toctree-l2"><a class="reference internal" href="musa_aiter_integration.html">musa-aiter with LMCache on MUSA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../cli.html">Extending the CLI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../extending_http_api.html">Extending the HTTP API</a></li>
 </ul>
@@ -397,19 +411,33 @@
 <section id="adding-a-new-device-backend">
 <h1>Adding a New Device Backend<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#adding-a-new-device-backend"><span>#</span></a></h1>
 <p>This guide explains how to add a <strong>new accelerator</strong> to LMCache in
-<strong>Multiprocess (MP) mode</strong>. Device vendors can choose either supported
-ownership model:</p>
+<strong>Multiprocess (MP) mode</strong>. Device vendors can choose one of three supported
+integration and ownership models:</p>
 <ul class="simple">
 <li><p><strong>In-tree integration:</strong> contribute and maintain the backend under
-<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/devices/&lt;backend&gt;/</span></code> in the LMCache repository. This fits
-backends that should ship, test, and release with LMCache.</p></li>
-<li><p><strong>External wheel integration:</strong> maintain the backend in a vendor repository
-and publish a wheel through the <code class="docutils literal notranslate"><span class="pre">lmcache.device_plugins</span></code> entry-point
-group. This fits backends that need an independent release cadence or own
-native-package distribution.</p></li>
+<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/devices/&lt;backend&gt;/</span></code> in the LMCache repository. Every
+built-in backend must have CI coverage in the main repository and is released
+together with LMCache.</p></li>
+<li><p><strong>LMCache-hosted out-of-tree plugin:</strong> maintain the backend in the
+<a class="reference external" href="https://github.com/LMCache/lmcache_device_plugins">LMCache device plugins repository</a>. LMCache maintainers
+consider the devices in this repository when changing platform APIs and open
+companion PRs there when compatibility updates are required.</p></li>
+<li><p><strong>Vendor-hosted out-of-tree plugin:</strong> maintain the backend in the vendor’s
+own repository. The vendor owns compatibility, testing, and releases, and can
+iterate independently on its own schedule.</p></li>
 </ul>
-<p>Both models implement the same <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> interfaces
-and use the same runtime detection and dispatch paths.</p>
+<p>Both out-of-tree models publish a wheel through the
+<code class="docutils literal notranslate"><span class="pre">lmcache.device_plugins</span></code> entry-point group. All three models implement the
+same <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> interfaces and use the same runtime
+detection and dispatch paths.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Every new device integration must add user-facing documentation under
+<code class="docutils literal notranslate"><span class="pre">docs/source/platform/devices/&lt;backend&gt;/</span></code> and link it from
+<code class="docutils literal notranslate"><span class="pre">docs/source/platform/index.rst</span></code>, regardless of the ownership model. For
+an out-of-tree plugin, submit this documentation change to the LMCache main
+repository even though the plugin implementation lives elsewhere.</p>
+</div>
 <p><strong>For basic users:</strong> read <a class="reference internal" href="#part-1-basic"><span class="std std-ref">Part 1</span></a> only — a <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code>
 and a <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> subclass are all you need to use the built-in torch
 baseline ops.</p>
@@ -455,11 +483,28 @@ works on any device supporting standard PyTorch tensor operations —
 <code class="docutils literal notranslate"><span class="pre">platform.devices</span></code> packages, so this option needs no entry point or
 registration list.
 Submit the code, tests, and device documentation in an LMCache PR; after
-merge, the backend follows the LMCache release lifecycle.</p>
+merge, the backend is covered by the main repository’s CI and follows the
+LMCache release lifecycle.</p>
 </section>
-<section id="option-b-maintain-an-external-wheel">
-<h4>Option B — maintain an external wheel<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#option-b-maintain-an-external-wheel"><span>#</span></a></h4>
-<p>Use a <code class="docutils literal notranslate"><span class="pre">src</span></code> layout so the wheel owns only its vendor namespace:</p>
+<section id="option-b-use-the-lmcache-device-plugins-repository">
+<h4>Option B — use the LMCache device plugins repository<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#option-b-use-the-lmcache-device-plugins-repository"><span>#</span></a></h4>
+<p>Device vendors can maintain an out-of-tree backend in the
+<a class="reference external" href="https://github.com/LMCache/lmcache_device_plugins">LMCache device plugins repository</a>. The plugin remains a
+separate wheel rather than becoming part of the LMCache package. When LMCache
+platform APIs change, LMCache maintainers consider the devices hosted there
+and open companion PRs when compatibility updates are required.</p>
+</section>
+<section id="option-c-maintain-a-plugin-in-a-vendor-repository">
+<h4>Option C — maintain a plugin in a vendor repository<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#option-c-maintain-a-plugin-in-a-vendor-repository"><span>#</span></a></h4>
+<p>A vendor can instead maintain and release the plugin from its own repository.
+This provides full control over CI, native dependencies, compatibility policy,
+and release cadence. The vendor is responsible for tracking LMCache platform
+API changes and publishing compatible plugin versions.</p>
+</section>
+<section id="out-of-tree-project-layout">
+<h4>Out-of-tree project layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#out-of-tree-project-layout"><span>#</span></a></h4>
+<p>Options B and C use the same external-wheel structure. Use a <code class="docutils literal notranslate"><span class="pre">src</span></code> layout so
+the wheel owns only its vendor namespace:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache-foo-device/
 </span><span id="line-2">├── pyproject.toml
 </span><span id="line-3">└── src/
@@ -491,7 +536,8 @@ merge, the backend follows the LMCache release lifecycle.</p>
 </div>
 <p>Pin <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> to the version range tested by your plugin before publishing
 it. LMCache treats <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> as the plugin interface;
-incompatible interface changes should be caught by that dependency range.</p>
+incompatible interface changes should be caught by that dependency range for
+both out-of-tree ownership models.</p>
 </section>
 </section>
 <section id="step-2-implement-foodevicespec">
@@ -499,9 +545,9 @@ incompatible interface changes should be caught by that dependency range.</p>
 <p>Create the spec in the location selected in Step 1:</p>
 <ul class="simple">
 <li><p>In-tree: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/devices/foo/__init__.py</span></code>.</p></li>
-<li><p>External wheel: <code class="docutils literal notranslate"><span class="pre">src/lmcache_foo/device.py</span></code>.</p></li>
+<li><p>Out-of-tree plugin: <code class="docutils literal notranslate"><span class="pre">src/lmcache_foo/device.py</span></code>.</p></li>
 </ul>
-<p>The implementation is the same in both layouts:</p>
+<p>The implementation is the same in all three ownership models:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 </span><span id="line-2"><span class="sd">"""LMCache platform registration for Foo devices."""</span>
 </span><span id="line-3">
@@ -546,16 +592,17 @@ incompatible interface changes should be caught by that dependency range.</p>
 </span><span id="line-42">            <span class="k">return</span> <span class="kc">False</span>
 </span></code></pre></div>
 </div>
-<p>For an external wheel, the entry-point target must be the class itself, not a
-class instance or factory. For either model, the class must have a no-argument
-constructor; LMCache instantiates it once per process and caches it.</p>
+<p>For an out-of-tree plugin, the entry-point target must be the class itself, not
+a class instance or factory. For every ownership model, the class must have a
+no-argument constructor; LMCache instantiates it once per process and caches
+it.</p>
 </section>
 <section id="step-3-implement-foodeviceops">
 <h3>Step 3: Implement <code class="docutils literal notranslate"><span class="pre">FooDeviceOps</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#step-3-implement-foodeviceops" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#step-3-implement-foodeviceops'"><span>#</span></a></h3>
 <p>Create <code class="docutils literal notranslate"><span class="pre">device_ops.py</span></code> next to the spec package:</p>
 <ul class="simple">
 <li><p>In-tree: <code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/devices/foo/device_ops.py</span></code>.</p></li>
-<li><p>External wheel: <code class="docutils literal notranslate"><span class="pre">src/lmcache_foo/device_ops.py</span></code>.</p></li>
+<li><p>Out-of-tree plugin: <code class="docutils literal notranslate"><span class="pre">src/lmcache_foo/device_ops.py</span></code>.</p></li>
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 </span><span id="line-2"><span class="sd">"""Foo ops backend."""</span>
@@ -632,28 +679,28 @@ PyTorch itself (like <code class="docutils literal notranslate"><span class="pre
 <p>For an in-tree backend, build or install LMCache normally from the branch
 containing the platform package. Once merged and released, users receive the
 backend with LMCache itself.</p>
-<p>For an external backend, build the vendor project with any PEP 517 frontend,
-then install its wheel in the same Python environment as LMCache and the
-serving engine:</p>
+<p>For an LMCache-hosted or vendor-hosted out-of-tree plugin, build the plugin
+project with any PEP 517 frontend, then install its wheel in the same Python
+environment as LMCache and the serving engine:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>build
 </span><span id="line-2">python<span class="w"> </span>-m<span class="w"> </span>build<span class="w"> </span>--wheel
 </span><span id="line-3">python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>dist/lmcache_foo_device-0.1.0-py3-none-any.whl
 </span></code></pre></div>
 </div>
-<p>Restart every LMCache and serving-engine process after installing either
+<p>Restart every LMCache and serving-engine process after installing the selected
 integration. The platform registry is built once and cached for the lifetime
 of each process.</p>
-<p>Neither model requires editing a global device-name list. All ops route
-through <code class="docutils literal notranslate"><span class="pre">torch_ops.py</span></code> until the backend overrides them.</p>
+<p>None of the three models requires editing a global device-name list. All ops
+route through <code class="docutils literal notranslate"><span class="pre">torch_ops.py</span></code> until the backend overrides them.</p>
 </section>
-<section id="external-wheel-loading-rules">
-<h3>External wheel loading rules<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#external-wheel-loading-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#external-wheel-loading-rules'"><span>#</span></a></h3>
+<section id="out-of-tree-plugin-loading-rules">
+<h3>Out-of-tree plugin loading rules<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#out-of-tree-plugin-loading-rules" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#out-of-tree-plugin-loading-rules'"><span>#</span></a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.device_type</span></code> is the torch-facing device category (for example,
 <code class="docutils literal notranslate"><span class="pre">"cuda"</span></code>). Multiple backends may intentionally share one <code class="docutils literal notranslate"><span class="pre">device_type</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DeviceSpec.backend_name</span></code> is the LMCache-specific selector for one concrete
 backend implementation. It must be a unique, non-empty lowercase string.</p></li>
-<li><p>For external wheels, the entry-point name must match
+<li><p>For out-of-tree plugins, the entry-point name must match
 <code class="docutils literal notranslate"><span class="pre">DeviceSpec.backend_name</span></code>.</p></li>
 <li><p>Duplicate <code class="docutils literal notranslate"><span class="pre">backend_name</span></code> values are ignored after the first deterministic
 match.</p></li>
@@ -720,8 +767,11 @@ baseline is active. When <code class="docutils literal notranslate"><span class=
 the backend whose <code class="docutils literal notranslate"><span class="pre">backend_name</span></code> matches that value.</p>
 <p>Debugging checklist:</p>
 <ul class="simple">
+<li><p>[ ] Device documentation exists under
+<code class="docutils literal notranslate"><span class="pre">docs/source/platform/devices/foo/</span></code> and is linked from
+<code class="docutils literal notranslate"><span class="pre">docs/source/platform/index.rst</span></code>.</p></li>
 <li><p>[ ] <code class="docutils literal notranslate"><span class="pre">torch.foo.is_available()</span></code> returns <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p>[ ] For an external wheel,
+<li><p>[ ] For an out-of-tree plugin,
 <code class="docutils literal notranslate"><span class="pre">importlib.metadata.entry_points(group="lmcache.device_plugins")</span></code> includes
 <code class="docutils literal notranslate"><span class="pre">foo</span></code> and points to <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code>.</p></li>
 <li><p>[ ] If another available backend shares <code class="docutils literal notranslate"><span class="pre">device_type="foo"</span></code>, set
@@ -1057,13 +1107,15 @@ context — switch back to <code class="docutils literal notranslate"><span clas
 <li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li><a :data-current="activeSection === '#step-1-choose-the-ownership-model'" class="reference internal" href="#step-1-choose-the-ownership-model">Step 1: Choose the ownership model</a><ul>
 <li><a :data-current="activeSection === '#option-a-integrate-in-the-lmcache-repository'" class="reference internal" href="#option-a-integrate-in-the-lmcache-repository">Option A — integrate in the LMCache repository</a></li>
-<li><a :data-current="activeSection === '#option-b-maintain-an-external-wheel'" class="reference internal" href="#option-b-maintain-an-external-wheel">Option B — maintain an external wheel</a></li>
+<li><a :data-current="activeSection === '#option-b-use-the-lmcache-device-plugins-repository'" class="reference internal" href="#option-b-use-the-lmcache-device-plugins-repository">Option B — use the LMCache device plugins repository</a></li>
+<li><a :data-current="activeSection === '#option-c-maintain-a-plugin-in-a-vendor-repository'" class="reference internal" href="#option-c-maintain-a-plugin-in-a-vendor-repository">Option C — maintain a plugin in a vendor repository</a></li>
+<li><a :data-current="activeSection === '#out-of-tree-project-layout'" class="reference internal" href="#out-of-tree-project-layout">Out-of-tree project layout</a></li>
 </ul>
 </li>
 <li><a :data-current="activeSection === '#step-2-implement-foodevicespec'" class="reference internal" href="#step-2-implement-foodevicespec">Step 2: Implement <code class="docutils literal notranslate"><span class="pre">FooDeviceSpec</span></code></a></li>
 <li><a :data-current="activeSection === '#step-3-implement-foodeviceops'" class="reference internal" href="#step-3-implement-foodeviceops">Step 3: Implement <code class="docutils literal notranslate"><span class="pre">FooDeviceOps</span></code></a></li>
 <li><a :data-current="activeSection === '#step-4-install-the-selected-integration'" class="reference internal" href="#step-4-install-the-selected-integration">Step 4: Install the selected integration</a></li>
-<li><a :data-current="activeSection === '#external-wheel-loading-rules'" class="reference internal" href="#external-wheel-loading-rules">External wheel loading rules</a></li>
+<li><a :data-current="activeSection === '#out-of-tree-plugin-loading-rules'" class="reference internal" href="#out-of-tree-plugin-loading-rules">Out-of-tree plugin loading rules</a></li>
 <li><a :data-current="activeSection === '#verification'" class="reference internal" href="#verification">Verification</a></li>
 </ul>
 </li>
