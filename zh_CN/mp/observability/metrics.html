@@ -1286,8 +1286,77 @@ tier.</p></td>
 <td><p>Reported logical object bytes summed across the placements currently
 recorded in each cache tier.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.keys_tracked</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Keys with at least one placement.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.server_l1_keys</span></code></p></td>
+<td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>)</p></td>
+<td><p>L1 keys each server reported.  A sudden drop to 0 means the
+coordinator fenced that server (it restarted or left).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.blend_index.chunks_indexed</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Chunks in the blend (fragment) index.  The three blend index gauges
+are reported only when blend lookup is enabled.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.blend_index.unique_chunk_contents</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Distinct chunk contents in the blend index; fewer than
+<code class="docutils literal notranslate"><span class="pre">chunks_indexed</span></code> means the same content is stored more than once.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.blend_index.namespaces</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Namespaces (model, cache salt, world size) holding indexed content.</p></td>
+</tr>
 </tbody>
 </table>
+<p>The lookup metrics cover prefix lookups (<code class="docutils literal notranslate"><span class="pre">/directory/lookup</span></code>) and
+non-prefix lookups (<code class="docutils literal notranslate"><span class="pre">/directory/blend-lookup</span></code>), told apart by
+<code class="docutils literal notranslate"><span class="pre">lookup_type</span></code> (<code class="docutils literal notranslate"><span class="pre">prefix</span></code>, <code class="docutils literal notranslate"><span class="pre">non_prefix</span></code>).  A chunk is the unit for both;
+a lookup by keys counts each key as one chunk.  Only lookups served to
+clients are counted, not the coordinator's own.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>指标</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.lookups</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">lookup_type</span></code>)</p></td>
+<td><p>Lookup requests served.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.lookup_chunks_requested</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">lookup_type</span></code>)</p></td>
+<td><p>Chunks the lookups asked for.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.lookup_chunks_found</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">lookup_type</span></code>)</p></td>
+<td><p>Chunks the lookups found.  <code class="docutils literal notranslate"><span class="pre">found</span> <span class="pre">/</span> <span class="pre">requested</span></code> is the hit rate.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.key_directory.lookup_chunks_found_per_request_bucket</span></code>,
+<code class="docutils literal notranslate"><span class="pre">..._sum</span></code>, <code class="docutils literal notranslate"><span class="pre">..._count</span></code></p></td>
+<td><p>ObservableCounter (attrs: <code class="docutils literal notranslate"><span class="pre">lookup_type</span></code>, <code class="docutils literal notranslate"><span class="pre">le</span></code> on <code class="docutils literal notranslate"><span class="pre">_bucket</span></code>)</p></td>
+<td><p>How many chunks each lookup found, as a histogram.  <code class="docutils literal notranslate"><span class="pre">_bucket</span></code> is
+cumulative with Prometheus <code class="docutils literal notranslate"><span class="pre">le</span></code> bounds, so <code class="docutils literal notranslate"><span class="pre">histogram_quantile</span></code>
+works on it.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The coordinator keeps histogram buckets itself and exports them as
+counters, because OpenTelemetry has no histogram that is read at scrape
+time.  In Prometheus the counters carry a <code class="docutils literal notranslate"><span class="pre">_total</span></code> suffix, for example:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">histogram_quantile(0.9, sum by (le) (rate(
+</span><span id="line-2">  lmcache_coordinator_key_directory_lookup_chunks_found_per_request_bucket_total[5m])))
+</span></code></pre></div>
+</div>
 <p>The same two gauges are also emitted under their previous names,
 <code class="docutils literal notranslate"><span class="pre">lmcache_mp.key_directory_placement_count</span></code> and
 <code class="docutils literal notranslate"><span class="pre">lmcache_mp.key_directory_placement_size_bytes</span></code>, for one release so
@@ -1443,6 +1512,151 @@ fraction of time request handlers, heartbeats and loops were stalled.</p></td>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.registry.server_seconds_since_heartbeat</span></code></p></td>
 <td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>)</p></td>
 <td><p>Seconds since each registered server's last heartbeat.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The fleet metrics say who is in the fleet and how much it holds.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>指标</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.registry.servers_registered</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>MP servers registered with the coordinator.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.registry.server_membership_changes</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">change</span></code>)</p></td>
+<td><p>Membership changes: <code class="docutils literal notranslate"><span class="pre">registered</span></code>, <code class="docutils literal notranslate"><span class="pre">re_registered</span></code>,
+<code class="docutils literal notranslate"><span class="pre">deregistered</span></code>, <code class="docutils literal notranslate"><span class="pre">timed_out</span></code> (removed by the health check) and
+<code class="docutils literal notranslate"><span class="pre">unknown_heartbeat</span></code> (a heartbeat from a server not registered).  A
+climbing <code class="docutils literal notranslate"><span class="pre">re_registered</span></code> or <code class="docutils literal notranslate"><span class="pre">timed_out</span></code> means servers are
+flapping.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.usage.bytes_stored</span></code></p></td>
+<td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">tier</span></code>)</p></td>
+<td><p>Reported bytes the fleet holds in each tier.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The persistence metrics say whether the coordinator's state would survive a
+restart.  The checkpoint holds derived state and is written on a timer and
+on a clean stop; a failed periodic write also counts as a failed pass of the
+<code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> background loop.  The metadata file holds pins and quotas and
+is written on every change.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>指标</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.checkpoint_file.last_write_timestamp_seconds</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Wall-clock time the last good checkpoint was written.  Absent until
+the first.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.checkpoint_file.writes</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">result</span></code>)</p></td>
+<td><p>Checkpoint writes: <code class="docutils literal notranslate"><span class="pre">ok</span></code>, <code class="docutils literal notranslate"><span class="pre">quiesce_timeout</span></code> (a batch was still
+being applied), <code class="docutils literal notranslate"><span class="pre">error</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.checkpoint_file.write_duration_seconds_bucket</span></code>,
+<code class="docutils literal notranslate"><span class="pre">..._sum</span></code>, <code class="docutils literal notranslate"><span class="pre">..._count</span></code></p></td>
+<td><p>ObservableCounter (attrs: <code class="docutils literal notranslate"><span class="pre">phase</span></code>, <code class="docutils literal notranslate"><span class="pre">le</span></code> on <code class="docutils literal notranslate"><span class="pre">_bucket</span></code>)</p></td>
+<td><p>Time per write phase, as a histogram: <code class="docutils literal notranslate"><span class="pre">pause_ingest</span></code> (waiting for
+in-flight batches), <code class="docutils literal notranslate"><span class="pre">copy</span></code> (how long ingest was paused), <code class="docutils literal notranslate"><span class="pre">write</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.checkpoint_file.size_bytes</span></code></p></td>
+<td><p>可观察仪表</p></td>
+<td><p>Size of the last good checkpoint.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.checkpoint_file.restored_on_start</span></code></p></td>
+<td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">outcome</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> for what startup did: <code class="docutils literal notranslate"><span class="pre">cold</span></code> (no checkpoint), <code class="docutils literal notranslate"><span class="pre">restored</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">ignored</span></code> (unreadable).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.metadata_file.writes</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">result</span></code>)</p></td>
+<td><p>Pin and quota saves, <code class="docutils literal notranslate"><span class="pre">ok</span></code> or <code class="docutils literal notranslate"><span class="pre">error</span></code>.  An <code class="docutils literal notranslate"><span class="pre">error</span></code> is a change
+that will not survive a restart.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The prefetch metrics cover warm prefetches relayed through
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/prefetches</span></code>.  The coordinator remembers each submitted
+prefetch until a status poll sees it completed or the server no longer knows
+it; one never polled to completion within 10 minutes is counted as abandoned.
+In-flight prefetches are not checkpointed.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%"/>
+<col style="width: 15.0%"/>
+<col style="width: 45.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>指标</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.requests_submitted</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">result</span></code>)</p></td>
+<td><p>Prefetches asked for: <code class="docutils literal notranslate"><span class="pre">submitted</span></code>, <code class="docutils literal notranslate"><span class="pre">noop</span></code> (shorter than one
+chunk), <code class="docutils literal notranslate"><span class="pre">unknown_server</span></code>, <code class="docutils literal notranslate"><span class="pre">server_error</span></code> (refused or
+unreachable).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.chunks_requested_per_request_bucket</span></code>,
+<code class="docutils literal notranslate"><span class="pre">..._sum</span></code>, <code class="docutils literal notranslate"><span class="pre">..._count</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">le</span></code> on <code class="docutils literal notranslate"><span class="pre">_bucket</span></code>)</p></td>
+<td><p>Chunks each prefetch asked to warm, as a histogram.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.submit_duration_seconds_bucket</span></code>,
+<code class="docutils literal notranslate"><span class="pre">..._sum</span></code>, <code class="docutils literal notranslate"><span class="pre">..._count</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">le</span></code> on <code class="docutils literal notranslate"><span class="pre">_bucket</span></code>)</p></td>
+<td><p>Time for the MP server to accept a prefetch, as a histogram.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.requests_in_flight</span></code></p></td>
+<td><p>ObservableGauge (attr: <code class="docutils literal notranslate"><span class="pre">instance_id</span></code>)</p></td>
+<td><p>Prefetches submitted to each server and not yet seen completed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.completion_duration_seconds_bucket</span></code>,
+<code class="docutils literal notranslate"><span class="pre">..._sum</span></code>, <code class="docutils literal notranslate"><span class="pre">..._count</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">le</span></code> on <code class="docutils literal notranslate"><span class="pre">_bucket</span></code>)</p></td>
+<td><p>Submit to the first poll that saw the prefetch completed, as a
+histogram.  Includes the caller's poll interval, so an upper bound.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.keys_requested</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.keys_found</span></code></p></td>
+<td><p>可观察计数器</p></td>
+<td><p>Keys the completed prefetches asked to warm, and keys found in L2
+and loaded into L1.  Found divided by requested is the prefetch hit
+rate.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.status_polls</span></code></p></td>
+<td><p>ObservableCounter (attr: <code class="docutils literal notranslate"><span class="pre">result</span></code>)</p></td>
+<td><p>Status polls: <code class="docutils literal notranslate"><span class="pre">pending</span></code>, <code class="docutils literal notranslate"><span class="pre">completed</span></code>, <code class="docutils literal notranslate"><span class="pre">unknown_request</span></code> (the
+server lost the job, or it was already collected), <code class="docutils literal notranslate"><span class="pre">server_error</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache_coordinator.prefetch.requests_abandoned</span></code></p></td>
+<td><p>可观察计数器</p></td>
+<td><p>Prefetches never polled to completion within 10 minutes: the caller
+gave up, or the server left.</p></td>
 </tr>
 </tbody>
 </table>
