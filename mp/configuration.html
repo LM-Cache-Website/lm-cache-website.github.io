@@ -891,10 +891,9 @@ and <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</
 backing arena.  When set, disable lazy allocation with
 <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> and leave <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> at its default <code class="docutils literal notranslate"><span class="pre">""</span></code>
 (SHM transfer disabled) because the L1 bytes live in the DAX
-mapping.  If a
-DAX L2 adapter with the same <code class="docutils literal notranslate"><span class="pre">device_path</span></code> is registered, that
-adapter’s <code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> is used as the L1 Device-DAX overflow
-size. Pass the device node, for example
+mapping.  A <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter may not map the same device range;
+give the L1 and the adapter disjoint ranges. Pass the device node,
+for example
 <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span> <span class="pre">/dev/dax0.0</span> <span class="pre">--l1-size-gb</span> <span class="pre">512</span> <span class="pre">--no-l1-use-lazy</span>
 <span class="pre">--shm-name</span> <span class="pre">""</span></code>; find the node for a CXL region with <code class="docutils literal notranslate"><span class="pre">daxctl</span> <span class="pre">list</span></code>.
 See <em>Device-DAX / CXL L1</em> below.</p></td>
@@ -954,10 +953,11 @@ off:</p>
 </span><span id="line-3"><span class="w">    </span>--no-l1-use-lazy<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">""</span>
 </span></code></pre></div>
 </div>
-<p>Hybrid DRAM + Device-DAX has no overflow flag: a <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter whose
-<code class="docutils literal notranslate"><span class="pre">device_path</span></code> matches <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code> is consumed, its
-<code class="docutils literal notranslate"><span class="pre">max_dax_size_gb</span></code> becomes the overflow size, and <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> becomes
-the DRAM half.</p>
+<p>A Device-DAX L1 is a pool of its own. To combine it with DRAM, configure a
+<code class="docutils literal notranslate"><span class="pre">DRAM</span></code> and a <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code> manager with <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> (see
+<a class="reference internal" href="multi_l1.html"><span class="doc">Multiple L1 Managers</span></a>); the write policy decides which keys land in which pool.
+A <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter on the same device range as the L1 is rejected at
+startup.</p>
 <p><strong>Verify.</strong> <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code> reports <code class="docutils literal notranslate"><span class="pre">l1_capacity_bytes_by_backend</span></code> with a
 <code class="docutils literal notranslate"><span class="pre">devdax</span></code> entry equal to the mapped size; Prometheus
 <code class="docutils literal notranslate"><span class="pre">lmcache_mp_l1_memory_usage_bytes</span></code> carries <code class="docutils literal notranslate"><span class="pre">backend="devdax"</span></code>. Host
