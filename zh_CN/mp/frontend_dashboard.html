@@ -522,7 +522,7 @@ first, or replace the plugin path with an absolute one such as
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Run from the repository root of LMCache.</span>
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>/path/to/LMCache
 </span><span id="line-3">
-</span><span id="line-4">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="nv">LMCACHE_HTTP_API_KEY</span><span class="o">=</span>backend-local-key<span class="w"> </span>lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--l1-size-gb<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-6"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-7"><span class="w">    </span>--http-host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--http-port<span class="w"> </span><span class="m">8085</span><span class="w"> </span><span class="se">\</span>
@@ -563,10 +563,12 @@ leave it unset to keep auto-detection.</p>
 </span></code></pre></div>
 </div>
 <p><strong>步骤 3 — 启动仪表板</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.lmcache_frontend.app<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span>--node-supplier-url<span class="w"> </span>http://localhost:5000/lmcache_infos
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">LMCACHE_API_KEY</span><span class="o">=</span>frontend-local-key<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="nv">LMCACHE_FRONTEND_BACKEND_API_KEY</span><span class="o">=</span>backend-local-key<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3">python3<span class="w"> </span>-m<span class="w"> </span>lmcache.lmcache_frontend.app<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-5"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="line-6"><span class="w">    </span>--node-supplier-url<span class="w"> </span>http://localhost:5000/lmcache_infos
 </span></code></pre></div>
 </div>
 <p>Open <code class="docutils literal notranslate"><span class="pre">http://localhost:8000</span></code> in your browser. The dashboard fetches
@@ -574,6 +576,28 @@ the node list from the discovery service and reverse-proxies to each
 node's <code class="docutils literal notranslate"><span class="pre">apiAddress</span></code> — with <code class="docutils literal notranslate"><span class="pre">report-host</span></code> set to <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>
 above, this always resolves back to the local MP server on
 <code class="docutils literal notranslate"><span class="pre">:8085</span></code>.</p>
+<p>When frontend authentication is enabled, enter the frontend key in the
+dashboard's <strong>Frontend API key</strong> field. The browser keeps it in
+<code class="docutils literal notranslate"><span class="pre">sessionStorage</span></code>, so it is cleared when the tab is closed and is never
+written to the URL. <code class="docutils literal notranslate"><span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">/static/</span></code> remain public so the browser can
+load the login controls. <code class="docutils literal notranslate"><span class="pre">/health</span></code> remains public for probes and <code class="docutils literal notranslate"><span class="pre">/metrics</span></code>
+remains public for Prometheus scraping; other data and management endpoints
+require a valid key. API callers can use <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;key&gt;</span></code> or
+<code class="docutils literal notranslate"><span class="pre">X-LMCache-API-Key:</span> <span class="pre">&lt;key&gt;</span></code> through the shared HTTP authentication adapter.</p>
+<p>The backend key is independent: the dashboard replaces the browser's
+<code class="docutils literal notranslate"><span class="pre">Authorization</span></code> value with this key when it proxies to an authenticated
+LMCache server. Both caller credential headers are removed when frontend
+authentication or a backend key is configured. Prefer distinct high-entropy keys
+for the dashboard and the
+server. API keys do not encrypt traffic; terminate TLS at a trusted reverse
+proxy when traffic crosses an untrusted network.</p>
+<p>When a backend key is configured, a frontend API key is required as well. The
+frontend exits with an error if the backend key is set without frontend
+authentication, preventing unauthenticated callers from using the proxy.</p>
+<p>The literal <code class="docutils literal notranslate"><span class="pre">*-local-key</span></code> values above are only for this local walkthrough.
+For a deployment, generate independent high-entropy values and inject them
+through secret files or environment variables instead of putting them in shell
+history.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>仪表板在加载主页时，最多每 30 秒自动从供应商 URL 刷新一次节点列表。</p>
@@ -643,6 +667,18 @@ auto-detected IP is not reachable from the discovery service side.</p></td>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-http</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>禁用 HTTP 服务器；仅运行心跳循环。由 MP 插件内部使用。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code></p></td>
+<td><p>(无)</p></td>
+<td><p>Read an accepted frontend Bearer key from a file. Repeat the option
+during key rotation. Environment alternatives are
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY_FILE</span></code> and <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--backend-http-api-key-file</span></code></p></td>
+<td><p>(无)</p></td>
+<td><p>Read the Bearer key sent to backend LMCache HTTP servers. Environment
+alternatives are <code class="docutils literal notranslate"><span class="pre">LMCACHE_FRONTEND_BACKEND_API_KEY_FILE</span></code> and
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_FRONTEND_BACKEND_API_KEY</span></code>. Configure exactly one source.</p></td>
 </tr>
 </tbody>
 </table>
