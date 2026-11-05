@@ -440,12 +440,13 @@ server.  Arguments are grouped by the config module that defines them.</p>
 <li><p><a class="reference internal" href="#vllm-client-configuration" id="id16">vLLM Client Configuration</a></p>
 <ul>
 <li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id17">Decode context parallelism (DCP)</a></p></li>
-<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id18">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a></p></li>
+<li><p><a class="reference internal" href="#model-revision" id="id18">Model revision</a></p></li>
+<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id19">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#environment-variables" id="id19">Environment Variables</a></p></li>
-<li><p><a class="reference internal" href="#full-example" id="id20">Full Example</a></p></li>
-<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id21">Anonymous Usage Statistics</a></p></li>
+<li><p><a class="reference internal" href="#environment-variables" id="id20">Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="#full-example" id="id21">Full Example</a></p></li>
+<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id22">Anonymous Usage Statistics</a></p></li>
 </ul>
 </nav>
 <section id="per-request-lmcache-configuration">
@@ -1442,8 +1443,25 @@ itself, so this connector does not re-check it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> reads the following keys from
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>:</p>
 </section>
+<section id="model-revision">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Model revision</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#model-revision" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#model-revision'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--revision</span></code> is part of the cache identity. When vLLM resolves it to a commit
+hash, the connector adds <code class="docutils literal notranslate"><span class="pre">lmcache.tag.revision=&lt;commit&gt;</span></code> to every request’s
+configuration. The server extracts it with the same <code class="docutils literal notranslate"><span class="pre">lmcache.tag.*</span></code> contract
+as any other identity tag, so objects written by two revisions of one model ID
+never mix while the served model name stays unchanged. Tags are already part of
+the L2 key format, so the separation holds for disk and remote tiers as well.</p>
+<p>A revision vLLM cannot resolve (local model path, ModelScope, offline Hub
+lookup) is sent literally; pinning a commit hash keeps the identity stable
+across restarts. Engines that do not pass <code class="docutils literal notranslate"><span class="pre">--revision</span></code> add no tag and keep
+their existing cache namespace.</p>
+<p>The KV layout registry is keyed by model name and world size, so engines at two
+revisions of one model ID share the registered layout. That is correct as long
+as the revisions keep the same cache layout, which is the case for weights-only
+revisions.</p>
+</section>
 <section id="connector-extra-config-keys">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
 <p>All connector-level options are passed through
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> and use the <code class="docutils literal notranslate"><span class="pre">lmcache.mp.</span></code> prefix.</p>
 <p>By default, MP caches only prompt tokens, avoiding new cache entries from
@@ -1672,7 +1690,7 @@ auto-start disabled in vLLM:</p>
 </section>
 </section>
 <section id="environment-variables">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Environment Variables</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1707,7 +1725,7 @@ convention).</p></td>
 </table>
 </section>
 <section id="full-example">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Full Example</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
@@ -1742,7 +1760,7 @@ convention).</p></td>
 </div>
 </section>
 <section id="anonymous-usage-statistics">
-<h2><a class="toc-backref" href="#id21" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
 <p>The MP server reports anonymous usage statistics: a one-time
 environment/configuration snapshot at startup and interval counters
 (tokens retrieved/stored, bytes stored, uptime) every
@@ -1793,6 +1811,7 @@ never affect serving. Opt out with <code class="docutils literal notranslate"><s
 <li><a :data-current="activeSection === '#observability'" class="reference internal" href="#observability">Observability</a></li>
 <li><a :data-current="activeSection === '#vllm-client-configuration'" class="reference internal" href="#vllm-client-configuration">vLLM Client Configuration</a><ul>
 <li><a :data-current="activeSection === '#decode-context-parallelism-dcp'" class="reference internal" href="#decode-context-parallelism-dcp">Decode context parallelism (DCP)</a></li>
+<li><a :data-current="activeSection === '#model-revision'" class="reference internal" href="#model-revision">Model revision</a></li>
 <li><a :data-current="activeSection === '#connector-extra-config-keys'" class="reference internal" href="#connector-extra-config-keys">Connector <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> Keys</a></li>
 </ul>
 </li>
