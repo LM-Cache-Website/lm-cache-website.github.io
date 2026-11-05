@@ -493,9 +493,9 @@ parameter.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iov_size</span></code> (int, default <code class="docutils literal notranslate"><span class="pre">209715200</span></code> (200 MB), range
 <code class="docutils literal notranslate"><span class="pre">[104857600,</span> <span class="pre">2147483648]</span></code>): Per-thread I/O buffer in bytes.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">enable_key_buffer</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">True</span></code>): Enable the in-memory
-key buffer for accelerated exists lookups.  When enabled, exist lookups
-respond from a hash set instead of issuing remote 3FS metadata calls.
-This dramatically reduces lookup latency.</p></li>
+key buffer for accelerated exists lookups.  When enabled, lookups of
+known keys respond from a hash set instead of issuing remote 3FS metadata
+calls.  This dramatically reduces lookup latency.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">False</span></code>): Store each file under two
 chunk-hash prefix subdirectories instead of directly in its base path.
 See <em>Directory Sharding</em> below.</p></li>
@@ -521,15 +521,21 @@ See <em>Directory Sharding</em> below.</p></li>
 </div>
 <p><strong>In-Memory Key Buffer</strong></p>
 <p>When <code class="docutils literal notranslate"><span class="pre">enable_key_buffer</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> (the default), the connector maintains an
-in-memory cache of all key filenames. Lookup operations respond from the cache instead
-of issuing remote 3FS metadata calls. This dramatically reduces lookup latency.</p>
+in-memory cache of key filenames. Lookups of cached keys respond without issuing
+remote 3FS metadata calls. This dramatically reduces lookup latency.</p>
+<p>The cache is built by scanning <code class="docutils literal notranslate"><span class="pre">base_paths</span></code> at startup and grows with every
+store. A key that is not in the cache costs one 3FS metadata call, and is added
+to the cache if its file exists. This keeps chunks written by other LMCache
+instances that share the same <code class="docutils literal notranslate"><span class="pre">base_paths</span></code> visible after startup.</p>
+<p>A key deleted by another instance stays in the cache until this instance
+restarts, so a lookup can report it as present and the load of that key then
+fails.</p>
 <ul class="simple">
 <li><dl class="simple">
 <dt><strong>Trade-offs</strong></dt><dd><ul>
-<li><p><strong>Enable</strong> for workloads with many concurrent lookups (prefetch,batch exists).</p></li>
-</ul>
-</dd>
-<dt>The latency savings outweigh the memory cost.</dt><dd><ul>
+<li><p><strong>Enable</strong> for workloads with many concurrent lookups of stored keys
+(prefetch, batch exists). Lookups of keys not in the cache cost the same
+3FS metadata call as with the buffer disabled.</p></li>
 <li><p><strong>Disable</strong>  when memory is constrained.</p></li>
 </ul>
 </dd>
