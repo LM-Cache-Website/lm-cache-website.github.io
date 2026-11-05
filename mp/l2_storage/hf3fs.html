@@ -496,6 +496,9 @@ parameter.</p></li>
 key buffer for accelerated exists lookups.  When enabled, exist lookups
 respond from a hash set instead of issuing remote 3FS metadata calls.
 This dramatically reduces lookup latency.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code> (bool, default <code class="docutils literal notranslate"><span class="pre">False</span></code>): Store each file under two
+chunk-hash prefix subdirectories instead of directly in its base path.
+See <em>Directory Sharding</em> below.</p></li>
 </ul>
 <p><strong>Configuration Example</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
@@ -546,6 +549,23 @@ of issuing remote 3FS metadata calls. This dramatically reduces lookup latency.<
 </span><span id="line-10"><span class="s1">}'</span>
 </span></code></pre></div>
 </div>
+<p><strong>Directory Sharding</strong></p>
+<p>Each store creates a temporary file and renames it into place in the same
+directory. On each client host, Linux holds the parent directory’s lock
+exclusively for the whole create and rename, including the round trips to the
+3FS meta service, so all stores into one flat base path from one host run one
+at a time, whatever the worker count. With
+<code class="docutils literal notranslate"><span class="pre">"shard_dirs":</span> <span class="pre">true</span></code>, files are spread across a two-level subdirectory tree
+named after the first four hex characters of the chunk hash, the same layout
+the NIXL <code class="docutils literal notranslate"><span class="pre">shard_dirs</span></code> option uses:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">shard_dirs: false   &lt;base_path&gt;/&lt;model&gt;@0x&lt;rank&gt;@&lt;group&gt;@3fa2...e1.data
+</span><span id="line-2">shard_dirs: true    &lt;base_path&gt;/3f/a2/&lt;model&gt;@0x&lt;rank&gt;@&lt;group&gt;@3fa2...e1.data
+</span></code></pre></div>
+</div>
+<p>Each subdirectory has its own lock, so stores into different subdirectories
+proceed in parallel. Subdirectories are created on first use. Choose the layout
+before populating a cache: a connector only finds files written in its own
+layout.</p>
 <p><strong>Unit Tests</strong></p>
 <p>The hf3fs tests are gated on 3FS extension availability and 3FS storage
 cluster accessibility:
