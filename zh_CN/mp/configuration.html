@@ -438,14 +438,15 @@
 <li><p><a class="reference internal" href="#observability" id="id16">可观察性</a></p></li>
 <li><p><a class="reference internal" href="#vllm-client-configuration" id="id17">vLLM 客户端配置</a></p>
 <ul>
-<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id18">Decode context parallelism (DCP)</a></p></li>
-<li><p><a class="reference internal" href="#model-revision" id="id19">Model revision</a></p></li>
-<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id20">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a></p></li>
+<li><p><a class="reference internal" href="#lora-adapters" id="id18">LoRA adapters</a></p></li>
+<li><p><a class="reference internal" href="#decode-context-parallelism-dcp" id="id19">Decode context parallelism (DCP)</a></p></li>
+<li><p><a class="reference internal" href="#model-revision" id="id20">Model revision</a></p></li>
+<li><p><a class="reference internal" href="#connector-extra-config-keys" id="id21">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#environment-variables" id="id21">环境变量</a></p></li>
-<li><p><a class="reference internal" href="#full-example" id="id22">完整示例</a></p></li>
-<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id23">匿名使用统计</a></p></li>
+<li><p><a class="reference internal" href="#environment-variables" id="id22">环境变量</a></p></li>
+<li><p><a class="reference internal" href="#full-example" id="id23">完整示例</a></p></li>
+<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id24">匿名使用统计</a></p></li>
 </ul>
 </nav>
 <section id="per-request-lmcache-configuration">
@@ -474,12 +475,13 @@ lookup-lock cleanup operations so server-side features can inspect the same
 request metadata throughout the request lifecycle.</p>
 <div class="admonition important">
 <p class="admonition-title">重要</p>
-<p>Forwarding a value does not by itself make the MP server act on it or make
-it part of cache identity.  The current MP server treats request configs as
-metadata.  Do not rely on <code class="docutils literal notranslate"><span class="pre">lmcache.tag.*</span></code>, <code class="docutils literal notranslate"><span class="pre">lmcache.ttl</span></code>,
-<code class="docutils literal notranslate"><span class="pre">lmcache.skip_save</span></code>, or another request config for isolation, expiration,
-or cache-control behavior in MP mode unless the selected server-side
-feature explicitly documents support for it.  The in-process
+<p>Forwarding a value does not by itself make the MP server act on it.  The
+MP server makes <code class="docutils literal notranslate"><span class="pre">lmcache.tag.*</span></code> entries part of cache identity (the
+vLLM connector uses this for <a class="reference internal" href="#lora-adapters">LoRA adapters</a>) and treats the other
+request configs as metadata.  Do not rely on <code class="docutils literal notranslate"><span class="pre">lmcache.ttl</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lmcache.skip_save</span></code>, or another request config for expiration or
+cache-control behavior in MP mode unless the selected server-side feature
+explicitly documents support for it.  The in-process
 <code class="docutils literal notranslate"><span class="pre">LMCacheConnectorV1</span></code> may interpret these values differently.</p>
 </div>
 <p>The MP server's default <code class="docutils literal notranslate"><span class="pre">--kv-load-policy</span></code> acts on <code class="docutils literal notranslate"><span class="pre">lmcache.skip_load</span></code>: a
@@ -1297,8 +1299,29 @@ server's <code class="docutils literal notranslate"><span class="pre">--transpor
 </span><span id="line-4"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.server_urls": "tcp://host1:6667,tcp://host2:6667"}}'</span>
 </span></code></pre></div>
 </div>
+<section id="lora-adapters">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">LoRA adapters</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#lora-adapters" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#lora-adapters'"><span>#</span></a></h3>
+<p>With <code class="docutils literal notranslate"><span class="pre">--enable-lora</span></code>, the same prompt produces different KV under each
+adapter, so the connector adds the adapter to every lookup, store, retrieve
+and lock release as the <code class="docutils literal notranslate"><span class="pre">lora</span></code> tag (the <code class="docutils literal notranslate"><span class="pre">lmcache.tag.lora</span></code> request
+config). The server makes <code class="docutils literal notranslate"><span class="pre">lmcache.tag.*</span></code> part of each object key, so KV
+written under one adapter is never loaded for another adapter or for the base
+model. The tag is
+<code class="docutils literal notranslate"><span class="pre">hashlib.blake2b(f"{lora_name}\0{lora_path}".encode(),</span> <span class="pre">digest_size=16).hexdigest()</span></code>
+(<code class="docutils literal notranslate"><span class="pre">lora_cache_tag</span></code> in <code class="docutils literal notranslate"><span class="pre">lmcache/integration/vllm/utils.py</span></code>), so replicas and
+P/D peers share an adapter's KV only when they load it under the same name
+and path. The connector ignores a <code class="docutils literal notranslate"><span class="pre">lmcache.tag.lora</span></code> value sent by the
+client.</p>
+<p>Base-model keys do not change, and adapter requests keep their
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>, so per-salt metrics and quotas still count them with their
+tenant. KV that adapter requests wrote before this change sits under
+base-model keys, where base-model requests keep hitting it until it is
+evicted, so clear persistent L2 backends when upgrading. Upgrade every
+replica and MP server together, since an older MP server ignores the tag and
+adapters would share KV again.</p>
+</section>
 <section id="decode-context-parallelism-dcp">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Decode context parallelism (DCP)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decode-context-parallelism-dcp" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decode-context-parallelism-dcp'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--decode-context-parallel-size</span></code> is supported. Under DCP, vLLM shards the
 attention KV cache across ranks along the token axis, so each rank holds only
 a strided <code class="docutils literal notranslate"><span class="pre">1/dcp</span></code> slice and one block ID spans <code class="docutils literal notranslate"><span class="pre">block_size</span> <span class="pre">*</span> <span class="pre">dcp</span></code> tokens.
@@ -1360,7 +1383,7 @@ itself, so this connector does not re-check it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> 从 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 中读取以下键：</p>
 </section>
 <section id="model-revision">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Model revision</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#model-revision" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#model-revision'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Model revision</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#model-revision" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#model-revision'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--revision</span></code> is part of the cache identity. When vLLM resolves it to a commit
 hash, the connector adds <code class="docutils literal notranslate"><span class="pre">lmcache.tag.revision=&lt;commit&gt;</span></code> to every request's
 configuration. The server extracts it with the same <code class="docutils literal notranslate"><span class="pre">lmcache.tag.*</span></code> contract
@@ -1377,7 +1400,7 @@ as the revisions keep the same cache layout, which is the case for weights-only
 revisions.</p>
 </section>
 <section id="connector-extra-config-keys">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#connector-extra-config-keys" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#connector-extra-config-keys'"><span>#</span></a></h3>
 <p>所有连接器级别的选项都通过 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> 传递，并使用 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.</span></code> 前缀。</p>
 <p>By default, MP caches only prompt tokens, avoiding new cache entries from
 sampled output when fixed prompts are replayed.</p>
@@ -1599,7 +1622,7 @@ auto-start disabled in vLLM:</p>
 </section>
 </section>
 <section id="environment-variables">
-<h2><a class="toc-backref" href="#id21" role="doc-backlink">环境变量</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">环境变量</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#environment-variables" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#environment-variables'"><span>#</span></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%"/>
@@ -1631,7 +1654,7 @@ auto-start disabled in vLLM:</p>
 </table>
 </section>
 <section id="full-example">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">完整示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">完整示例</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#full-example" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#full-example'"><span>#</span></a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
@@ -1666,7 +1689,7 @@ auto-start disabled in vLLM:</p>
 </div>
 </section>
 <section id="anonymous-usage-statistics">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">匿名使用统计</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">匿名使用统计</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
 <p>MP 服务器报告匿名使用统计信息：在启动时进行一次环境/配置快照，并每 <code class="docutils literal notranslate"><span class="pre">LMCACHE_USAGE_TRACK_INTERVAL</span></code> 秒报告一次间隔计数器（检索/存储的令牌、存储的字节、正常运行时间）。绝不会发送提示、密钥、KV Cache 数据、模型名称或 <code class="docutils literal notranslate"><span class="pre">--instance-id</span></code>，并且报告绝不会影响服务。可以通过 <code class="docutils literal notranslate"><span class="pre">LMCACHE_TRACK_USAGE=false</span></code> 或 <code class="docutils literal notranslate"><span class="pre">DO_NOT_TRACK=1</span></code> 选择退出；有关详细信息，请参见 <a class="reference internal" href="../developer_guide/usage/usage_stats_collection.html#usage-stats-collection"><span class="std std-ref">使用统计收集</span></a>。</p>
 </section>
 </section>
@@ -1710,6 +1733,7 @@ auto-start disabled in vLLM:</p>
 </li>
 <li><a :data-current="activeSection === '#observability'" class="reference internal" href="#observability">可观察性</a></li>
 <li><a :data-current="activeSection === '#vllm-client-configuration'" class="reference internal" href="#vllm-client-configuration">vLLM 客户端配置</a><ul>
+<li><a :data-current="activeSection === '#lora-adapters'" class="reference internal" href="#lora-adapters">LoRA adapters</a></li>
 <li><a :data-current="activeSection === '#decode-context-parallelism-dcp'" class="reference internal" href="#decode-context-parallelism-dcp">Decode context parallelism (DCP)</a></li>
 <li><a :data-current="activeSection === '#model-revision'" class="reference internal" href="#model-revision">Model revision</a></li>
 <li><a :data-current="activeSection === '#connector-extra-config-keys'" class="reference internal" href="#connector-extra-config-keys">连接器 <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> 键</a></li>
