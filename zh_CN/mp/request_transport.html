@@ -359,6 +359,37 @@ port in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
 </span></code></pre></div>
 </div>
+</section>
+<section id="grpc-api-key-authentication">
+<h2>gRPC API-key authentication<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#grpc-api-key-authentication" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#grpc-api-key-authentication'"><span>#</span></a></h2>
+<p>gRPC authentication is optional. Accepted server keys come from repeated
+<code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code>, <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY_FILE</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code>. Sources are cumulative for rotation. Clients send
+one explicit key or use one of the environment sources. A server interceptor checks
+Bearer metadata before protobuf request deserialization and handler dispatch;
+a client interceptor injects it for unary and server-streaming calls. Missing
+or incorrect credentials return gRPC <code class="docutils literal notranslate"><span class="pre">UNAUTHENTICATED</span></code>. Authentication stays
+disabled when the server has no keys. Both <code class="docutils literal notranslate"><span class="pre">--grpc-server-mode</span> <span class="pre">sync</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--grpc-server-mode</span> <span class="pre">aio</span></code> enforce this authentication policy.
+The optional <code class="docutils literal notranslate"><span class="pre">native</span></code> mode does not yet support authentication and rejects
+configured server keys at startup; use <code class="docutils literal notranslate"><span class="pre">sync</span></code> or <code class="docutils literal notranslate"><span class="pre">aio</span></code> when keys are set.</p>
+<p>The same key sources also protect the HTTP API. With the default ZMQ
+transport, the server continues to start and warns that only HTTP is protected;
+ZMQ requests remain unauthenticated until ZMQ authentication is implemented.
+ZMQ clients ignore the shared key environment variables so existing engines
+can inherit an HTTP-protected server's environment. Explicitly passing
+<code class="docutils literal notranslate"><span class="pre">api_key</span></code> to a ZMQ client emits a warning and is ignored, preserving shared
+configuration compatibility without implying that ZMQ requests are authenticated.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--api-key-file<span class="w"> </span>/run/secrets/lmcache-request-key
+</span><span id="line-3">
+</span><span id="line-4"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_API_KEY_FILE</span><span class="o">=</span>/run/secrets/lmcache-request-key
+</span></code></pre></div>
+</div>
+<p>The default gRPC channel is insecure, so the token and payload are not
+encrypted. Use TLS when traffic crosses an untrusted network. Mutual TLS can
+later add transport encryption and certificate-based peer identity without
+replacing the API-key verifier.</p>
 <p>For multiple servers, specify the scheme on every entry in
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code>, for example
 <code class="docutils literal notranslate"><span class="pre">tcp://host1:5555,tcp://host2:5555</span></code> or
@@ -373,8 +404,9 @@ together. MUSA handles must use MessagePack scalars, lists and string-keyed maps
 opaque SDK objects require an explicit codec and are rejected.</p>
 <p>This closes the device-wrapper deserialization path in CVE-2026-105192. The
 engine-driven tensor-data path uses a separate typed inline codec that shares
-the descriptor dtype allowlist. Neither change adds RPC authentication; keep MP
-endpoints restricted to trusted clients.</p>
+the descriptor dtype allowlist. API-key authentication is optional and does
+not replace transport encryption; keep unauthenticated or insecure endpoints
+restricted to trusted networks.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -399,6 +431,7 @@ endpoints restricted to trusted clients.</p>
 <ul>
 <li><a :data-current="activeSection === '#transport-schemes'" class="reference internal" href="#transport-schemes">Transport schemes</a></li>
 <li><a :data-current="activeSection === '#grpc-implementation-and-schema-development'" class="reference internal" href="#grpc-implementation-and-schema-development">gRPC implementation and schema development</a></li>
+<li><a :data-current="activeSection === '#grpc-api-key-authentication'" class="reference internal" href="#grpc-api-key-authentication">gRPC API-key authentication</a></li>
 <li><a :data-current="activeSection === '#ipc-descriptor-compatibility'" class="reference internal" href="#ipc-descriptor-compatibility">IPC descriptor compatibility</a></li>
 </ul>
 </div>
