@@ -384,8 +384,13 @@ valkey-large-object module; see <a class="reference internal" href="#valkey-rdma
 <code class="docutils literal notranslate"><span class="pre">"efa-direct"</span></code> opens EFA hardware; <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code> opens libfabric's
 software provider, which needs no hardware and offers no performance
 benefit, for exercising the RDMA path on an ordinary machine.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">rdma_interface</span></code> (str, optional): RDMA only. The fabric domain to pin
-to on a host with more than one card. Omit to let the provider choose.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rdma_interface</span></code> (str or list of str, optional): RDMA only. The fabric
+domain, or domains, to open on a host with more than one card, as
+<code class="docutils literal notranslate"><span class="pre">fi_info</span> <span class="pre">-p</span> <span class="pre">efa</span></code> lists them (on EFA a name like <code class="docutils literal notranslate"><span class="pre">rdmap71s0-rdm</span></code>). With
+a list, the workers are spread across the cards round-robin, so make
+<code class="docutils literal notranslate"><span class="pre">num_workers</span></code> a multiple of the list length. Omit to let the provider
+choose, which opens one card for every worker. An unknown name fails
+adapter construction with the host's domain names in the message.</p></li>
 </ul>
 <p><strong>Configuration examples:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Standalone Valkey / Redis server (server-side eviction)</span>
@@ -476,13 +481,13 @@ an existing deployment orphans its keys.</p>
 </span><span id="line-7"><span class="s1">    "ttl_seconds": 3600</span>
 </span><span id="line-8"><span class="s1">}'</span>
 </span><span id="line-9">
-</span><span id="line-10"><span class="c1"># Valkey Cluster on EFA, pinned to one card</span>
+</span><span id="line-10"><span class="c1"># Valkey Cluster on EFA, workers spread across two cards</span>
 </span><span id="line-11">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
 </span><span id="line-12"><span class="s1">    "type": "valkey",</span>
 </span><span id="line-13"><span class="s1">    "transport": "rdma",</span>
 </span><span id="line-14"><span class="s1">    "cluster_mode": true,</span>
 </span><span id="line-15"><span class="s1">    "startup_nodes": "10.0.0.1:6379,10.0.0.2:6379",</span>
-</span><span id="line-16"><span class="s1">    "rdma_interface": "efa0",</span>
+</span><span id="line-16"><span class="s1">    "rdma_interface": ["rdmap71s0-rdm", "rdmap72s0-rdm"],</span>
 </span><span id="line-17"><span class="s1">    "num_workers": 16</span>
 </span><span id="line-18"><span class="s1">}'</span>
 </span><span id="line-19">
