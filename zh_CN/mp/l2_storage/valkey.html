@@ -377,13 +377,18 @@ expiry. Enables server-side time-based expiry, required by any
 <code class="docutils literal notranslate"><span class="pre">volatile-*</span></code> eviction policy configured on the Valkey server. Do
 <strong>not</strong> combine with <code class="docutils literal notranslate"><span class="pre">max_capacity_gb</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (a warning is logged;
 server-side expiry is not reported back to LMCache's byte accounting).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">transport</span></code> (str, default <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code>): How values move. <code class="docutils literal notranslate"><span class="pre">"rdma"</span></code>
-moves them by RDMA between the L1 arena and a server running the
-valkey-large-object module; see <a class="reference internal" href="#valkey-rdma-transport"><span class="std std-ref">RDMA transport</span></a> below.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">transport</span></code> (str, default <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code>): Which server commands store each
+chunk. <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code> uses plain <code class="docutils literal notranslate"><span class="pre">SET</span></code>/<code class="docutils literal notranslate"><span class="pre">GET</span></code>. <code class="docutils literal notranslate"><span class="pre">"rdma"</span></code> moves chunks by
+RDMA between the L1 arena and a server running the valkey-large-object
+module; see <a class="reference internal" href="#valkey-rdma-transport"><span class="std std-ref">RDMA transport</span></a>. <code class="docutils literal notranslate"><span class="pre">"blob-tcp"</span></code> stores the same
+module objects over the ordinary connection; see
+<a class="reference internal" href="#valkey-blob-tcp-transport"><span class="std std-ref">blob-tcp transport</span></a>. <a class="reference internal" href="#valkey-choosing-a-transport"><span class="std std-ref">Choosing a transport</span></a>
+compares them.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">rdma_provider</span></code> (str, default <code class="docutils literal notranslate"><span class="pre">"efa-direct"</span></code>): RDMA only.
 <code class="docutils literal notranslate"><span class="pre">"efa-direct"</span></code> opens EFA hardware; <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code> opens libfabric's
 software provider, which needs no hardware and offers no performance
-benefit, for exercising the RDMA path on an ordinary machine.</p></li>
+benefit, for exercising the RDMA path on an ordinary machine. Unrelated
+to the <code class="docutils literal notranslate"><span class="pre">transport</span></code> values <code class="docutils literal notranslate"><span class="pre">"tcp"</span></code> and <code class="docutils literal notranslate"><span class="pre">"blob-tcp"</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">rdma_interface</span></code> (str or list of str, optional): RDMA only. The fabric
 domain, or domains, to open on a host with more than one card, as
 <code class="docutils literal notranslate"><span class="pre">fi_info</span> <span class="pre">-p</span> <span class="pre">efa</span></code> lists them (on EFA a name like <code class="docutils literal notranslate"><span class="pre">rdmap71s0-rdm</span></code>). With
@@ -432,8 +437,8 @@ running the
 <a class="reference external" href="https://github.com/valkey-io/valkey-large-object">valkey-large-object</a>
 module and moves every chunk by <strong>RDMA</strong> through <code class="docutils literal notranslate"><span class="pre">valkey-glide-sync</span></code>: the
 server writes a chunk straight into the L1 memory that will hold it, or
-reads one straight out of the L1 memory it lives in. The TCP transport is
-copy-reduced, not copy-free (GET materializes the value inside glide, SET
+reads one straight out of the L1 memory it lives in. The <code class="docutils literal notranslate"><span class="pre">tcp</span></code> transport
+is copy-reduced, not copy-free (GET materializes the value inside glide, SET
 copies it into the command buffer); RDMA removes both copies. Each worker
 registers the whole L1 arena with the fabric once at start-up, and every
 store or load names the window the chunk occupies; the server then
@@ -467,10 +472,9 @@ example:</p>
 </span><span id="line-3"><span class="ow">or</span> <span class="n">the</span> <span class="n">EFA</span> <span class="n">installer</span> <span class="n">on</span> <span class="n">AWS</span><span class="p">)</span> <span class="n">so</span> <span class="n">the</span> <span class="n">client</span> <span class="n">can</span> <span class="nb">open</span> <span class="n">a</span> <span class="n">fabric</span><span class="o">.</span>
 </span></code></pre></div>
 </div>
-<p><strong>The two transports store different key types.</strong> RDMA keys are the
-module's own data type, which a plain <code class="docutils literal notranslate"><span class="pre">GET</span></code> cannot read or <code class="docutils literal notranslate"><span class="pre">SET</span></code>
-replace. Use one transport per <code class="docutils literal notranslate"><span class="pre">key_prefix</span></code>; switching the transport of
-an existing deployment orphans its keys.</p>
+<p><strong>RDMA keys are module objects</strong>, the same type <code class="docutils literal notranslate"><span class="pre">blob-tcp</span></code> writes; see
+<a class="reference internal" href="#valkey-choosing-a-transport"><span class="std std-ref">Choosing a transport</span></a> for which transports can share a
+<code class="docutils literal notranslate"><span class="pre">key_prefix</span></code>.</p>
 <p><strong>Configuration examples:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># EFA on AWS</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
@@ -517,8 +521,8 @@ not yet populated is untested.</p></li>
 is; a buffer outside it fails its key and is logged.</p></li>
 <li><p>A stored value larger than the destination chunk is refused by the
 server before anything is written, so a chunk-size mismatch cannot
-overrun the neighbouring L1 memory. A smaller value is a miss, as over
-TCP.</p></li>
+overrun the neighbouring L1 memory. A smaller value is a miss, as with
+the other transports.</p></li>
 <li><p>Each worker registers the whole arena, so <code class="docutils literal notranslate"><span class="pre">num_workers</span></code> times the L1
 size <strong>must fit the device's cap on registered memory</strong> (on EFA,
 <code class="docutils literal notranslate"><span class="pre">max_mr_size</span></code> from <code class="docutils literal notranslate"><span class="pre">ibv_devinfo</span> <span class="pre">-v</span></code>: 96 GiB on g6, 384 GiB on c8gn).
@@ -530,6 +534,112 @@ pages.</p></li>
 L1 buffer and a transform pass, forfeiting the copy-free path. Omit
 <code class="docutils literal notranslate"><span class="pre">"serde"</span></code> for zero-copy transfers.</p></li>
 </ul>
+</section>
+<section id="blob-tcp-transport">
+<span id="valkey-blob-tcp-transport"></span><h2>blob-tcp transport<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#blob-tcp-transport" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#blob-tcp-transport'"><span>#</span></a></h2>
+<p>With <code class="docutils literal notranslate"><span class="pre">"transport":</span> <span class="pre">"blob-tcp"</span></code> the adapter stores chunks as the same
+valkey-large-object module objects the RDMA transport writes, but carries
+the value over the ordinary connection with the module's <code class="docutils literal notranslate"><span class="pre">BLOB.TCP_SET</span></code>
+and <code class="docutils literal notranslate"><span class="pre">BLOB.TCP_GET</span></code>. Hosts without an RDMA fabric, libfabric, or an RDMA
+build of glide can therefore share one cache with RDMA hosts under the same
+<code class="docutils literal notranslate"><span class="pre">key_prefix</span></code>: a chunk stored over either transport loads over the other.</p>
+<p>It is not expected to be faster than <code class="docutils literal notranslate"><span class="pre">tcp</span></code>: the module copies each stored
+value into its own buffers and gathers each loaded one into a single reply.
+Choose it to share objects with RDMA hosts, not for speed.</p>
+<p><strong>Prerequisites:</strong></p>
+<ul class="simple">
+<li><p>The <strong>valkey-large-object module</strong> loaded and enabled on every server
+node. No fabric provider is needed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">valkey-glide-sync</span> <span class="pre">&gt;=</span> <span class="pre">2.3.0</span></code>, the same package the <code class="docutils literal notranslate"><span class="pre">tcp</span></code> transport
+uses. No RDMA build and no libfabric.</p></li>
+<li><p>With ACLs on, LMCache's user must be allowed <code class="docutils literal notranslate"><span class="pre">BLOB.TCP_SET</span></code>,
+<code class="docutils literal notranslate"><span class="pre">BLOB.TCP_GET</span></code> and <code class="docutils literal notranslate"><span class="pre">BLOB.INFO</span></code> (for example <code class="docutils literal notranslate"><span class="pre">+@largeobj</span></code>) and the
+key <code class="docutils literal notranslate"><span class="pre">__lmcache_blob_tcp_probe__</span></code>.</p></li>
+</ul>
+<p>Each worker checks the module with <code class="docutils literal notranslate"><span class="pre">BLOB.INFO</span></code> when it connects, so a
+server that cannot serve the commands fails adapter construction. In cluster
+mode the check reaches only the primary that owns its probe key: a shard
+elsewhere without the module is not caught at start-up, and its keys fail at
+runtime with a per-key warning. The errors look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">transport</span><span class="o">=</span><span class="s1">'blob-tcp'</span> <span class="n">needs</span> <span class="n">the</span> <span class="n">valkey</span><span class="o">-</span><span class="n">large</span><span class="o">-</span><span class="nb">object</span> <span class="n">module</span><span class="p">,</span> <span class="n">but</span> <span class="n">the</span>
+</span><span id="line-2"><span class="n">server</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">know</span> <span class="n">BLOB</span><span class="o">.</span><span class="n">INFO</span><span class="o">.</span> <span class="n">Load</span> <span class="n">it</span> <span class="k">with</span>
+</span><span id="line-3"><span class="o">--</span><span class="n">loadmodule</span> <span class="o">&lt;</span><span class="n">path</span><span class="o">&gt;/</span><span class="n">libvalkey_large_object</span><span class="o">.</span><span class="n">so</span><span class="o">.</span>
+</span><span id="line-4">
+</span><span id="line-5"><span class="n">transport</span><span class="o">=</span><span class="s1">'blob-tcp'</span> <span class="n">needs</span> <span class="n">the</span> <span class="n">valkey</span><span class="o">-</span><span class="n">large</span><span class="o">-</span><span class="nb">object</span> <span class="n">module</span> <span class="n">enabled</span><span class="p">,</span> <span class="n">but</span>
+</span><span id="line-6"><span class="n">the</span> <span class="n">server</span> <span class="n">reports</span> <span class="n">it</span> <span class="n">disabled</span><span class="o">.</span> <span class="n">Set</span> <span class="n">largeobj</span><span class="o">.</span><span class="n">enabled</span> <span class="n">yes</span><span class="o">.</span>
+</span></code></pre></div>
+</div>
+<p><strong>Field notes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">request_timeout</span></code> bounds each request, value included (unlike RDMA).
+Set it above the chunk size divided by the link bandwidth, plus server
+latency. A store that times out may still land; a later load sees either
+the old state or the whole new value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ttl_seconds</span></code> costs a separate <code class="docutils literal notranslate"><span class="pre">EXPIRE</span></code> after each store, because
+<code class="docutils literal notranslate"><span class="pre">BLOB.TCP_SET</span></code> takes no expiry argument. If the store succeeds and the
+<code class="docutils literal notranslate"><span class="pre">EXPIRE</span></code> fails, the store is reported failed but the object stays with
+no TTL until the chunk is stored again; the RDMA transport behaves the
+same.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">has_buffer_get</span></code> in the status and start-up log describes the glide
+client's plain <code class="docutils literal notranslate"><span class="pre">GET</span></code>, which <code class="docutils literal notranslate"><span class="pre">blob-tcp</span></code> does not use.</p></li>
+</ul>
+<p><strong>Configuration example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--l2-adapter<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-2"><span class="s1">    "type": "valkey",</span>
+</span><span id="line-3"><span class="s1">    "transport": "blob-tcp",</span>
+</span><span id="line-4"><span class="s1">    "startup_nodes": "kv.internal:6379",</span>
+</span><span id="line-5"><span class="s1">    "key_prefix": "lmcache-prod",</span>
+</span><span id="line-6"><span class="s1">    "num_workers": 8</span>
+</span><span id="line-7"><span class="s1">}'</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="choosing-a-transport">
+<span id="valkey-choosing-a-transport"></span><h2>Choosing a transport<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#choosing-a-transport" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#choosing-a-transport'"><span>#</span></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Transport</p></th>
+<th class="head"><p>Server commands</p></th>
+<th class="head"><p>Key type</p></th>
+<th class="head"><p>Needs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tcp</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SET</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span></code></p></td>
+<td><p>plain string</p></td>
+<td><p>any Valkey or Redis</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rdma</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">BLOB.RDMA_SET</span></code>, <code class="docutils literal notranslate"><span class="pre">BLOB.RDMA_GET</span></code></p></td>
+<td><p>module object</p></td>
+<td><p>the module, libfabric, RDMA glide, the L1 memory descriptor</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blob-tcp</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">BLOB.TCP_SET</span></code>, <code class="docutils literal notranslate"><span class="pre">BLOB.TCP_GET</span></code></p></td>
+<td><p>module object</p></td>
+<td><p>the module</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>One key type per prefix.</strong> <code class="docutils literal notranslate"><span class="pre">tcp</span></code> stores plain strings. <code class="docutils literal notranslate"><span class="pre">rdma</span></code> and
+<code class="docutils literal notranslate"><span class="pre">blob-tcp</span></code> store module objects and can share a <code class="docutils literal notranslate"><span class="pre">key_prefix</span></code>. Never use
+<code class="docutils literal notranslate"><span class="pre">tcp</span></code> on the same prefix as either. If you do:</p>
+<ul class="simple">
+<li><p>module stores and loads on a string key fail that key with a warning
+containing <code class="docutils literal notranslate"><span class="pre">WRONGTYPE</span></code>, and so does a <code class="docutils literal notranslate"><span class="pre">tcp</span></code> load of a module object;</p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">tcp</span></code> store silently replaces a module object;</p></li>
+<li><p>lookups report hits on keys the other transport wrote, and the loads that
+follow fail.</p></li>
+</ul>
+<p><strong>Switching transport on an existing prefix.</strong> From <code class="docutils literal notranslate"><span class="pre">tcp</span></code> to a module
+transport, each existing key fails until it expires or is deleted; keys
+written without <code class="docutils literal notranslate"><span class="pre">ttl_seconds</span></code> never expire. From a module transport to
+<code class="docutils literal notranslate"><span class="pre">tcp</span></code>, keys are replaced one by one as they are stored again. Use a new
+prefix instead.</p>
+<p><strong>Restarts and failover.</strong> Module objects do not survive a server restart
+or a failover to a replica: the module neither persists nor replicates
+them. Plain <code class="docutils literal notranslate"><span class="pre">tcp</span></code> keys survive when the server has RDB or AOF enabled.</p>
 </section>
 <section id="wire-key-layout">
 <h2>Wire key layout<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#wire-key-layout" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#wire-key-layout'"><span>#</span></a></h2>
@@ -565,6 +675,8 @@ across the 16384 cluster slots -- no manual key sharding is required.</p>
 <li><a :data-current="activeSection === '#why-the-valkey-adapter-vs-the-resp-adapter'" class="reference internal" href="#why-the-valkey-adapter-vs-the-resp-adapter">Why the <code class="docutils literal notranslate"><span class="pre">valkey</span></code> adapter (vs. the RESP adapter)</a></li>
 <li><a :data-current="activeSection === '#prerequisites-installing-the-glide-sync-client'" class="reference internal" href="#prerequisites-installing-the-glide-sync-client">Prerequisites -- installing the glide sync client</a></li>
 <li><a :data-current="activeSection === '#rdma-transport'" class="reference internal" href="#rdma-transport">RDMA transport</a></li>
+<li><a :data-current="activeSection === '#blob-tcp-transport'" class="reference internal" href="#blob-tcp-transport">blob-tcp transport</a></li>
+<li><a :data-current="activeSection === '#choosing-a-transport'" class="reference internal" href="#choosing-a-transport">Choosing a transport</a></li>
 <li><a :data-current="activeSection === '#wire-key-layout'" class="reference internal" href="#wire-key-layout">Wire key layout</a></li>
 </ul>
 </div>
