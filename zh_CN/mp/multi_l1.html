@@ -299,8 +299,8 @@ automatically from the managers' memory types.</p>
 <h2>Configuration<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#configuration'"><span>#</span></a></h2>
 <p>Repeat <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> in write-placement order. Each JSON object requires
 <code class="docutils literal notranslate"><span class="pre">type</span></code>, a unique non-empty <code class="docutils literal notranslate"><span class="pre">tag</span></code>, and <code class="docutils literal notranslate"><span class="pre">size_gb</span></code> (GiB). The types are
-<code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code>, and <code class="docutils literal notranslate"><span class="pre">GDS</span></code>. The <code class="docutils literal notranslate"><span class="pre">_default</span></code> tag is reserved for DRAM
-in this interface.</p>
+<code class="docutils literal notranslate"><span class="pre">DRAM</span></code>, <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code>, <code class="docutils literal notranslate"><span class="pre">GDS</span></code>, and <code class="docutils literal notranslate"><span class="pre">SHADOW</span></code>, which takes no <code class="docutils literal notranslate"><span class="pre">size_gb</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">_default</span></code> tag is reserved for DRAM in this interface.</p>
 <p>For example, use a dedicated Device-DAX device and a GDS-capable directory:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DRAM","tag":"_default","size_gb":8}'</span><span class="w"> </span><span class="se">\</span>
@@ -380,6 +380,14 @@ the device and that the offset is page aligned.</p></td>
 <td><p>Required <code class="docutils literal notranslate"><span class="pre">path</span></code>; <code class="docutils literal notranslate"><span class="pre">backend</span></code> (<code class="docutils literal notranslate"><span class="pre">auto</span></code>), <code class="docutils literal notranslate"><span class="pre">direct_io</span></code> (true).
 See <a class="reference internal" href="configuration.html"><span class="doc">配置参考</span></a> for backend requirements and location semantics.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SHADOW</span></code></p></td>
+<td><p>Required <code class="docutils literal notranslate"><span class="pre">segment</span></code> (<code class="docutils literal notranslate"><span class="pre">dram</span></code>, <code class="docutils literal notranslate"><span class="pre">cxl</span></code> or <code class="docutils literal notranslate"><span class="pre">gds</span></code>): an index of a
+peer's KV bytes served in place by a borrowing L2 adapter, such as
+GPU-direct P2P (see <a class="reference internal" href="p2p.html"><span class="doc">P2P KV 缓存共享</span></a>). It owns no memory, so it takes no
+<code class="docutils literal notranslate"><span class="pre">size_gb</span></code> or <code class="docutils literal notranslate"><span class="pre">eviction</span></code>, costs nothing while no borrower is
+attached, and cannot be the first manager, which receives the
+engine's writes.</p></td>
+</tr>
 </tbody>
 </table>
 <p>The global eviction flags supply defaults. Override them per manager with,
@@ -389,8 +397,9 @@ an eviction policy. <code class="docutils literal notranslate"><span class="pre"
 manager may free space before a later write would otherwise fail.</p>
 <p>Legacy single-L1 flags, including <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>, remain supported. Do not
 combine <code class="docutils literal notranslate"><span class="pre">--l1-manager</span></code> with legacy capacity or backend-selection flags.
-Python callers can use <code class="docutils literal notranslate"><span class="pre">DRAML1ManagerConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DevDaxL1ManagerConfig</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">GDSL1ManagerConfig</span></code>; their <code class="docutils literal notranslate"><span class="pre">from_dict</span></code> methods implement the JSON schema.</p>
+Python callers can use <code class="docutils literal notranslate"><span class="pre">DRAML1ManagerConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DevDaxL1ManagerConfig</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GDSL1ManagerConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">ShadowL1ManagerConfig</span></code>; their <code class="docutils literal notranslate"><span class="pre">from_dict</span></code>
+methods implement the JSON schema.</p>
 </section>
 <section id="placement-affinity-and-reads">
 <h2>Placement, affinity, and reads<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#placement-affinity-and-reads" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#placement-affinity-and-reads'"><span>#</span></a></h2>
