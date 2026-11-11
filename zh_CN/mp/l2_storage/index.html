@@ -406,14 +406,20 @@ Storage private to the instance (the default, <code class="docutils literal notr
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
-<td><p>对于每个键，选择第一个（索引最低的）拥有该键的适配器。预取的键是<strong>临时的</strong>（在读取完成后删除）。</p></td>
+<td><p>For each key, pick the first (lowest-indexed) adapter that has it.
+Prefetched keys are <strong>retained</strong> in L1, so later requests for the
+same prefix (e.g. a shared system prompt) hit L1.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">retain</span></code></p></td>
-<td><p>与 <code class="docutils literal notranslate"><span class="pre">default</span></code> 相同的加载计划，但预取的键将<strong>永久保留</strong>在 L1 中。当预取的数据可能被后续请求重用时（例如，共享系统提示块），此策略非常有用。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">skip_l1</span></code></p></td>
+<td><p>Same load plan as <code class="docutils literal notranslate"><span class="pre">default</span></code>, but prefetched keys are <strong>temporary</strong>
+(deleted after the reader finishes).  Use with the <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code> store
+policy for buffer-only mode.</p></td>
 </tr>
 </tbody>
 </table>
+<p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span> <span class="pre">retain</span></code> is a deprecated alias of <code class="docutils literal notranslate"><span class="pre">default</span></code> and logs
+a warning.</p>
 <section id="prefetch-concurrency">
 <h3><a class="toc-backref" href="#id6" role="doc-backlink">预取并发性</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prefetch-concurrency" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prefetch-concurrency'"><span>#</span></a></h3>
 <p>The number of concurrent L2-to-L1 prefetches is bounded by L1 memory, not
@@ -455,15 +461,19 @@ stage before new prefetch requests wait.</p></td>
 </section>
 <section id="buffer-only-mode">
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">仅缓冲区模式</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#buffer-only-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#buffer-only-mode'"><span>#</span></a></h3>
-<p>When L1 is used purely as a write buffer (all data lives in L2), use
-<code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span> <span class="pre">skip_l1</span></code> together with <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code>.
-This combination deletes keys from L1 as soon as they are stored to L2
-and disables the LRU eviction tracker entirely, reducing memory and CPU
-overhead. A key that a request is still reading when its L2 store finishes
-is deleted shortly after that read ends.</p>
+<p>When L1 is used purely as a buffer (all data lives in L2), use
+<code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span> <span class="pre">skip_l1</span></code> and <code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span> <span class="pre">skip_l1</span></code> together
+with <code class="docutils literal notranslate"><span class="pre">--eviction-policy</span> <span class="pre">noop</span></code>.
+This combination deletes keys from L1 as soon as they are stored to L2 or
+read after a prefetch, and disables the LRU eviction tracker entirely,
+reducing memory and CPU overhead. A key that a request is still reading when
+its L2 store finishes is deleted shortly after that read ends. With noop
+eviction, a prefetch policy that keeps loaded keys would fill L1, so the
+server logs a warning if the store policy is <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code> and the prefetch
+policy is <code class="docutils literal notranslate"><span class="pre">default</span></code> or <code class="docutils literal notranslate"><span class="pre">retain</span></code>.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">--eviction-policy<span class="w"> </span>noop<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2">--l2-store-policy<span class="w"> </span>skip_l1<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3">--l2-prefetch-policy<span class="w"> </span>default
+</span><span id="line-3">--l2-prefetch-policy<span class="w"> </span>skip_l1
 </span></code></pre></div>
 </div>
 <p>策略是可扩展的——可以通过在 <code class="docutils literal notranslate"><span class="pre">storage_controllers/</span></code> 中创建文件并在导入时调用 <code class="docutils literal notranslate"><span class="pre">register_store_policy()</span></code> 或 <code class="docutils literal notranslate"><span class="pre">register_prefetch_policy()</span></code> 来添加新策略。有关详细信息，请参阅设计文档 <code class="docutils literal notranslate"><span class="pre">l2_adapters/design_docs/overall.md</span></code>。</p>
