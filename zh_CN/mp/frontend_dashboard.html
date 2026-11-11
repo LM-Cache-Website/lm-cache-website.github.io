@@ -477,6 +477,13 @@ authentication, preventing unauthenticated callers from using the proxy.</p>
 For a deployment, generate independent high-entropy values and inject them
 through secret files or environment variables instead of putting them in shell
 history.</p>
+<p>Socket targets have a separate authorization boundary: the dashboard only
+connects to paths declared by the operator through <code class="docutils literal notranslate"><span class="pre">--nodes</span></code>, <code class="docutils literal notranslate"><span class="pre">--config</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">--uds-allowlist</span></code>. Nodes learned from <code class="docutils literal notranslate"><span class="pre">--node-supplier-url</span></code> may use a socket
+path only when it matches an allowlist entry; otherwise they answer <code class="docutils literal notranslate"><span class="pre">403</span></code> and
+metrics reports an error. Paths are compared after <code class="docutils literal notranslate"><span class="pre">realpath</span></code>, so <code class="docutils literal notranslate"><span class="pre">..</span></code> and
+symlinks cannot escape a declared directory. TCP nodes, from every source, keep
+using the registered host and port allowlist.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p>仪表板在加载主页时，最多每 30 秒自动从供应商 URL 刷新一次节点列表。</p>
@@ -523,37 +530,47 @@ history.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span></code></p></td>
 <td><p>(内置)</p></td>
-<td><p>代理节点的 JSON 配置文件路径。当未设置 <code class="docutils literal notranslate"><span class="pre">--node-supplier-url</span></code> 时使用。</p></td>
+<td><p>Path to a JSON config file listing proxy nodes.  Used when
+<code class="docutils literal notranslate"><span class="pre">--node-supplier-url</span></code> is not set. Unix socket paths in this file are
+added to the startup UDS allowlist.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--nodes</span></code></p></td>
 <td><p>(无)</p></td>
-<td><p>节点字典的内联 JSON 数组，例如 <code class="docutils literal notranslate"><span class="pre">'[{\"name\":\"n1\",\"host\":\"127.0.0.1\",\"port\":\"8085\"}]'</span></code>。</p></td>
+<td><p>Inline JSON array of node dicts, e.g.
+<code class="docutils literal notranslate"><span class="pre">'[{"name":"n1","host":"127.0.0.1","port":"8085"}]'</span></code>.
+Unix socket paths in this value are added to the startup UDS allowlist.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--heartbeat-url</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--uds-allowlist</span></code></p></td>
+<td><p>(无)</p></td>
+<td><p>Socket path or directory the dashboard may reach. Repeatable and
+comma-separated; a directory, or a value ending in <code class="docutils literal notranslate"><span class="pre">/</span></code>, covers every
+socket below it. Needed for supplier-discovered sockets.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--heartbeat-url</span></code></p></td>
 <td><p>(无)</p></td>
 <td><p>如果设置，仪表板本身也会向此 URL 发送心跳。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--report-host</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--report-host</span></code></p></td>
 <td><p><em>(auto)</em></p></td>
 <td><p>Host reported in the heartbeat <code class="docutils literal notranslate"><span class="pre">api_address</span></code>. When set, skips
 <code class="docutils literal notranslate"><span class="pre">get_local_ip()</span></code> auto-detection. Useful for local dev where the
 auto-detected IP is not reachable from the discovery service side.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">warning</span></code></p></td>
 <td><p>Uvicorn 日志级别 (<code class="docutils literal notranslate"><span class="pre">debug</span></code>, <code class="docutils literal notranslate"><span class="pre">info</span></code>, <code class="docutils literal notranslate"><span class="pre">warning</span></code>, …)。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-http</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-http</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>禁用 HTTP 服务器；仅运行心跳循环。由 MP 插件内部使用。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code></p></td>
 <td><p>(无)</p></td>
 <td><p>Read an accepted frontend Bearer key from a file. Repeat the option
 during key rotation. Environment alternatives are
 <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY_FILE</span></code> and <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--backend-http-api-key-file</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--backend-http-api-key-file</span></code></p></td>
 <td><p>(无)</p></td>
 <td><p>Read the Bearer key sent to backend LMCache HTTP servers. Environment
 alternatives are <code class="docutils literal notranslate"><span class="pre">LMCACHE_FRONTEND_BACKEND_API_KEY_FILE</span></code> and
