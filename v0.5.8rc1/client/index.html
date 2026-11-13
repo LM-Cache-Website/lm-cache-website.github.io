@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+
+<html :class="{'dark': darkMode === 'dark' || (darkMode === 'system' &amp;&amp; window.matchMedia('(prefers-color-scheme: dark)').matches)}" class="scroll-smooth" data-content_root="../" lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') || localStorage.setItem('darkMode', 'system'), activeSection: '' }" x-init="$watch('darkMode', val =&gt; localStorage.setItem('darkMode', val))">
+<head>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Client distribution: choosing between lmcache and lmcache-client | LMCache</title>
+<meta content="Client distribution: choosing between lmcache and lmcache-client | LMCache" property="og:title"/>
+<meta content="Client distribution: choosing between lmcache and lmcache-client | LMCache" name="twitter:title"/>
+<link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
+<link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinx-design.min.css?v=6a604523" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/css/lightbox.min.css?v=6e7d0de0" rel="stylesheet" type="text/css"/>
+<link href="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/pointer.css?v=c97663ff" rel="stylesheet" type="text/css"/>
+<link href="../_static/custom.css?v=50467718" rel="stylesheet" type="text/css"/>
+<link href="../_static/scroll.css?v=90cbe02d" rel="stylesheet" type="text/css"/>
+<link href="../_static/awesome-sphinx-design.css?v=15e0fffa" rel="stylesheet" type="text/css"/>
+<link href="../_static/lmcache-logo.png" rel="icon"/>
+<link href="../search.html" rel="search" title="Search"/>
+<link href="../genindex.html" rel="index" title="Index"/>
+<link href="../interacting_with_server.html" rel="next" title="KV Cache Operations"/>
+<link href="../platform/devices/xpu/index.html" rel="prev" title="XPU"/>
+<script>
+    <!-- Prevent Flash of wrong theme -->
+      const userPreference = localStorage.getItem('darkMode');
+      let mode;
+      if (userPreference === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        mode = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        mode = 'light';
+      }
+      if (!userPreference) {localStorage.setItem('darkMode', mode)}
+    </script>
+</head>
+<body :class="{ 'overflow-hidden': showSidebar }" class="min-h-screen font-sans antialiased bg-background text-foreground" x-data="{ showSidebar: false, showScrollTop: false }">
+<div @click.self="showSidebar = false" class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden" x-cloak="" x-show="showSidebar"></div><div class="relative flex flex-col min-h-screen" id="page"><a class="absolute top-0 left-0 z-[100] block bg-background p-4 text-xl transition -translate-x-full opacity-0 focus:translate-x-0 focus:opacity-100" href="#content">
+      Skip to content
+    </a><header class="sticky top-0 z-40 w-full border-b shadow-sm border-border supports-backdrop-blur:bg-background/60 bg-background/95 backdrop-blur"><div class="container flex items-center h-14">
+<div class="hidden mr-4 md:flex">
+<a class="flex items-center mr-6" href="../index.html"><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">LMCache</span>
+</a></div><button @click="showSidebar = true" class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden" type="button">
+<svg aria-hidden="true" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M152.587 825.087q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440Zm0-203.587q-19.152 0-32.326-13.174T107.087 576q0-19.152 13.174-32.326t32.326-13.174h320q19.152 0 32.326 13.174T518.087 576q0 19.152-13.174 32.326T472.587 621.5h-320Zm0-203.587q-19.152 0-32.326-13.174t-13.174-32.326q0-19.152 13.174-32.326t32.326-13.174h440q19.152 0 32.326 13.174t13.174 32.326q0 19.152-13.174 32.326t-32.326 13.174h-440ZM708.913 576l112.174 112.174q12.674 12.674 12.674 31.826t-12.674 31.826Q808.413 764.5 789.261 764.5t-31.826-12.674l-144-144Q600 594.391 600 576t13.435-31.826l144-144q12.674-12.674 31.826-12.674t31.826 12.674q12.674 12.674 12.674 31.826t-12.674 31.826L708.913 576Z"></path>
+</svg>
+<span class="sr-only">Toggle navigation menu</span>
+</button>
+<div class="flex items-center justify-between flex-1 space-x-2 sm:space-x-4 md:justify-end">
+<div class="flex-1 w-full md:w-auto md:flex-none"><form @keydown.k.window.meta="$refs.search.focus()" action="../search.html" class="relative flex items-center group" id="searchbox" method="get">
+<input aria-label="Search the docs" class="inline-flex items-center font-medium transition-colors bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background border border-input hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground hover:placeholder-accent-foreground py-2 px-4 relative h-9 w-full justify-start rounded-[0.5rem] text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64" id="search-input" name="q" placeholder="Search ..." type="search" x-ref="search"/>
+<kbd class="pointer-events-none absolute right-1.5 top-2 hidden h-5 select-none text-muted-foreground items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex group-hover:bg-accent group-hover:text-accent-foreground">
+<span class="text-xs">⌘</span>
+    K
+  </kbd>
+</form>
+</div>
+<nav class="flex items-center space-x-1">
+<a href="https://github.com/LMCache/LMCache/" rel="noopener nofollow" title="Visit GitHub">
+<div class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md disabled:opacity-50 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground h-9 w-9">
+<svg fill="currentColor" height="26px" style="margin-top:-2px;display:inline" viewbox="0 0 45 44" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223                 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412                 -3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232                  3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474                 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24                  44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor" fill-rule="evenodd"></path></svg>
+</div>
+</a>
+<button @click="darkMode = darkMode === 'light' ? 'dark' : 'light'" aria-label="Color theme switcher" class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9" type="button">
+<svg class="absolute transition-all scale-100 rotate-0 dark:-rotate-90 dark:scale-0" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 685q45.456 0 77.228-31.772Q589 621.456 589 576q0-45.456-31.772-77.228Q525.456 467 480 467q-45.456 0-77.228 31.772Q371 530.544 371 576q0 45.456 31.772 77.228Q434.544 685 480 685Zm0 91q-83 0-141.5-58.5T280 576q0-83 58.5-141.5T480 376q83 0 141.5 58.5T680 576q0 83-58.5 141.5T480 776ZM80 621.5q-19.152 0-32.326-13.174T34.5 576q0-19.152 13.174-32.326T80 530.5h80q19.152 0 32.326 13.174T205.5 576q0 19.152-13.174 32.326T160 621.5H80Zm720 0q-19.152 0-32.326-13.174T754.5 576q0-19.152 13.174-32.326T800 530.5h80q19.152 0 32.326 13.174T925.5 576q0 19.152-13.174 32.326T880 621.5h-80Zm-320-320q-19.152 0-32.326-13.174T434.5 256v-80q0-19.152 13.174-32.326T480 130.5q19.152 0 32.326 13.174T525.5 176v80q0 19.152-13.174 32.326T480 301.5Zm0 720q-19.152 0-32.326-13.17Q434.5 995.152 434.5 976v-80q0-19.152 13.174-32.326T480 850.5q19.152 0 32.326 13.174T525.5 896v80q0 19.152-13.174 32.33-13.174 13.17-32.326 13.17ZM222.174 382.065l-43-42Q165.5 327.391 166 308.239t13.174-33.065q13.435-13.674 32.587-13.674t32.065 13.674l42.239 43q12.674 13.435 12.555 31.706-.12 18.272-12.555 31.946-12.674 13.674-31.445 13.413-18.772-.261-32.446-13.174Zm494 494.761-42.239-43q-12.674-13.435-12.674-32.087t12.674-31.565Q686.609 756.5 705.38 757q18.772.5 32.446 13.174l43 41.761Q794.5 824.609 794 843.761t-13.174 33.065Q767.391 890.5 748.239 890.5t-32.065-13.674Zm-42-494.761Q660.5 369.391 661 350.62q.5-18.772 13.174-32.446l41.761-43Q728.609 261.5 747.761 262t33.065 13.174q13.674 13.435 13.674 32.587t-13.674 32.065l-43 42.239q-13.435 12.674-31.706 12.555-18.272-.12-31.946-12.555Zm-495 494.761Q165.5 863.391 165.5 844.239t13.674-32.065l43-42.239q13.435-12.674 32.087-12.674t31.565 12.674Q299.5 782.609 299 801.38q-.5 18.772-13.174 32.446l-41.761 43Q231.391 890.5 212.239 890t-33.065-13.174ZM480 576Z"></path>
+</svg>
+<svg class="absolute transition-all scale-0 rotate-90 dark:rotate-0 dark:scale-100" fill="currentColor" height="24" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 936q-151 0-255.5-104.5T120 576q0-138 90-239.5T440 218q25-3 39 18t-1 44q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q21-14 43-1.5t19 39.5q-14 138-117.5 229T480 936Zm0-80q88 0 158-48.5T740 681q-20 5-40 8t-40 3q-123 0-209.5-86.5T364 396q0-20 3-40t8-40q-78 32-126.5 102T200 576q0 116 82 198t198 82Zm-10-270Z"></path>
+</svg>
+</button>
+</nav>
+</div>
+</div>
+</header>
+<div class="flex-1"><div class="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"><aside :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }" class="fixed inset-y-0 left-0 md:top-14 z-50 md:z-30 bg-background md:bg-transparent transition-all duration-100 -translate-x-full md:translate-x-0 ml-0 p-6 md:p-0 md:-ml-2 md:h-[calc(100vh-3.5rem)] w-5/6 md:w-full shrink-0 overflow-y-auto border-r border-border md:sticky" id="left-sidebar">
+<a class="!justify-start text-sm md:!hidden bg-background" href="../index.html"><span class="font-bold text-clip whitespace-nowrap">LMCache</span>
+</a>
+<div class="relative overflow-hidden md:overflow-auto my-4 md:my-0 h-[calc(100vh-8rem)] md:h-auto">
+<div class="overflow-y-auto h-full w-full relative pr-6"><nav class="table w-full min-w-full my-6 lg:my-8">
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../getting_started/index.html">Getting Started<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/index.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/compatibility.html">vLLM and LMCache compatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/configuration.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/benchmarking.html">Benchmarking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/kv_cache_calculator.html">KV Cache Size Calculator</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../platform/index.html">Platform<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/cpu/index.html">CPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/cuda/index.html">CUDA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/hpu/index.html">HPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/mlu/index.html">Cambricon MLU Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/musa/index.html">musa-aiter with LMCache on MUSA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/neuron/index.html">Neuron</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/npu/index.html">NPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/rbln/index.html">Rebellions NPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/rocm/index.html">ROCm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/supa/index.html">SUPA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../platform/devices/xpu/index.html">XPU</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Client distribution: choosing between <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../interacting_with_server.html">KV Cache Operations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../cli/index.html">CLI Reference<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../cli/server.html">lmcache server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/coordinator.html">lmcache coordinator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/describe.html">lmcache describe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/ping.html">lmcache ping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/query.html">lmcache query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/bench.html">lmcache bench</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/kvcache.html">lmcache kvcache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/quota.html">lmcache quota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/trace.html">lmcache trace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/tool.html">lmcache tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/http_api.html">HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/frontend_dashboard.html">Frontend Dashboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/sdk.html">KV Cache SDK</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/index.html">Recipes<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/uniform_attention_models.html">Uniform Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m2.html">MiniMax M2 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/devstral.html">Mistral / Devstral</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3.html">Qwen3 MoE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/llama.html">Llama</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/phi3.html">Phi-3 / Phi-4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/mixtral.html">Mixtral</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/hybrid_models.html">Hybrid Attention Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma3.html">Gemma 3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gemma4.html">Gemma 4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/gpt_oss.html">gpt-oss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_5.html">Qwen3.5 / Qwen3.6 / Qwen3.8 series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen3_8_flash_next.html">Qwen3.8-Flash-Next</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/kimi_linear.html">Kimi-Linear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/kimi_k3.html">Kimi K3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v4_flash.html">DeepSeek-V4-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/deepseek_v41_flash.html">DeepSeek-V4.1-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_2.html">GLM 5.1/5.2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_3.html">GLM-5.3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/glm5_3_flash.html">GLM-5.3-Flash</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../recipes/minimax_m3.html">MiniMax M3</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../recipes/multimodal_models.html">Multimodal Models<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../recipes/qwen2_5_vl.html">Qwen2.5-VL (multimodal)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/index.html">Secondary KV Storage<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/supported_storages.html">Supported Backends<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/nixl.html">NIXL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/nixl_native.html">Native NIXL</a></li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/file_and_block.html">File &amp; Block<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs.html">FileSystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/fs_native.html">FS (native)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/raw_block.html">Raw Block (Rust)</a></li>
+</ul>
+</li>
+<li class="toctree-l3" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/l2_storage/remote_and_distributed.html">Remote &amp; Distributed<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/bigtable.html">Bigtable</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/sagemaker_hyperpod.html">SageMaker HyperPod</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/s3.html">S3</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/hfbucket.html">HF Bucket</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/mooncake_store.html">Mooncake Store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/resp.html">RESP (Redis/Valkey)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/valkey.html">Valkey</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/aerospike.html">Aerospike</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/hf3fs.html">Hf3fs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mp/l2_storage/wqs.html">WQS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/dax.html">DAX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/mock.html">Mock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/fault_inject.html">Fault Inject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mp/l2_storage/plugin.html">Plugin (Custom / External)</a></li>
+</ul>
+</li>
+<li class="toctree-l2" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/serde.html">KV Cache Compression<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="../mp/cachegen.html">CacheGen</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/disaggregated_prefill.html">Disaggregated Prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/p2p.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/coordinator.html">Multi-Server Coordination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/kv_cache_management.html">KV Cache Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../production/index.html">Use LMCache in Production<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/deployment.html">Deployment Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/kubernetes_deployment.html">Kubernetes Deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/docker_deployment.html">Docker deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/index.html">Observability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/operator.html">Kubernetes Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/dynamo_coordination.html">Dynamo Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../production/llm_d.html">llm-d Integration</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../mp/observability/index.html">Observability<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/logs.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/observability/traces.html">Tracing</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../community/index.html">Community<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../community/faq.html">Frequently asked questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/meetings.html">Community meetings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../community/blogs.html">Blogs</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../kv_cache_optimizations/index.html">KV Cache Optimizations<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/cacheblend.html">CacheBlend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kv_cache_optimizations/segmented_prefill.html">Segmented Prefill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mp/lazy_offload.html">Lazy KV Cache Offload</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../developer_guide/index.html">Developer Guide<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/contributing.html">Contributing Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/integration.html">Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/storage_plugins.html">Storage Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/usage/index.html">Usage Data Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/native_connectors.html">Adding Native Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/adding_a_new_device_backend.html">Adding a New Device Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_lmcache/server_modules.html">Server Module Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/cli.html">Extending the CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/extending_http_api.html">Extending the HTTP API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide/cache_identity.html">Cache identity tags</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../non_kv_cache/index.html">Non-KV Caching<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l2"><a class="reference internal" href="../non_kv_cache/encodings.html">Encodings</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+<button @click="showSidebar = false" class="absolute md:hidden right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" type="button">
+<svg class="h-4 w-4" fill="currentColor" height="24" stroke="none" viewbox="0 96 960 960" width="24" xmlns="http://www.w3.org/2000/svg">
+<path d="M480 632 284 828q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536 576l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480 632Z"></path>
+</svg>
+</button>
+</aside>
+<main class="relative py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_300px]">
+<div class="w-full min-w-0 mx-auto">
+<nav aria-label="breadcrumbs" class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
+<a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground" href="../index.html">
+<span class="hidden md:inline">LMCache</span>
+<svg aria-label="Home" class="md:hidden" fill="currentColor" height="18" stroke="none" viewbox="0 96 960 960" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
+</svg>
+</a>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Client distribution: choosing between <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code></span>
+</nav>
+<div id="content" role="main">
+<section id="client-distribution-choosing-between-lmcache-and-lmcache-client">
+<span id="lmcache-client-distribution"></span><h1>Client distribution: choosing between <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#client-distribution-choosing-between-lmcache-and-lmcache-client"><span>#</span></a></h1>
+<p>This page covers which LMCache distribution to install on an inference worker,
+how to install and replace it, how to configure the SDK and the supported
+engine integrations, and how to troubleshoot the problems that come up when a
+worker and a server are installed from different packages.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code> is not published yet. The distribution is defined in
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6305">#6305</a> and its build and
+release work is tracked in
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6315">#6315</a> and
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6316">#6316</a>. Sections below
+that describe the client wheel say so explicitly; today the installable
+distribution is <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>.</p>
+</div>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#two-distributions-one-import-namespace" id="id9">Two distributions, one import namespace</a></p>
+<ul>
+<li><p><a class="reference internal" href="#decision-guide" id="id10">Decision guide</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#installation" id="id11">Installation</a></p>
+<ul>
+<li><p><a class="reference internal" href="#prerequisites" id="id12">Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#installing-the-full-distribution" id="id13">Installing the full distribution</a></p></li>
+<li><p><a class="reference internal" href="#optional-extras" id="id14">Optional extras</a></p></li>
+<li><p><a class="reference internal" href="#installing-the-client-distribution" id="id15">Installing the client distribution</a></p></li>
+<li><p><a class="reference internal" href="#replacing-upgrading-and-uninstalling" id="id16">Replacing, upgrading and uninstalling</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#sdk-and-engine-integration-configuration" id="id17">SDK and engine integration configuration</a></p></li>
+<li><p><a class="reference internal" href="#a-minimal-client-server-request" id="id18">A minimal client/server request</a></p></li>
+<li><p><a class="reference internal" href="#troubleshooting" id="id19">Troubleshooting</a></p>
+<ul>
+<li><p><a class="reference internal" href="#both-distributions-installed" id="id20">Both distributions installed</a></p></li>
+<li><p><a class="reference internal" href="#dependency-conflicts-with-the-engine" id="id21">Dependency conflicts with the engine</a></p></li>
+<li><p><a class="reference internal" href="#optional-engine-not-installed" id="id22">Optional engine not installed</a></p></li>
+<li><p><a class="reference internal" href="#cuda-ops-extension-warning-on-a-stock-wheel" id="id23"><code class="docutils literal notranslate"><span class="pre">cuda_ops</span></code> extension warning on a stock wheel</a></p></li>
+<li><p><a class="reference internal" href="#native-library-or-runtime-mismatch" id="id24">Native library or runtime mismatch</a></p></li>
+<li><p><a class="reference internal" href="#protocol-or-version-mismatch-between-client-and-server" id="id25">Protocol or version mismatch between client and server</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#contributing" id="id26">Contributing</a></p></li>
+</ul>
+</nav>
+<section id="two-distributions-one-import-namespace">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Two distributions, one import namespace</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#two-distributions-one-import-namespace" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#two-distributions-one-import-namespace'"><span>#</span></a></h2>
+<p>LMCache is currently released as a single wheel containing the engine
+adapters, client transport, server execution, storage backends and
+control-plane services. That means an inference worker installs and upgrades
+server code it never executes. The plan in
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6305">#6305</a> adds a second,
+lighter distribution for that case.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">What each distribution contains</span><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id7"><span>#</span></a></caption>
+<colgroup>
+<col style="width: 26.0%"/>
+<col style="width: 37.0%"/>
+<col style="width: 37.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Distribution</p></th>
+<th class="head"><p>Contents</p></th>
+<th class="head"><p>Use it when</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache</span></code></p></td>
+<td><p>The complete product surface: client, common, transport, platform,
+engine integrations, SDK and all four server-side services (cache
+server, fleet frontend, MP coordinator, memory orchestrator).</p></td>
+<td><p>You run a server, or you want one package for a worker and a server on
+the same host.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code> (planned)</p></td>
+<td><p>A strict subset selected from the same sources: client, common,
+transport, the client-required platform closure, the engine
+integrations and the SDK. Server service implementations and their
+server-only dependencies are omitted.</p></td>
+<td><p>You only run inference workers that talk to an LMCache server started
+elsewhere.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Both distributions expose the <strong>same ``lmcache`` import namespace</strong>. They are
+alternatives for an environment, not packages to install side by side:
+installing both means two distributions own the same module files, which makes
+uninstall and upgrade behavior ambiguous. The full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> wheel remains the
+superset and keeps every existing public import, CLI entry point and feature.</p>
+<section id="decision-guide">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Decision guide</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#decision-guide" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#decision-guide'"><span>#</span></a></h3>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">Choosing a distribution</span><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#id8"><span>#</span></a></caption>
+<colgroup>
+<col style="width: 50.0%"/>
+<col style="width: 50.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>If you …</p></th>
+<th class="head"><p>Install</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>start <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> on this host</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>run only <code class="docutils literal notranslate"><span class="pre">vllm</span> <span class="pre">serve</span></code> / an engine process that connects to a remote
+LMCache server, and never start a server here</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code> once it is released; <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> until then</p></td>
+</tr>
+<tr class="row-even"><td><p>run the fleet frontend, MP coordinator or memory orchestrator</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>need a backend or CLI that ships with the cache server</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>are unsure</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lmcache</span></code> — it is a superset, so nothing is missing</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="installation">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Installation</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installation'"><span>#</span></a></h2>
+<p>The commands below run in a clean environment. They do not assume a source
+checkout, a developer virtualenv or a machine-local path.</p>
+<section id="prerequisites">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Prerequisites</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Requirement</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Operating system</p></td>
+<td><p>Linux for GPU deployments. Check the release notes for other platforms.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Python</p></td>
+<td><p>Check the <code class="docutils literal notranslate"><span class="pre">Requires-Python</span></code> of the wheel you are installing and use that
+minor version. The declared range and the versions a release actually
+resolves on are not the same: <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 0.5.6 declares <code class="docutils literal notranslate"><span class="pre">&gt;=3.10</span></code>, but a
+clean Python 3.10 environment fails to resolve because a dependency needs
+3.11 or newer. Python 3.12 installs cleanly.</p></td>
+</tr>
+<tr class="row-even"><td><p>Accelerator runtime</p></td>
+<td><p>The CUDA, ROCm or other runtime must match the wheel flavor. See
+<a class="reference internal" href="../getting_started/compatibility.html"><span class="doc">vLLM and LMCache compatibility</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>vLLM (optional)</p></td>
+<td><p>Needed only for the vLLM integration. Version pairing is described in
+<a class="reference internal" href="../getting_started/compatibility.html"><span class="doc">vLLM and LMCache compatibility</span></a>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="installing-the-full-distribution">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Installing the full distribution</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installing-the-full-distribution" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installing-the-full-distribution'"><span>#</span></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
+</span><span id="line-2"><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</span><span id="line-3">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>lmcache
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">venv</span></code> does not install <code class="docutils literal notranslate"><span class="pre">pip</span></code> into the environment, so use <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span></code>
+inside it (as above) rather than <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">lmcache</span></code> installs the same wheel. See
+<a class="reference internal" href="../getting_started/installation.html"><span class="doc">Installation</span></a> for the per-CUDA-version tabs and the
+GitHub release channel used for some CUDA builds.</p>
+</section>
+<section id="optional-extras">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Optional extras</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#optional-extras" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#optional-extras'"><span>#</span></a></h3>
+<p>Extras depend on the build profile and differ between an editable install from
+a checkout and the wheel published to PyPI; <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 0.5.6 on PyPI reports
+<code class="docutils literal notranslate"><span class="pre">kafka</span></code> and <code class="docutils literal notranslate"><span class="pre">nixl</span></code>. Do not assume a fixed set, ask the installed wheel:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import importlib.metadata as m; print(sorted(m.metadata('lmcache').get_all('Provides-Extra') or []))"</span>
+</span></code></pre></div>
+</div>
+</section>
+<section id="installing-the-client-distribution">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Installing the client distribution</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installing-the-client-distribution" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installing-the-client-distribution'"><span>#</span></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code> is not on PyPI yet. The commands, extras and version
+matrix for it are added once the wheel exists
+(<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6315">#6315</a>). Until then,
+install <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> on the worker as shown above; it contains the same
+client code.</p>
+</div>
+</section>
+<section id="replacing-upgrading-and-uninstalling">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Replacing, upgrading and uninstalling</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#replacing-upgrading-and-uninstalling" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#replacing-upgrading-and-uninstalling'"><span>#</span></a></h3>
+<p>Because <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> and <code class="docutils literal notranslate"><span class="pre">lmcache-client</span></code> share the <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> namespace,
+switching between them is a replacement, not a co-installation. The safe
+sequence is uninstall first, then install the other distribution:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>lmcache<span class="w"> </span>lmcache-client
+</span><span id="line-2">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>lmcache
+</span></code></pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not install both distributions into one environment. If both are already
+present, uninstall both and reinstall the one you need — see
+<a class="reference internal" href="#client-troubleshooting-coinstall"><span class="std std-ref">Both distributions installed</span></a>.</p>
+</div>
+<p>To upgrade within a distribution, reinstall it and let the resolver move the
+version:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>lmcache
+</span></code></pre></div>
+</div>
+</section>
+</section>
+<section id="sdk-and-engine-integration-configuration">
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">SDK and engine integration configuration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#sdk-and-engine-integration-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#sdk-and-engine-integration-configuration'"><span>#</span></a></h2>
+<p>The SDK is the programmatic client. It connects to a running LMCache server and
+is described in detail in <a class="reference internal" href="../mp/sdk.html"><span class="doc">KV Cache SDK</span></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># First Party</span>
+</span><span id="line-2"><span class="kn">from</span><span class="w"> </span><span class="nn">lmcache.sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">LMCacheSDKCacheKind</span><span class="p">,</span> <span class="n">connect</span>
+</span><span id="line-3">
+</span><span id="line-4"><span class="n">ctx</span> <span class="o">=</span> <span class="n">connect</span><span class="p">(</span>
+</span><span id="line-5">    <span class="n">kind</span><span class="o">=</span><span class="n">LMCacheSDKCacheKind</span><span class="o">.</span><span class="n">KV</span><span class="p">,</span>
+</span><span id="line-6">    <span class="n">url</span><span class="o">=</span><span class="s2">"tcp://localhost:5555"</span><span class="p">,</span>     <span class="c1"># multiprocess request endpoint</span>
+</span><span id="line-7">    <span class="n">http_url</span><span class="o">=</span><span class="s2">"http://localhost:8080"</span><span class="p">,</span>
+</span><span id="line-8">    <span class="n">model_name</span><span class="o">=</span><span class="s2">"Qwen/Qwen2.5-0.5B-Instruct"</span><span class="p">,</span>
+</span><span id="line-9"><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">url</span></code> scheme selects the transport (<code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ, <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for
+gRPC). <code class="docutils literal notranslate"><span class="pre">model_name</span></code> must match the name the server was started for; a
+mismatch shows up as a lookup that never resolves rather than an error.</p>
+<p>Engine integrations stay at their existing import paths (<code class="docutils literal notranslate"><span class="pre">lmcache.integration</span></code>
+for vLLM, SGLang and TensorRT-LLM adapters) in both distributions. The engine
+library itself remains an optional dependency: installing LMCache does not pull
+a specific inference engine, so install the engine you use and configure the
+connector as described in <a class="reference internal" href="../mp/index.html"><span class="doc">Overview</span></a>.</p>
+</section>
+<section id="a-minimal-client-server-request">
+<h2><a class="toc-backref" href="#id18" role="doc-backlink">A minimal client/server request</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#a-minimal-client-server-request" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#a-minimal-client-server-request'"><span>#</span></a></h2>
+<p>The smallest end-to-end check is one server, one worker, and a prompt sent
+twice so the second request reuses the cached prefix.</p>
+<p>Start the server in one terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</span></code></pre></div>
+</div>
+<p>Start the engine in another, pointing the MP connector at that server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">  </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-3"><span class="s1">    "kv_connector": "LMCacheMPConnector",</span>
+</span><span id="line-4"><span class="s1">    "kv_connector_module_path": "lmcache.integration.vllm.lmcache_mp_connector",</span>
+</span><span id="line-5"><span class="s1">    "kv_role": "kv_both",</span>
+</span><span id="line-6"><span class="s1">    "kv_connector_extra_config": {</span>
+</span><span id="line-7"><span class="s1">      "lmcache.mp.host": "localhost",</span>
+</span><span id="line-8"><span class="s1">      "lmcache.mp.port": 5555</span>
+</span><span id="line-9"><span class="s1">    }</span>
+</span><span id="line-10"><span class="s1">  }'</span>
+</span></code></pre></div>
+</div>
+<p>Send the same prompt twice, then read the two cache-reuse signals:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"># server log, first request
+</span><span id="line-2">Stored 432 tokens in 0.221 seconds
+</span><span id="line-3">
+</span><span id="line-4"># server log, second request with the same prefix
+</span><span id="line-5">Retrieved 432 tokens in 0.037 seconds
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Stored</span></code> on the first request and <code class="docutils literal notranslate"><span class="pre">Retrieved</span></code> on the second is the signal
+that the client and the server agree on the cache. A second <code class="docutils literal notranslate"><span class="pre">Stored</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">Retrieved</span></code> means the request missed — see the troubleshooting section.</p>
+<p>The same prefix must produce the same object keys on both sides. Cache identity
+covers the model name, the KV layout, and (for the MP connector) the model
+revision or tag you configured; <a class="reference internal" href="../developer_guide/cache_identity.html"><span class="doc">Cache identity tags</span></a>
+describes the contract.</p>
+</section>
+<section id="troubleshooting">
+<span id="client-troubleshooting"></span><h2><a class="toc-backref" href="#id19" role="doc-backlink">Troubleshooting</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#troubleshooting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#troubleshooting'"><span>#</span></a></h2>
+<section id="both-distributions-installed">
+<span id="client-troubleshooting-coinstall"></span><h3><a class="toc-backref" href="#id20" role="doc-backlink">Both distributions installed</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#both-distributions-installed" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#both-distributions-installed'"><span>#</span></a></h3>
+<p>Symptoms vary by tool: files owned by the other distribution, an import that
+resolves to a path you did not expect, or a version that keeps reverting after
+an upgrade. Confirm what owns the module, then replace instead of co-install:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import lmcache, importlib.metadata as m; print(lmcache.__file__); print(m.version('lmcache'))"</span>
+</span></code></pre></div>
+</div>
+<p>If more than one distribution claims the namespace, uninstall both and install
+one:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>lmcache<span class="w"> </span>lmcache-client
+</span><span id="line-2">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>lmcache
+</span></code></pre></div>
+</div>
+</section>
+<section id="dependency-conflicts-with-the-engine">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Dependency conflicts with the engine</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#dependency-conflicts-with-the-engine" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#dependency-conflicts-with-the-engine'"><span>#</span></a></h3>
+<p>An engine that pins a different version of a shared dependency will either fail
+resolution or downgrade it. Prefer installing into a fresh environment, and let
+the resolver report the conflict rather than forcing a version:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
+</span><span id="line-2"><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</span><span id="line-3">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>lmcache
+</span><span id="line-4">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>vllm
+</span></code></pre></div>
+</div>
+<p>When resolution fails, the message names the two requirements; choose the engine
+and LMCache pair documented in <a class="reference internal" href="../getting_started/compatibility.html"><span class="doc">vLLM and LMCache compatibility</span></a> rather
+than forcing <code class="docutils literal notranslate"><span class="pre">--no-deps</span></code>.</p>
+</section>
+<section id="optional-engine-not-installed">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Optional engine not installed</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#optional-engine-not-installed" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#optional-engine-not-installed'"><span>#</span></a></h3>
+<p>The integrations are optional on purpose, so importing one without its engine
+raises <code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> for the engine module, not for <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>.
+Install the engine you actually run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>vllm
+</span></code></pre></div>
+</div>
+<p>Inside a worker process, <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> fails fast when vLLM is absent;
+plugins and other engine adapters are skipped at registration instead.</p>
+</section>
+<section id="cuda-ops-extension-warning-on-a-stock-wheel">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">cuda_ops</span></code> extension warning on a stock wheel</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#cuda-ops-extension-warning-on-a-stock-wheel" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#cuda-ops-extension-warning-on-a-stock-wheel'"><span>#</span></a></h3>
+<p>Importing a wheel that does not ship the compiled CUDA ops logs this once:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">WARNING: lmcache.cuda_ops compiled extension not found; CudaDeviceOps stays on the torch baseline
+</span></code></pre></div>
+</div>
+<p>That is expected for a plain wheel: the device ops fall back to the torch
+implementation. It matters only if you expected the native kernels, for example
+because you built with the CUDA extension profile; then check that the installed
+wheel is the one you built, as described below.</p>
+</section>
+<section id="native-library-or-runtime-mismatch">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Native library or runtime mismatch</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#native-library-or-runtime-mismatch" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#native-library-or-runtime-mismatch'"><span>#</span></a></h3>
+<p>A wheel built for a different accelerator runtime fails while loading its
+native extension, typically with an <code class="docutils literal notranslate"><span class="pre">ImportError</span></code> mentioning a <code class="docutils literal notranslate"><span class="pre">.so</span></code> file or
+a driver API. Two checks isolate it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import torch; print(torch.__version__, torch.version.cuda)"</span>
+</span><span id="line-2">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import lmcache; print(lmcache.__file__)"</span>
+</span></code></pre></div>
+</div>
+<p>The first prints the runtime the wheel must match; the second shows whether the
+import reaches the wheel you intended. Use the wheel flavor that matches the
+runtime, or build from source against the already-installed PyTorch as described
+in <a class="reference internal" href="../getting_started/compatibility.html"><span class="doc">vLLM and LMCache compatibility</span></a>.</p>
+</section>
+<section id="protocol-or-version-mismatch-between-client-and-server">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Protocol or version mismatch between client and server</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#protocol-or-version-mismatch-between-client-and-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#protocol-or-version-mismatch-between-client-and-server'"><span>#</span></a></h3>
+<p>The MP transport requires the client and server to agree on the wire format and
+on the cache identity. A mismatch shows up as one of:</p>
+<ul class="simple">
+<li><p>a handshake failure at connector or SDK startup;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tcp://</span></code> requests that time out instead of returning a lookup result;</p></li>
+<li><p>a server that stores objects but never retrieves them, because the two sides
+compute different object keys (see the cache-identity contract).</p></li>
+</ul>
+<p>Check both sides first. <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> has no top-level <code class="docutils literal notranslate"><span class="pre">--version</span></code> flag, so
+read the installed distribution version on each host:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import importlib.metadata as m; print(m.version('lmcache'))"</span>
+</span></code></pre></div>
+</div>
+<p>Install the same LMCache release on the worker and on the server host. The MP
+transport has been changed in place before (request keys, transfer modes), so a
+mixed pair is not supported for those fields.</p>
+</section>
+</section>
+<section id="contributing">
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">Contributing</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#contributing" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#contributing'"><span>#</span></a></h2>
+<p>The distribution split is tracked in
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/6305">#6305</a>; the package layout and
+migration rules are in
+<a class="reference external" href="https://github.com/LMCache/LMCache/blob/92a1ffc8b7307c0ca1ec144227d42cdb99900224/docs/design/v1/package_boundaries.md">docs/design/v1/package_boundaries.md</a>.
+Contribution mechanics are in <a class="reference internal" href="../developer_guide/contributing.html"><span class="doc">Contributing Guide</span></a>.</p>
+</section>
+</section>
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
+<div class="mr-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../platform/devices/xpu/index.html">
+<svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="15 18 9 12 15 6"></polyline>
+</svg>
+        XPU
+      </a>
+</div>
+<div class="ml-auto">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../interacting_with_server.html">
+        KV Cache Operations
+        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+</a>
+</div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#two-distributions-one-import-namespace'" class="reference internal" href="#two-distributions-one-import-namespace">Two distributions, one import namespace</a><ul>
+<li><a :data-current="activeSection === '#decision-guide'" class="reference internal" href="#decision-guide">Decision guide</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#installation'" class="reference internal" href="#installation">Installation</a><ul>
+<li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li><a :data-current="activeSection === '#installing-the-full-distribution'" class="reference internal" href="#installing-the-full-distribution">Installing the full distribution</a></li>
+<li><a :data-current="activeSection === '#optional-extras'" class="reference internal" href="#optional-extras">Optional extras</a></li>
+<li><a :data-current="activeSection === '#installing-the-client-distribution'" class="reference internal" href="#installing-the-client-distribution">Installing the client distribution</a></li>
+<li><a :data-current="activeSection === '#replacing-upgrading-and-uninstalling'" class="reference internal" href="#replacing-upgrading-and-uninstalling">Replacing, upgrading and uninstalling</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#sdk-and-engine-integration-configuration'" class="reference internal" href="#sdk-and-engine-integration-configuration">SDK and engine integration configuration</a></li>
+<li><a :data-current="activeSection === '#a-minimal-client-server-request'" class="reference internal" href="#a-minimal-client-server-request">A minimal client/server request</a></li>
+<li><a :data-current="activeSection === '#troubleshooting'" class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a :data-current="activeSection === '#both-distributions-installed'" class="reference internal" href="#both-distributions-installed">Both distributions installed</a></li>
+<li><a :data-current="activeSection === '#dependency-conflicts-with-the-engine'" class="reference internal" href="#dependency-conflicts-with-the-engine">Dependency conflicts with the engine</a></li>
+<li><a :data-current="activeSection === '#optional-engine-not-installed'" class="reference internal" href="#optional-engine-not-installed">Optional engine not installed</a></li>
+<li><a :data-current="activeSection === '#cuda-ops-extension-warning-on-a-stock-wheel'" class="reference internal" href="#cuda-ops-extension-warning-on-a-stock-wheel"><code class="docutils literal notranslate"><span class="pre">cuda_ops</span></code> extension warning on a stock wheel</a></li>
+<li><a :data-current="activeSection === '#native-library-or-runtime-mismatch'" class="reference internal" href="#native-library-or-runtime-mismatch">Native library or runtime mismatch</a></li>
+<li><a :data-current="activeSection === '#protocol-or-version-mismatch-between-client-and-server'" class="reference internal" href="#protocol-or-version-mismatch-between-client-and-server">Protocol or version mismatch between client and server</a></li>
+</ul>
+</li>
+<li><a :data-current="activeSection === '#contributing'" class="reference internal" href="#contributing">Contributing</a></li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+</div><footer class="py-6 border-t border-border md:py-0">
+<div class="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+<div class="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+<p class="text-sm leading-loose text-center text-muted-foreground md:text-left">© 2024, The LMCache Team Built with <a class="font-medium underline underline-offset-4" href="https://www.sphinx-doc.org" rel="noreferrer">Sphinx 8.2.3</a></p>
+</div>
+</div>
+</footer>
+</div>
+<script src="../_static/documentation_options.js?v=5929fcd5"></script>
+<script src="../_static/doctools.js?v=9bcbadda"></script>
+<script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+<script defer="defer" src="../_static/theme.js?v=073f68d9"></script>
+<script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="../_static/design-tabs.js?v=fcb327ea"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2/dist/js/lightbox-plus-jquery.min.js?v=f0ca4bb6"></script>
+<script src="../_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js?v=12818e64"></script>
+<script src="../_static/custom.js?v=fe1489dd"></script>
+</body>
+</html>
