@@ -309,7 +309,7 @@ caching and KV reuse work the same way they do for plain models.</p>
 <li><p><a class="reference internal" href="#mamba-linear-attention-hybrids" id="id4">Mamba / Linear-Attention Hybrids</a></p>
 <ul>
 <li><p><a class="reference internal" href="#unified-block-size-and-chunk-size" id="id5">Unified block size and chunk size</a></p></li>
-<li><p><a class="reference internal" href="#required-flags" id="id6">Required flags</a></p></li>
+<li><p><a class="reference internal" href="#required-settings" id="id6">Required settings</a></p></li>
 <li><p><a class="reference internal" href="#caveats" id="id7">Caveats</a></p></li>
 </ul>
 </li>
@@ -442,16 +442,16 @@ back to a single unified group). You do not need
 <section id="object-group-separation">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">Object-group separation</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#object-group-separation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#object-group-separation'"><span>#</span></a></h2>
 <p>At KV-cache registration LMCache can bucket a hybrid model’s layers into
-<strong>object groups</strong> — the unit it stores and retrieves as one object. With
-<code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> each distinct cross-chunk attention window becomes
-its own object group: full-attention layers form one group, and each
-sliding-window size (mamba / GDN included) forms another. The default is
-<strong>off</strong> — every layer shares a single full-attention object group.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># default: a single full-attention object group for all layers</span>
+<strong>object groups</strong> — the unit it stores and retrieves as one object. By default,
+each distinct cross-chunk attention window becomes its own object group:
+full-attention layers form one group, and each sliding-window size (mamba / GDN
+included) forms another. Pass <code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> to make every
+layer share a single full-attention object group.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># default: one object group per attention window</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span>
 </span><span id="line-3">
-</span><span id="line-4"><span class="c1"># one object group per attention window (required for mamba / GDN hybrids)</span>
-</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--separate-object-groups
+</span><span id="line-4"><span class="c1"># explicitly disable object-group separation</span>
+</span><span id="line-5">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">100</span><span class="w"> </span>--no-separate-object-groups
 </span></code></pre></div>
 </div>
 <p>For a non-hybrid model (a single attention behavior) the setting makes no
@@ -532,14 +532,15 @@ constraints. For reference, values grow with model size:</p>
 </tbody>
 </table>
 </section>
-<section id="required-flags">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Required flags</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#required-flags" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#required-flags'"><span>#</span></a></h3>
+<section id="required-settings">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Required settings</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#required-settings" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#required-settings'"><span>#</span></a></h3>
 <ol class="arabic">
-<li><p><strong>LMCache server</strong> <code class="docutils literal notranslate"><span class="pre">--separate-object-groups</span></code> — gives the linear-attention
-layers their own cache objects so their recurrent state is stored and loaded
-independently of the full-attention layers. <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> can stay at its
-default; the connector negotiates it up to a multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">256</span> <span class="o">--</span><span class="n">separate</span><span class="o">-</span><span class="nb">object</span><span class="o">-</span><span class="n">groups</span> \
+<li><p><strong>LMCache server object-group separation</strong> — enabled by default, this gives
+the linear-attention layers their own cache objects so their recurrent state
+is stored and loaded independently of the full-attention layers. Do not pass
+<code class="docutils literal notranslate"><span class="pre">--no-separate-object-groups</span></code> for these models. <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> can stay
+at its default; the connector negotiates it up to a multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">lmcache</span> <span class="n">server</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span> <span class="mi">256</span> \
 </span><span id="line-2">    <span class="o">--</span><span class="n">l1</span><span class="o">-</span><span class="n">size</span><span class="o">-</span><span class="n">gb</span> <span class="mi">100</span> <span class="o">--</span><span class="n">eviction</span><span class="o">-</span><span class="n">policy</span> <span class="n">LRU</span>
 </span></code></pre></div>
 </div>
@@ -648,7 +649,7 @@ KV is <strong>retrieved</strong> from LMCache. The score should match the first 
 <li><a :data-current="activeSection === '#object-group-separation'" class="reference internal" href="#object-group-separation">Object-group separation</a></li>
 <li><a :data-current="activeSection === '#mamba-linear-attention-hybrids'" class="reference internal" href="#mamba-linear-attention-hybrids">Mamba / Linear-Attention Hybrids</a><ul>
 <li><a :data-current="activeSection === '#unified-block-size-and-chunk-size'" class="reference internal" href="#unified-block-size-and-chunk-size">Unified block size and chunk size</a></li>
-<li><a :data-current="activeSection === '#required-flags'" class="reference internal" href="#required-flags">Required flags</a></li>
+<li><a :data-current="activeSection === '#required-settings'" class="reference internal" href="#required-settings">Required settings</a></li>
 <li><a :data-current="activeSection === '#caveats'" class="reference internal" href="#caveats">Caveats</a></li>
 </ul>
 </li>
