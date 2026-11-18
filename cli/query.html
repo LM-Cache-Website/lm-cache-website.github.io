@@ -479,7 +479,13 @@ with <code class="docutils literal notranslate"><span class="pre">--cache-salt</
 <td><p><code class="docutils literal notranslate"><span class="pre">--instance</span></code> <strong>and</strong> <code class="docutils literal notranslate"><span class="pre">--request-id</span></code> (required)</p></td>
 <td><p>One warm-prefetch request’s progress.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">metrics</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">status</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/status</span></code></p></td>
+<td><p>—</p></td>
+<td><p>A debugging snapshot: event source, ingest streams, consumers,
+heartbeats, controllers, background loops, event loop.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">metrics</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">/metrics</span></code></p></td>
 <td><p>—</p></td>
 <td><p>Prometheus text, passed through verbatim.</p></td>
@@ -655,6 +661,81 @@ without a CLI change.</p>
 Polling the same <code class="docutils literal notranslate"><span class="pre">--request-id</span></code> again returns <code class="docutils literal notranslate"><span class="pre">404</span></code> and exits <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
 </div>
 </section>
+<section id="debugging-snapshot">
+<h3>Debugging snapshot<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#debugging-snapshot" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#debugging-snapshot'"><span>#</span></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">--api</span> <span class="pre">status</span></code> renders <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/status</span></code>: what each coordinator component
+reports right now, from the same snapshots its metrics are read from. Use it
+when a dashboard shows something wrong and you need the per-server and
+per-loop detail behind it.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">$<span class="w"> </span>lmcache<span class="w"> </span>query<span class="w"> </span>coordinator<span class="w"> </span>--api<span class="w"> </span><span class="nv">status</span>
+</span><span id="line-2">
+</span><span id="line-3"><span class="o">=============</span><span class="w"> </span>Coordinator:<span class="w"> </span><span class="nv">status</span><span class="w"> </span><span class="o">==============</span>
+</span><span id="line-4">-----------------<span class="w"> </span>Event<span class="w"> </span><span class="nb">source</span><span class="w"> </span>-----------------
+</span><span id="line-5">Source:<span class="w">                                     </span>http
+</span><span id="line-6">Replay:<span class="w">                                     </span>none
+</span><span id="line-7">--------------------<span class="w"> </span>Ingest<span class="w"> </span>--------------------
+</span><span id="line-8">Batches<span class="w"> </span>applied:<span class="w">                               </span><span class="m">2</span>
+</span><span id="line-9">Batches<span class="w"> </span>duplicate:<span class="w">                             </span><span class="m">0</span>
+</span><span id="line-10">Batches<span class="w"> </span>stale:<span class="w">                                 </span><span class="m">0</span>
+</span><span id="line-11">Batches<span class="w"> </span>missing:<span class="w">                               </span><span class="m">1</span>
+</span><span id="line-12">Events<span class="w"> </span>dropped<span class="w"> </span>by<span class="w"> </span>servers:<span class="w">                     </span><span class="m">0</span>
+</span><span id="line-13">server<span class="w">  </span>incarnation<span class="w">  </span>last<span class="w"> </span>seq<span class="w">  </span>view<span class="w">        </span>missing<span class="w">  </span>dropped<span class="w">  </span>since<span class="w"> </span>event<span class="w"> </span>s<span class="w">  </span>delivery<span class="w"> </span>delay<span class="w"> </span>s
+</span><span id="line-14">--------------------------------------------------------------------------------------------
+</span><span id="line-15">node-a<span class="w">            </span><span class="m">1</span><span class="w">         </span><span class="m">3</span><span class="w">  </span>incomplete<span class="w">        </span><span class="m">1</span><span class="w">        </span><span class="m">0</span><span class="w">           </span><span class="m">0</span>.50<span class="w">  </span>N/A
+</span><span id="line-16">consumer<span class="w">           </span>delivered<span class="w">  </span>avg<span class="w"> </span>apply<span class="w"> </span>ms<span class="w">  </span>consume<span class="w"> </span>failures<span class="w">  </span>fence<span class="w"> </span>failures
+</span><span id="line-17">----------------------------------------------------------------------------
+</span><span id="line-18">CacheUsageManager<span class="w">          </span><span class="m">0</span><span class="w">           </span>N/A<span class="w">                 </span><span class="m">0</span><span class="w">               </span><span class="m">0</span>
+</span><span id="line-19">KeyDirectory<span class="w">               </span><span class="m">4</span><span class="w">          </span><span class="m">0</span>.50<span class="w">                 </span><span class="m">0</span><span class="w">               </span><span class="m">0</span>
+</span><span id="line-20">registered<span class="w"> </span>server<span class="w">  </span>since<span class="w"> </span>heartbeat<span class="w"> </span>s
+</span><span id="line-21">------------------------------------
+</span><span id="line-22">node-a<span class="w">                          </span><span class="m">1</span>.25
+</span><span id="line-23">controller<span class="w">               </span>started
+</span><span id="line-24">--------------------------------
+</span><span id="line-25">FleetEvictionController<span class="w">  </span>yes
+</span><span id="line-26">PrefetchManager<span class="w">          </span>no
+</span><span id="line-27">loop<span class="w">          </span>every<span class="w"> </span>s<span class="w">  </span>ok<span class="w">  </span>failed<span class="w">  </span>since<span class="w"> </span>success<span class="w"> </span>s<span class="w">  </span>failing<span class="w">  </span>last<span class="w"> </span>error
+</span><span id="line-28">------------------------------------------------------------------------------------
+</span><span id="line-29">checkpoint<span class="w">      </span><span class="m">30</span>.00<span class="w">   </span><span class="m">4</span><span class="w">       </span><span class="m">0</span><span class="w">            </span><span class="m">12</span>.50<span class="w">  </span>no<span class="w">       </span>--
+</span><span id="line-30">eviction<span class="w">        </span><span class="m">30</span>.00<span class="w">   </span><span class="m">0</span><span class="w">       </span><span class="m">3</span><span class="w">              </span>N/A<span class="w">  </span>yes<span class="w">      </span>RuntimeError:<span class="w"> </span>disk<span class="w"> </span>full
+</span><span id="line-31">health_check<span class="w">    </span><span class="m">30</span>.00<span class="w">   </span><span class="m">4</span><span class="w">       </span><span class="m">1</span><span class="w">            </span><span class="m">12</span>.50<span class="w">  </span>no<span class="w">       </span>TimeoutError:<span class="w"> </span>node-b
+</span><span id="line-32">------------------<span class="w"> </span>Event<span class="w"> </span>loop<span class="w"> </span>------------------
+</span><span id="line-33">Blocked<span class="w"> </span><span class="o">(</span>s,<span class="w"> </span>total<span class="o">)</span>:<span class="w">                         </span><span class="m">0</span>.75
+</span><span id="line-34"><span class="o">================================================</span>
+</span></code></pre></div>
+</div>
+<p>How to read it:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">view</span></code> is <code class="docutils literal notranslate"><span class="pre">incomplete</span></code> once the coordinator has lost events from that
+server (a skipped <code class="docutils literal notranslate"><span class="pre">seq</span></code> or events the server reported dropping). It stays
+so until the server restarts with a new incarnation, since lost events are
+not replayed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">delivery</span> <span class="pre">delay</span> <span class="pre">s</span></code> is <code class="docutils literal notranslate"><span class="pre">N/A</span></code> until a batch carrying a send time arrives;
+it is not zero.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">avg</span> <span class="pre">apply</span> <span class="pre">ms</span></code> is <code class="docutils literal notranslate"><span class="pre">N/A</span></code> for a consumer that has not been handed a batch.</p></li>
+<li><p>A loop’s <code class="docutils literal notranslate"><span class="pre">last</span> <span class="pre">error</span></code> stays after a later pass succeeds. <code class="docutils literal notranslate"><span class="pre">failing</span></code> says
+whether the latest pass failed: in the example, <code class="docutils literal notranslate"><span class="pre">health_check</span></code> recovered
+and <code class="docutils literal notranslate"><span class="pre">eviction</span></code> has never succeeded.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> loop is absent when periodic checkpoints are off.</p></li>
+</ul>
+<p>A coordinator reading cache events from Kafka also reports what it has read,
+and one row per assigned partition:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">----------------- Event source -----------------
+</span><span id="line-2">Source:                                    kafka
+</span><span id="line-3">Replay:                                 seekable
+</span><span id="line-4">Records applied:                             120
+</span><span id="line-5">Records undecodable:                           1
+</span><span id="line-6">Records failed:                                0
+</span><span id="line-7">Partitions assigned:                           2
+</span><span id="line-8">partition  next offset  unread
+</span><span id="line-9">------------------------------
+</span><span id="line-10">        2           40     N/A
+</span><span id="line-11">       10          300       7
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">next</span> <span class="pre">offset</span></code> is where the next checkpoint resumes the partition, and
+<code class="docutils literal notranslate"><span class="pre">unread</span></code> the records between it and the partition’s high watermark; either
+is <code class="docutils literal notranslate"><span class="pre">N/A</span></code> until it is known.</p>
+</section>
 <section id="prometheus-metrics">
 <h3>Prometheus metrics<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prometheus-metrics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prometheus-metrics'"><span>#</span></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">--api</span> <span class="pre">metrics</span></code> is the one API that is not a metrics report: the
@@ -685,7 +766,7 @@ to it.</p>
 <td><p>Yes</p></td>
 <td><p>Which API to read. One of <code class="docutils literal notranslate"><span class="pre">usage</span></code>, <code class="docutils literal notranslate"><span class="pre">instances</span></code>, <code class="docutils literal notranslate"><span class="pre">health</span></code>,
 <code class="docutils literal notranslate"><span class="pre">directory</span></code>, <code class="docutils literal notranslate"><span class="pre">keys</span></code>, <code class="docutils literal notranslate"><span class="pre">quota</span></code>, <code class="docutils literal notranslate"><span class="pre">quota-config</span></code>, <code class="docutils literal notranslate"><span class="pre">prefetch</span></code>,
-<code class="docutils literal notranslate"><span class="pre">metrics</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">status</span></code>, <code class="docutils literal notranslate"><span class="pre">metrics</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
 <td><p>No</p></td>
@@ -882,6 +963,7 @@ on. The endpoint’s <code class="docutils literal notranslate"><span class="pre
 <li><a :data-current="activeSection === '#quota-and-usage'" class="reference internal" href="#quota-and-usage">Quota and usage</a></li>
 <li><a :data-current="activeSection === '#key-directory'" class="reference internal" href="#key-directory">Key directory</a></li>
 <li><a :data-current="activeSection === '#prefetch-progress'" class="reference internal" href="#prefetch-progress">Prefetch progress</a></li>
+<li><a :data-current="activeSection === '#debugging-snapshot'" class="reference internal" href="#debugging-snapshot">Debugging snapshot</a></li>
 <li><a :data-current="activeSection === '#prometheus-metrics'" class="reference internal" href="#prometheus-metrics">Prometheus metrics</a></li>
 <li><a :data-current="activeSection === '#id1'" class="reference internal" href="#id1">Options</a></li>
 <li><a :data-current="activeSection === '#json-output'" class="reference internal" href="#json-output">JSON output</a></li>
