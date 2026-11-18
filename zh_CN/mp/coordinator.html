@@ -1482,7 +1482,21 @@ stored, without the <code class="docutils literal notranslate"><span class="pre"
 </span><span id="line-2"><span class="c1"># -&gt; {"status": "completed", "found_keys": 12, "total_keys": 12}</span>
 </span></code></pre></div>
 </div>
-<p><strong>固定/解固定（保护缓存不被逐出）。</strong> 固定一个令牌序列的缓存，以便在解固定之前不会从 L2 中被逐出。协调器将令牌序列解析为其对象键 <a href="#id1"><span class="problematic" id="id2">**</span></a>本地**（无需 MP 服务器往返），并将其记录在 L2 逐出计划中（<code class="docutils literal notranslate"><span class="pre">POST</span></code>）或释放它们（<code class="docutils literal notranslate"><span class="pre">DELETE</span></code>），将固定的键排除在基于配额的逐出之外。L2 固定是全舰队范围的（按 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>），因此没有指定目标实例。</p>
+<p><strong>Pin/unpin (protecting cache from eviction).</strong> Pin cache so it is not evicted
+from L2 until unpinned. The coordinator records the keys in its L2 eviction plan
+(<code class="docutils literal notranslate"><span class="pre">POST</span></code>) or releases them (<code class="docutils literal notranslate"><span class="pre">DELETE</span></code>), excluding pinned keys from quota-based
+eviction, with no MP-server round-trip. L2 pins are fleet-wide (per
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>), so no target instance is named. One endpoint, two forms --
+supply exactly one:</p>
+<ul class="simple">
+<li><p><strong>tokens form</strong> -- <code class="docutils literal notranslate"><span class="pre">{"token_ids":</span> <span class="pre">[...],</span> <span class="pre">"model_name":</span> <span class="pre">...,</span> <span class="pre">"world_size":</span>
+<span class="pre">...,</span> <span class="pre">"cache_salt":</span> <span class="pre">...,</span> <span class="pre">"tags":</span> <span class="pre">...}</span></code>: the coordinator resolves the token
+sequence to the keys of its complete chunks <strong>locally</strong>. Chunk hashes are
+prefix-chained, so this always covers every chunk from position 0.</p></li>
+<li><p><strong>keys form</strong> -- <code class="docutils literal notranslate"><span class="pre">{"keys":</span> <span class="pre">[...]}</span></code>: pin exactly these keys, in the same
+wire form <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/directory/keys</span></code> and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/directory/lookup</span></code> return. Use
+it to pin a chunk in the middle of a prompt without its prefix chunks.</p></li>
+</ul>
 <p>Local resolution requires the coordinator's <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> and
 <code class="docutils literal notranslate"><span class="pre">hash_algorithm</span></code> (see <a class="reference internal" href="#configuration">Configuration</a>) to match the MP servers' <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code>
 / <code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code>; otherwise the resolved keys will not match what was
@@ -1493,7 +1507,7 @@ per chunk and rank rather than per group.</p>
 </section>
 <section id="post-cache-pins">
 <h3><a class="toc-backref" href="#id27" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#post-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#post-cache-pins'"><span>#</span></a></h3>
-<p>在 L2 逐出计划中固定一个令牌序列的键。</p>
+<p>Pin keys in the L2 eviction plan.</p>
 <p><strong>请求体：</strong></p>
 <table class="docutils align-default">
 <colgroup>
@@ -1508,26 +1522,35 @@ per chunk and rank rather than per group.</p>
 </tr>
 </thead>
 <tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">keys</span></code></p></td>
+<td><p>列表[对象]</p></td>
+<td><p>Keys form. The keys to pin, each <code class="docutils literal notranslate"><span class="pre">{"chunk_hash_hex",</span> <span class="pre">"model_name",</span>
+<span class="pre">"kv_rank",</span> <span class="pre">"object_group_id",</span> <span class="pre">"cache_salt",</span> <span class="pre">"tags"}</span></code>. The other fields
+below are ignored.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<td><p>列表[int]</p></td>
+<td><p>Tokens form. Prompt tokens whose complete chunks are pinned; must match
+what was stored. A sub-chunk sequence pins nothing (<code class="docutils literal notranslate"><span class="pre">affected</span></code> 0).</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
 <td><p>字符串</p></td>
-<td><p>用于解析键时使用的模型的扇出等级。</p></td>
+<td><p>Tokens form, required. Model whose rank fan-out to use when resolving
+keys.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
 <td><p>整数</p></td>
-<td><p>世界大小（<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>），选择每个排名的扇出。</p></td>
+<td><p>Tokens form. Optional (default <code class="docutils literal notranslate"><span class="pre">1</span></code>). World size (<code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1</span></code>) selecting
+the per-rank fan-out.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
-<td><p>列表[int]</p></td>
-<td><p>完整块被固定的提示令牌；必须与存储的内容匹配。子块序列不固定任何内容（<code class="docutils literal notranslate"><span class="pre">affected</span></code> 0）。</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
 <td><p>字符串</p></td>
-<td><p>可选（默认 <code class="docutils literal notranslate"><span class="pre">""</span></code>）。每个租户的隔离盐。</p></td>
+<td><p>Tokens form. Optional (default <code class="docutils literal notranslate"><span class="pre">""</span></code>). Per-tenant isolation salt.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
 <td><p>map[string, string]</p></td>
-<td><p>Optional (default <code class="docutils literal notranslate"><span class="pre">{}</span></code>). Matching tags used when the content was
-stored, without the <code class="docutils literal notranslate"><span class="pre">lmcache.tag.</span></code> prefix.</p></td>
+<td><p>Tokens form. Optional (default <code class="docutils literal notranslate"><span class="pre">{}</span></code>). Matching tags used when the
+content was stored, without the <code class="docutils literal notranslate"><span class="pre">lmcache.tag.</span></code> prefix.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1535,12 +1558,16 @@ stored, without the <code class="docutils literal notranslate"><span class="pre"
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"requested"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"affected"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pinned"</span><span class="p">}</span>
 </span></code></pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">requested</span></code> 是解析的完整块数；<code class="docutils literal notranslate"><span class="pre">affected</span></code> 是固定的 L2 键的数量（块数乘以每个排名的分支因子）。</p>
+<p><code class="docutils literal notranslate"><span class="pre">requested</span></code> is the number of whole chunks resolved (keys form: the number of
+keys given); <code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number of L2 keys pinned (tokens form: chunks
+times the per-rank fan-out).</p>
 <p><strong>HTTP 状态码:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">200</span></code>: 已固定。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> 超过每个请求的上限，或者 <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> 违反了其不变性。</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: 请求体未通过字段级验证。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation, supplies both or neither
+of <code class="docutils literal notranslate"><span class="pre">keys</span></code> / <code class="docutils literal notranslate"><span class="pre">token_ids</span></code>, omits <code class="docutils literal notranslate"><span class="pre">model_name</span></code> in the tokens form, or has
+an undecodable key.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: the metadata file (<code class="docutils literal notranslate"><span class="pre">--metadata-path</span></code>) could not be written; the
 change was undone, so retry once the storage is fixed.</p></li>
 </ul>
@@ -1555,6 +1582,21 @@ change was undone, so retry once the storage is fixed.</p></li>
 </span><span id="line-8"><span class="s1">        "tags": {"adapter_revision": "abc123"}</span>
 </span><span id="line-9"><span class="s1">    }'</span>
 </span><span id="line-10"><span class="c1"># -&gt; {"requested": 12, "affected": 12, "status": "pinned"}</span>
+</span><span id="line-11">
+</span><span id="line-12"><span class="c1"># Keys form: pin one mid-prompt chunk found via /directory/lookup.</span>
+</span><span id="line-13">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
+</span><span id="line-14"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-15"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-16"><span class="s1">        "keys": [{</span>
+</span><span id="line-17"><span class="s1">            "chunk_hash_hex": "aa12...",</span>
+</span><span id="line-18"><span class="s1">            "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-19"><span class="s1">            "kv_rank": 0,</span>
+</span><span id="line-20"><span class="s1">            "object_group_id": 0,</span>
+</span><span id="line-21"><span class="s1">            "cache_salt": "user-a",</span>
+</span><span id="line-22"><span class="s1">            "tags": {"adapter_revision": "abc123"}</span>
+</span><span id="line-23"><span class="s1">        }]</span>
+</span><span id="line-24"><span class="s1">    }'</span>
+</span><span id="line-25"><span class="c1"># -&gt; {"requested": 1, "affected": 1, "status": "pinned"}</span>
 </span></code></pre></div>
 </div>
 <div class="admonition note">
@@ -1566,7 +1608,10 @@ eviction for a salt it is tracking, which requires the MP servers started with
 </section>
 <section id="delete-cache-pins">
 <h3><a class="toc-backref" href="#id28" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/cache/pins</span></code></a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#delete-cache-pins" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#delete-cache-pins'"><span>#</span></a></h3>
-<p>从 L2 逐出计划中取消一个令牌序列的键。请求体与 <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code> 相同。响应与 pin 相似（<code class="docutils literal notranslate"><span class="pre">affected</span></code> 是取消固定的键的数量），<code class="docutils literal notranslate"><span class="pre">status</span></code> 为 <code class="docutils literal notranslate"><span class="pre">"unpinned"</span></code>。Pins 是按引用计数的：一个块被固定 <em>N</em> 次需要 <em>N</em> 次取消固定才能被逐出。</p>
+<p>Unpin keys from the L2 eviction plan. Same request body (either form) as
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code>. The response mirrors the pin (<code class="docutils literal notranslate"><span class="pre">affected</span></code> is the number
+of keys unpinned), with <code class="docutils literal notranslate"><span class="pre">status</span></code> <code class="docutils literal notranslate"><span class="pre">"unpinned"</span></code>. Pins are reference-counted: a
+chunk pinned <em>N</em> times needs <em>N</em> unpins before it can be evicted.</p>
 <p><strong>HTTP 状态码:</strong> 与 <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cache/pins</span></code> 相同。</p>
 <p><strong>示例：</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span>http://localhost:9300/cache/pins<span class="w"> </span><span class="se">\</span>
