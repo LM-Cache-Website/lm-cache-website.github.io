@@ -507,12 +507,18 @@ execution and only enable it on a trusted network.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
-<td><p>SHM segment name for non-GPU KV transfer (only used when the
-non-GPU path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
+<td><p>SHM segment name for engine-driven KV transfer (only used when the
+engine-driven path is loaded, i.e. <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code> is
 <code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>).
 <code class="docutils literal notranslate"><span class="pre">""</span></code> (empty string, default): SHM disabled; KV transfer uses
-the typed inline path.  Any other value: create a SHM pool and use
-that exact name for its segment.</p></td>
+the typed inline path, which serialises every KV chunk through the
+request channel and is much slower.  Any other value: create a SHM
+pool named <code class="docutils literal notranslate"><span class="pre">lmcache_l1_pool_&lt;name&gt;</span></code> and use it for KV transfers.
+<strong>Requires</strong> <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code>; with the default lazy allocation
+the name is ignored (the server logs a warning) and SHM stays
+disabled.  Mutually exclusive with <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--l1-use-hugepages</span></code>: either combination is rejected with a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> at config validation.  See <a class="reference internal" href="deployment.html#mp-transfer-mode"><span class="std std-ref">传输模式 (--supported-transfer-mode, --shm-name)</span></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--kv-event-log-size</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">32768</span></code></p></td>
@@ -730,7 +736,11 @@ single-L1 interface. For placing L1 on CXL-attached memory see
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
-<td><p>启用或禁用 L1 内存的延迟分配。传递 <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code> 以启用（默认）或 <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> 以显式禁用。</p></td>
+<td><p>Enable or disable lazy allocation for L1 memory.
+Pass <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code> to enable (default) or
+<code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> to explicitly disable.  Lazy allocation
+disables the SHM transfer pool: pass <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> whenever
+you set <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> for engine-driven workers.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--l1-init-size-gb</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">20</span></code></p></td>
@@ -752,8 +762,10 @@ and <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</
 <td><p>Optional <code class="docutils literal notranslate"><span class="pre">/dev/dax*</span></code> device or mmap-able file to use as the L1
 backing arena.  When set, disable lazy allocation with
 <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> and leave <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> at its default <code class="docutils literal notranslate"><span class="pre">""</span></code>
-(SHM transfer disabled) because the L1 bytes live in the DAX
-mapping.  A <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter may not map the same device range;
+because the L1 bytes live in the DAX mapping; a non-empty
+<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> (or <code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code>) together with this flag is
+rejected with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.  A <code class="docutils literal notranslate"><span class="pre">dax</span></code> L2 adapter may not map the
+same device range;
 give the L1 and the adapter disjoint ranges. Pass the device node,
 for example
 <code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span> <span class="pre">/dev/dax0.0</span> <span class="pre">--l1-size-gb</span> <span class="pre">512</span> <span class="pre">--no-l1-use-lazy</span>

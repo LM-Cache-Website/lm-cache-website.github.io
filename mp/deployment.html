@@ -607,7 +607,7 @@ Use <code class="docutils literal notranslate"><span class="pre">LMCACHE_LOG_LEV
 activity.  Switch to <code class="docutils literal notranslate"><span class="pre">INFO</span></code> (default) for production to reduce log volume.</p>
 </section>
 <section id="transfer-mode-supported-transfer-mode-shm-name">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
+<span id="mp-transfer-mode"></span><h2><a class="toc-backref" href="#id11" role="doc-backlink">Transfer Mode (<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>)</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transfer-mode-supported-transfer-mode-shm-name" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transfer-mode-supported-transfer-mode-shm-name'"><span>#</span></a></h2>
 <p>LMCache supports two worker → server transfer paths: an
 <strong>lmcache-driven</strong> path (server pulls/pushes via CUDA IPC or CPU SHM,
 used for STORE/RETRIEVE) and an <strong>engine-driven</strong> path
@@ -624,10 +624,60 @@ serving CPU-only or non-CUDA accelerator workers.</p></li>
 type can connect without manual configuration; the server has no
 upfront knowledge of the connecting worker’s device.</p></li>
 </ul>
-<p>When the engine-driven path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>),
-KV transfers between the server and vLLM workers use a typed inline tensor
-path by default.  Pass <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> with a segment name to create a
-shared-memory (SHM) pool instead:</p>
+<p>When the engine-driven path is loaded (<code class="docutils literal notranslate"><span class="pre">auto</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>), the
+server offers workers one of two engine-driven transports:</p>
+<ul class="simple">
+<li><p><strong>SHM pool</strong> – the server backs its L1 pool with a named POSIX shared-memory
+segment and workers copy KV chunks directly into or out of that segment.
+This is the transport to use for any real workload.</p></li>
+<li><p><strong>Typed inline</strong> – the fallback when no SHM pool is available.  Every KV
+chunk is serialised into the request message and copied through the
+ZMQ/gRPC request channel on each store and retrieve (and deserialised on the
+other side).  It only exists so that the engine-driven path still works
+where <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> is unavailable (for example Docker without
+<code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code>); it is not tuned for throughput.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The server does <strong>not</strong> create an SHM pool by default: <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code>
+defaults to <code class="docutils literal notranslate"><span class="pre">""</span></code> and the L1 pool defaults to lazy allocation, which also
+disables SHM.  An engine-driven worker that connects to such a server
+silently uses the typed inline transport.  The symptom is that
+store/retrieve of a long prompt (a few thousand tokens) takes seconds
+instead of milliseconds, and CPU offloading through LMCache can end up
+slower than the inference engine’s built-in CPU offloading.</p>
+<p>To enable the SHM pool, pass <strong>both</strong> flags:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>...<span class="w"> </span>--supported-transfer-mode<span class="w"> </span>engine_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--shm-name<span class="w"> </span>lmcache_pool<span class="w"> </span>--no-l1-use-lazy
+</span></code></pre></div>
+</div>
+<p>With the default lazy allocation (<code class="docutils literal notranslate"><span class="pre">--l1-use-lazy</span></code>) a non-empty
+<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> is accepted but ignored: the server logs
+<code class="docutils literal notranslate"><span class="pre">--shm-name</span> <span class="pre">'...'</span> <span class="pre">is</span> <span class="pre">set</span> <span class="pre">but</span> <span class="pre">SHM</span> <span class="pre">transfer</span> <span class="pre">is</span> <span class="pre">disabled</span></code> and workers use
+the inline path.  <code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> is <strong>mutually exclusive</strong> with
+<code class="docutils literal notranslate"><span class="pre">--l1-devdax-path</span></code> and with <code class="docutils literal notranslate"><span class="pre">--l1-use-hugepages</span></code>: either combination
+is rejected with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> during config validation, so leave
+<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> at <code class="docutils literal notranslate"><span class="pre">""</span></code> for those backends.  See
+<a class="reference internal" href="configuration.html#l1-memory-manager"><span class="std std-ref">L1 Memory Manager</span></a>.</p>
+<p>Confirm the active transport in the vLLM worker log.  The worker creates
+its transfer context right after registration and logs which
+implementation it ended up with:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Creating EngineDrivenContextShm (shm_name=lmcache_l1_pool_lmcache_pool, pool_size=...)
+</span></code></pre></div>
+</div>
+<p>If the SHM segment cannot be attached (for example the worker container
+lacks <code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> or <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> is too small) the worker falls back
+at this point and logs:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Failed to initialize SHM context (shm_name=...), falling back to inline tensor transport
+</span><span id="line-2">Creating EngineDrivenContextInline
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Creating</span> <span class="pre">EngineDrivenContextInline</span></code> without a preceding SHM line means
+the server advertised no pool (<code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> unset or lazy allocation
+on).  Check these lines rather than the <code class="docutils literal notranslate"><span class="pre">mode=</span></code> field of the later
+<code class="docutils literal notranslate"><span class="pre">Worker</span> <span class="pre">engine-driven</span> <span class="pre">context</span> <span class="pre">registered</span> <span class="pre">(...)</span></code> message, which reflects
+what the server advertised, not whether SHM attachment succeeded.</p>
+</div>
 <p>The typed inline protocol is not compatible with older workers or servers.
 Upgrade both sides together; payloads from the previous untyped protocol are
 rejected rather than accepted as a fallback.</p>
@@ -645,23 +695,27 @@ rejected rather than accepted as a fallback.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">""</span></code> (empty string, default)</p></td>
 <td><p>No SHM pool; KV transfer uses the typed inline path.  Works
 when <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> is unavailable or when running without
-<code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> in Docker.</p></td>
+<code class="docutils literal notranslate"><span class="pre">--ipc</span> <span class="pre">host</span></code> in Docker, but is slow (see the warning above).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">"my_pool"</span></code> (any non-empty name)</p></td>
-<td><p>Create a SHM pool with that exact segment name and use it for
-KV transfers.  The deterministic, human-readable name also
-helps with monitoring and debugging.</p></td>
+<td><p>Create a SHM pool and use it for KV transfers.  Requires
+<code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code>.  The segment is named
+<code class="docutils literal notranslate"><span class="pre">lmcache_l1_pool_&lt;name&gt;</span></code> (the prefix is added when missing) so
+stale segments can be cleaned up; the deterministic,
+human-readable name also helps with monitoring and debugging.</p></td>
 </tr>
 </tbody>
 </table>
 <p><strong>Examples:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Engine-driven path with typed inline transfer (no SHM) -- the default:</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Engine-driven path with a named SHM pool -- recommended:</span>
 </span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
-</span><span id="line-3"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven
-</span><span id="line-4">
-</span><span id="line-5"><span class="c1"># Engine-driven path with a named SHM segment:</span>
-</span><span id="line-6">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven<span class="w"> </span>--shm-name<span class="w"> </span><span class="s2">"lmcache_pool"</span>
+</span><span id="line-3"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-4"><span class="w">    </span>--shm-name<span class="w"> </span><span class="s2">"lmcache_pool"</span><span class="w"> </span>--no-l1-use-lazy
+</span><span id="line-5">
+</span><span id="line-6"><span class="c1"># Engine-driven path with typed inline transfer (no SHM) -- fallback for</span>
+</span><span id="line-7"><span class="c1"># hosts without /dev/shm; expect much slower store/retrieve:</span>
+</span><span id="line-8">lmcache<span class="w"> </span>server<span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">60</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-9"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven
 </span></code></pre></div>
 </div>
 </section>

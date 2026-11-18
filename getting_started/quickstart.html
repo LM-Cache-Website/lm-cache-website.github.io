@@ -466,6 +466,11 @@ same name as the vLLM connector:</p>
 <p>The server command above enables both transfer protocols. The client and
 server transfer modes must be compatible; a server dedicated to one mode
 can instead use <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>.</p>
+<p>If workers use the engine-driven path, also pass
+<code class="docutils literal notranslate"><span class="pre">--shm-name</span> <span class="pre">lmcache_pool</span> <span class="pre">--no-l1-use-lazy</span></code> so KV chunks move through a
+shared-memory pool.  Without these flags the server falls back to the
+typed inline transport, which serialises every chunk through the request
+channel and is much slower; see <a class="reference internal" href="../mp/deployment.html#mp-transfer-mode"><span class="std std-ref">Transfer Mode (--supported-transfer-mode, --shm-name)</span></a>.</p>
 <p>To use gRPC instead of ZMQ, include the <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> scheme in the
 connector configuration:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cat<span class="w"> </span>&gt;<span class="w"> </span>lmcache_config.yaml<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
@@ -630,7 +635,10 @@ normally, then set <code class="docutils literal notranslate"><span class="pre">
 side to enable the zero-copy SHM handle path (the default <code class="docutils literal notranslate"><span class="pre">auto</span></code> routing
 maps non-CUDA devices to <code class="docutils literal notranslate"><span class="pre">engine_driven</span></code>, a worker-side gather/scatter
 copy path that the server only loads when started with
-<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span> <span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>).</p>
+<code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span> <span class="pre">engine_driven</span></code> or <code class="docutils literal notranslate"><span class="pre">auto</span></code>).  If you keep the
+engine-driven path, start the server with <code class="docutils literal notranslate"><span class="pre">--shm-name</span> <span class="pre">lmcache_pool</span>
+<span class="pre">--no-l1-use-lazy</span></code>; otherwise it falls back to the slow typed inline
+transport (see <a class="reference internal" href="../mp/deployment.html#mp-transfer-mode"><span class="std std-ref">Transfer Mode (--supported-transfer-mode, --shm-name)</span></a>).</p>
 <p><strong>Docker</strong> – see <a class="reference internal" href="../production/docker_deployment.html"><span class="doc">Docker deployment</span></a>.</p>
 <p><strong>HTTP management endpoints</strong> (health, clear-cache, status) – see
 <a class="reference internal" href="../mp/http_api.html"><span class="doc">HTTP API</span></a>.</p>
