@@ -311,8 +311,27 @@ supports <code class="docutils literal notranslate"><span class="pre">DRAM_SEG</
 checks those capabilities when it starts and rejects ambiguous plugins.</p>
 <section id="build-and-runtime-requirements">
 <h2>Build and runtime requirements<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#build-and-runtime-requirements" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#build-and-runtime-requirements'"><span>#</span></a></h2>
-<p>The minimum supported NIXL version is 1.3.0. A source installation must install
-the public C++ headers as well as <code class="docutils literal notranslate"><span class="pre">libnixl</span></code>. Build LMCache with:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lmcache/vllm-openai</span></code> release and nightly images include the connector.
+Elsewhere, install LMCache with the <code class="docutils literal notranslate"><span class="pre">nixl</span></code> extra (Python 3.10 to 3.14):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"lmcache[nixl]"</span>
+</span></code></pre></div>
+</div>
+<p>For a release, the extra installs the connector, published as the
+<code class="docutils literal notranslate"><span class="pre">lmcache-nixl</span></code> package at the same version as <code class="docutils literal notranslate"><span class="pre">lmcache</span></code>, and the <code class="docutils literal notranslate"><span class="pre">nixl</span></code>
+runtime. To add it to an existing installation, pin the installed version:
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">"lmcache[nixl]==&lt;installed</span> <span class="pre">version&gt;"</span></code>. The adapter refuses an
+<code class="docutils literal notranslate"><span class="pre">lmcache-nixl</span></code> built for a different connector API, for example after
+upgrading <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> without the extra, and prints that command.</p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache-nixl</span></code> is compiled against NIXL 1.3.1, tested with that and the newest
+NIXL release, and depends on <code class="docutils literal notranslate"><span class="pre">nixl&gt;=1.3.0,&lt;2</span></code>. The <code class="docutils literal notranslate"><span class="pre">nixl</span></code> package bundles
+<code class="docutils literal notranslate"><span class="pre">libnixl</span></code> and its plugins for CUDA 12 and CUDA 13; the adapter
+loads the one matching torch’s CUDA build, so no build flags or environment
+variables are needed. The <code class="docutils literal notranslate"><span class="pre">nixl</span></code> wheel requires the system OpenSSL 3
+libraries (<code class="docutils literal notranslate"><span class="pre">libssl.so.3</span></code>), present on Ubuntu 22.04+ and RHEL 9; on
+RHEL/Alma/Rocky 8 install <code class="docutils literal notranslate"><span class="pre">openssl3-libs</span></code> from EPEL.</p>
+<p>A source installation can build the connector into LMCache instead. The minimum
+supported NIXL version is 1.3.0, and the NIXL installation must provide the
+public C++ headers as well as <code class="docutils literal notranslate"><span class="pre">libnixl</span></code>. Build LMCache with:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">BUILD_WITH_NIXL</span><span class="o">=</span><span class="m">1</span>
 </span><span id="line-2"><span class="nb">export</span><span class="w"> </span><span class="nv">NIXL_INCLUDE_DIR</span><span class="o">=</span>/opt/nixl/include
 </span><span id="line-3"><span class="nb">export</span><span class="w"> </span><span class="nv">NIXL_LIBRARY_DIR</span><span class="o">=</span>/opt/nixl/lib
@@ -542,8 +561,14 @@ endpoint settings.</p>
 <section id="troubleshooting">
 <h2>Troubleshooting<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#troubleshooting" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#troubleshooting'"><span>#</span></a></h2>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">lmcache_nixl</span></code> cannot be imported</dt><dd><p>Rebuild with <code class="docutils literal notranslate"><span class="pre">BUILD_WITH_NIXL=1</span></code> and verify that <code class="docutils literal notranslate"><span class="pre">NIXL_INCLUDE_DIR</span></code>
-contains <code class="docutils literal notranslate"><span class="pre">nixl.h</span></code> and <code class="docutils literal notranslate"><span class="pre">NIXL_LIBRARY_DIR</span></code> contains <code class="docutils literal notranslate"><span class="pre">libnixl.so</span></code>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">lmcache_nixl</span></code> cannot be imported</dt><dd><p>Install <code class="docutils literal notranslate"><span class="pre">lmcache[nixl]</span></code> at the installed <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> version. For a source
+build, rebuild with <code class="docutils literal notranslate"><span class="pre">BUILD_WITH_NIXL=1</span></code> and verify that
+<code class="docutils literal notranslate"><span class="pre">NIXL_INCLUDE_DIR</span></code> contains <code class="docutils literal notranslate"><span class="pre">nixl.h</span></code> and <code class="docutils literal notranslate"><span class="pre">NIXL_LIBRARY_DIR</span></code> contains
+<code class="docutils literal notranslate"><span class="pre">libnixl.so</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">nixl</span></code> fails with <code class="docutils literal notranslate"><span class="pre">libssl.so.3:</span> <span class="pre">cannot</span> <span class="pre">open</span> <span class="pre">shared</span> <span class="pre">object</span> <span class="pre">file</span></code></dt><dd><p>The host lacks OpenSSL 3, which the <code class="docutils literal notranslate"><span class="pre">nixl</span></code> wheel links but does not
+bundle. Install it (<code class="docutils literal notranslate"><span class="pre">openssl3-libs</span></code> from EPEL on RHEL-family 8) or use a
+newer base OS.</p>
 </dd>
 <dt>Plugin discovery or backend creation fails</dt><dd><p>Verify NIXL 1.3 or newer, set <code class="docutils literal notranslate"><span class="pre">NIXL_PLUGIN_DIR</span></code> to the installed plugin
 directory, and confirm that the requested plugin supports <code class="docutils literal notranslate"><span class="pre">DRAM_SEG</span></code> and
