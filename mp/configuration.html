@@ -207,6 +207,7 @@
 <li class="toctree-l1" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
 <li class="toctree-l2"><a class="reference internal" href="disaggregated_prefill.html">Disaggregated Prefill</a></li>
 <li class="toctree-l2"><a class="reference internal" href="p2p.html">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p2p_deployment.html">P2P Deployment Scenarios</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coordinator.html">Multi-Server Coordination</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kv_cache_management.html">KV Cache Management</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
@@ -750,6 +751,25 @@ allowing only the worker <code class="docutils literal notranslate"><span class=
 <td><p><code class="docutils literal notranslate"><span class="pre">nixl</span></code></p></td>
 <td><p>Transfer-channel implementation to use.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Store objects into peers’ L1 once the local DRAM L1 is fuller than
+<code class="docutils literal notranslate"><span class="pre">--p2p-write-l1-usage-threshold</span></code>, and drop the local copy. Use it on
+a server whose peers extend its DRAM, on only one side of a pair.
+Selects the <code class="docutils literal notranslate"><span class="pre">p2p</span></code> store policy and the <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code> prefetch policy
+unless <code class="docutils literal notranslate"><span class="pre">--l2-store-policy</span></code> or <code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code> is set.
+See <a class="reference internal" href="p2p_deployment.html"><span class="doc">P2P Deployment Scenarios</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-write-l1-usage-threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.7</span></code></p></td>
+<td><p>Used fraction of the local DRAM L1, in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>, at which new objects
+are stored into a peer instead of staying local. Keep it below
+<code class="docutils literal notranslate"><span class="pre">--eviction-trigger-watermark</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-store-timeout</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30.0</span></code></p></td>
+<td><p>Seconds before a store into a peer counts as a failure.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1118,7 +1138,11 @@ and whether keys are deleted from L1 after L2 store.
 The <code class="docutils literal notranslate"><span class="pre">default</span></code> policy stores all keys to all adapters and keeps L1.
 The <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code> policy stores all keys to all adapters and then
 deletes them from L1 (buffer-only mode).
-Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code>.</p></td>
+The <code class="docutils literal notranslate"><span class="pre">p2p</span></code> policy keeps keys in L1 until its usage reaches
+<code class="docutils literal notranslate"><span class="pre">--p2p-write-l1-usage-threshold</span></code>, then stores new keys into one P2P
+peer and deletes them from L1; <code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code> selects it
+automatically (see <a class="reference internal" href="p2p_deployment.html"><span class="doc">P2P Deployment Scenarios</span></a>).
+Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code>, <code class="docutils literal notranslate"><span class="pre">p2p</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--l2-prefetch-policy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
@@ -1127,7 +1151,8 @@ when multiple adapters have it.
 The <code class="docutils literal notranslate"><span class="pre">default</span></code> policy picks the first adapter (lowest index) and
 keeps prefetched keys in L1.
 The <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code> policy uses the same load plan, but prefetched keys
-are temporary (deleted after the reader finishes).
+are temporary (deleted after the reader finishes);
+<code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code> selects it automatically.
 Choices: <code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">skip_l1</span></code>.  <code class="docutils literal notranslate"><span class="pre">retain</span></code> is a deprecated alias
 of <code class="docutils literal notranslate"><span class="pre">default</span></code>.</p></td>
 </tr>

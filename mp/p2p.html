@@ -21,7 +21,7 @@
 <link href="../_static/lmcache-logo.png" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="coordinator.html" rel="next" title="Multi-Server Coordination"/>
+<link href="p2p_deployment.html" rel="next" title="P2P Deployment Scenarios"/>
 <link href="disaggregated_prefill.html" rel="prev" title="Disaggregated Prefill"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
@@ -207,6 +207,7 @@
 <li class="toctree-l1 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="reference internal expandable" href="../distributed_kv_cache.html">Distributed KV Cache<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul class="current" x-show="expanded">
 <li class="toctree-l2"><a class="reference internal" href="disaggregated_prefill.html">Disaggregated Prefill</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">P2P KV Cache Sharing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p2p_deployment.html">P2P Deployment Scenarios</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coordinator.html">Multi-Server Coordination</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kv_cache_management.html">KV Cache Management</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../disaggregated_prefill/shared_storage.html">Using shared storage</a></li>
@@ -388,6 +389,18 @@ the worker <code class="docutils literal notranslate"><span class="pre">--port</
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-transfer-engine</span> <span class="pre">ENGINE</span></code></p></td>
 <td><p>Transfer-channel implementation (default <code class="docutils literal notranslate"><span class="pre">nixl</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code></p></td>
+<td><p>Also store objects into peers’ memory once the local L1 fills up, and
+drop the local copy. Off by default. See <a class="reference internal" href="p2p_deployment.html"><span class="doc">P2P Deployment Scenarios</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-write-l1-usage-threshold</span> <span class="pre">FRACTION</span></code></p></td>
+<td><p>Local DRAM L1 usage from which new objects go to a peer
+(default <code class="docutils literal notranslate"><span class="pre">0.7</span></code>). Only used with <code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--p2p-store-timeout</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p>Deadline for a store into a peer before it counts as a failure
+(default <code class="docutils literal notranslate"><span class="pre">30</span></code>). Only used with <code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -633,8 +646,10 @@ directly; every one of them reads the <code class="docutils literal notranslate"
 <section id="limitations">
 <h2>Limitations<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#limitations" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#limitations'"><span>#</span></a></h2>
 <ul class="simple">
-<li><p><strong>Read-only.</strong> A node reads KV from its peers; it never writes into a peer’s
-memory. This keeps each node the sole owner of its L1.</p></li>
+<li><p><strong>Read-only by default.</strong> A node reads KV from its peers; it does not write
+into a peer’s memory unless it is started with <code class="docutils literal notranslate"><span class="pre">--enable-p2p-write</span></code>. Writes
+are meant for a server whose peers extend its memory, and only one side of a
+pair may enable them. See <a class="reference internal" href="p2p_deployment.html"><span class="doc">P2P Deployment Scenarios</span></a>.</p></li>
 <li><p><strong>One hop.</strong> A node reads directly from the peer that holds the prefix; reads
 are not chained across multiple peers.</p></li>
 </ul>
@@ -650,8 +665,8 @@ are not chained across multiple peers.</p></li>
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="coordinator.html">
-        Multi-Server Coordination
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="p2p_deployment.html">
+        P2P Deployment Scenarios
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
