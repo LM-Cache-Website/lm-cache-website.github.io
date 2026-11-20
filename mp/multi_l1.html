@@ -395,6 +395,18 @@ engine’s writes.</p></td>
 </tr>
 </tbody>
 </table>
+<p>For an optional index of borrowed CXL bytes, add a <code class="docutils literal notranslate"><span class="pre">SHADOW</span></code> entry after
+an L1 that owns memory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">256</span><span class="w"> </span>--eviction-policy<span class="w"> </span>LRU<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"DRAM","tag":"_default","size_gb":8}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--l1-manager<span class="w"> </span><span class="s1">'{"type":"SHADOW","tag":"cxl-views","segment":"cxl"}'</span>
+</span></code></pre></div>
+</div>
+<p>This configures the index only. It does not map a Device-DAX region or discover
+peer objects; a borrowing L2 adapter must bind views and leases through the
+<code class="docutils literal notranslate"><span class="pre">(CXL,</span> <span class="pre">SHADOW)</span></code> affinity. A <code class="docutils literal notranslate"><span class="pre">DEVDAX</span></code> entry remains a separate owner.
+Shadow entries report zero local memory usage and capacity, so they do not
+double-count the borrowed bytes in status or Prometheus metrics.</p>
 <p>The global eviction flags supply defaults. Override them per manager with,
 for example, <code class="docutils literal notranslate"><span class="pre">"eviction":{"eviction_policy":"LRU","trigger_watermark":0.9,</span>
 <span class="pre">"eviction_ratio":0.1}</span></code>. Without global defaults each manager must specify
