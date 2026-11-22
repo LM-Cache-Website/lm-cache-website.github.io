@@ -450,6 +450,18 @@ written whenever pins or quotas change.</p></td>
 <td><p>File the operator-set state (L2 pins and per-<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> quotas)
 is stored in. Empty means that state is lost on restart.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--public-endpoint</span> <span class="pre">PATH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/healthz</span></code></p></td>
+<td><p>Serve <code class="docutils literal notranslate"><span class="pre">PATH</span></code> without credentials when API-key authentication is on.
+Repeat the flag for several paths. The value <strong>replaces</strong> the default
+list, which is <code class="docutils literal notranslate"><span class="pre">/healthz</span></code> alone, rather than extending it. Matching is
+exact: no prefix or wildcard rules.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-public-endpoints</span></code></p></td>
+<td><p>off</p></td>
+<td><p>Require a valid API key for every HTTP path, including <code class="docutils literal notranslate"><span class="pre">/healthz</span></code>.
+Cannot be combined with <code class="docutils literal notranslate"><span class="pre">--public-endpoint</span></code>.</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--extra-config</span></code></p></td>
 <td><p>(empty)</p></td>
 <td><p>JSON object of settings the core flags do not name, read by whichever
@@ -593,9 +605,44 @@ it:</p>
 <p>Metrics are enabled by default. Without an OTLP endpoint, Prometheus scrapes
 the coordinator's existing FastAPI port; no separate metrics server or port is
 created:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>http://localhost:9300/metrics
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$FLEET_KEY</span><span class="s2">"</span><span class="w"> </span>http://localhost:9300/metrics
 </span></code></pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">/metrics</span></code> requires the fleet key: the gauges describe placement and
+reported-byte counts, so the coordinator does not publish them to an
+unauthenticated caller. The only path served without credentials is
+<code class="docutils literal notranslate"><span class="pre">/healthz</span></code>, the liveness probe.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--public-endpoint</span></code> <strong>replaces</strong> that default rather than extending it, so a
+deployment that wants public metrics has to name the probe as well:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>coordinator<span class="w"> </span>--api-key-file<span class="w"> </span>/run/secrets/fleet-key<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--public-endpoint<span class="w"> </span>/healthz<span class="w"> </span>--public-endpoint<span class="w"> </span>/metrics
+</span></code></pre></div>
+</div>
+<p>Passing only <code class="docutils literal notranslate"><span class="pre">--public-endpoint</span> <span class="pre">/metrics</span></code> makes <code class="docutils literal notranslate"><span class="pre">/healthz</span></code> require the key,
+and an orchestrator's probe would then get 401 and restart the pod. If that is
+what you want, Kubernetes <code class="docutils literal notranslate"><span class="pre">httpGet</span></code> probes can send a credential:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">livenessProbe</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/healthz</span>
+</span><span id="line-4"><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9300</span>
+</span><span id="line-5"><span class="w">    </span><span class="nt">httpHeaders</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Authorization</span>
+</span><span id="line-7"><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Bearer &lt;fleet-key&gt;</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--no-public-endpoints</span></code> goes one step further and requires a key for every
+path, including the probe.</p>
+<p>A scraper sends the credential through Prometheus' <code class="docutils literal notranslate"><span class="pre">credentials_file</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">scrape_configs</span><span class="p">:</span>
+</span><span id="line-2"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmcache-coordinator</span>
+</span><span id="line-3"><span class="w">    </span><span class="nt">authorization</span><span class="p">:</span>
+</span><span id="line-4"><span class="w">      </span><span class="nt">credentials_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/prometheus/lmcache-fleet-key</span>
+</span><span id="line-5"><span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
+</span><span id="line-6"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"coordinator:9300"</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+</div>
+<p>The file must contain the raw key, which is the same value the coordinator
+accepts through <code class="docutils literal notranslate"><span class="pre">--api-key-file</span></code>.</p>
 <p>Set <code class="docutils literal notranslate"><span class="pre">--otlp-endpoint</span> <span class="pre">http://collector:4317</span></code> to push metrics to an
 OpenTelemetry Collector instead. In OTLP push mode, and when
 <code class="docutils literal notranslate"><span class="pre">--disable-metrics</span></code> is set, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/metrics</span></code> returns 404. The Coordinator
