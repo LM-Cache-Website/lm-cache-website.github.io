@@ -330,7 +330,8 @@ server.  Arguments are grouped by the config module that defines them.</p>
 </li>
 <li><p><a class="reference internal" href="#environment-variables" id="id21">Environment Variables</a></p></li>
 <li><p><a class="reference internal" href="#full-example" id="id22">Full Example</a></p></li>
-<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id23">Anonymous Usage Statistics</a></p></li>
+<li><p><a class="reference internal" href="#kv-event-registration" id="id23">KV-event registration</a></p></li>
+<li><p><a class="reference internal" href="#anonymous-usage-statistics" id="id24">Anonymous Usage Statistics</a></p></li>
 </ul>
 </nav>
 <section id="per-request-lmcache-configuration">
@@ -1767,8 +1768,47 @@ convention).</p></td>
 </span></code></pre></div>
 </div>
 </section>
+<section id="kv-event-registration">
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">KV-event registration</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#kv-event-registration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#kv-event-registration'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">register_kv_cache</span></code> takes a required final <code class="docutils literal notranslate"><span class="pre">event_profile</span></code> argument and
+returns the profile recorded for the registration. Every current integration
+passes <code class="docutils literal notranslate"><span class="pre">None</span></code>; caching and router-visible events are unchanged. There is no
+configuration knob for enabling a native profile in this PR.</p>
+<p><code class="docutils literal notranslate"><span class="pre">KVEventProfile(profile_id,</span> <span class="pre">block_size)</span></code> is an immutable contract with a
+nonempty opaque identity and a positive engine event block size. Before any
+context, layout or liveness state changes, the server validates:</p>
+<ul class="simple">
+<li><p>positive world size and a block size that divides the server chunk size;</p></li>
+<li><p>one full-attention engine block address space with the declared block size;</p></li>
+<li><p>agreement across active registrations for the same model and world size,
+including whether a profile is present;</p></li>
+<li><p>no model/world change for an existing instance when a profile is involved.</p></li>
+</ul>
+<p>A rejection raises <code class="docutils literal notranslate"><span class="pre">MPRequestError</span></code> with the server’s reason. Its code is
+<code class="docutils literal notranslate"><span class="pre">INVALID_ARGUMENT</span></code> on gRPC and <code class="docutils literal notranslate"><span class="pre">invalid_argument</span></code> on ZMQ; ZMQ details also
+include the operation name. Transport failures keep their existing behavior:
+gRPC raises <code class="docutils literal notranslate"><span class="pre">MPServerUnavailableError</span></code>, while a ZMQ wait can expire with
+<code class="docutils literal notranslate"><span class="pre">LMCacheTimeoutError</span></code>.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">None</span></code>, gRPC’s optional request field is absent and the response is
+empty, preserving both byte strings. ZMQ registration always includes one
+additional payload frame, so behavior is identical but request bytes are not.
+Its <code class="docutils literal notranslate"><span class="pre">None</span></code> success reply still contains no payload frame. QStore’s request
+and response bytes are unchanged.</p>
+<ul class="simple">
+<li><p>An older gRPC worker can register with a newer server: absence means <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p>A newer gRPC worker can register with an older server, but its returned
+profile is absent. A future profile sender must compare the returned value.</p></li>
+<li><p>An older ZMQ worker receives an explicit payload-count rejection from a
+newer server. A newer worker calling an older server times out because that
+server cannot answer the longer request. Upgrade ZMQ deployments together.</p></li>
+</ul>
+<p>There is no handshake or fallback. Profiles live until unregister, reap or
+shutdown. STORE bindings, the first integration sending and checking a
+profile, and native event records remain later steps of
+<a class="reference external" href="https://github.com/LMCache/LMCache/issues/5932">issue #5932</a>.</p>
+</section>
 <section id="anonymous-usage-statistics">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Anonymous Usage Statistics</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#anonymous-usage-statistics" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#anonymous-usage-statistics'"><span>#</span></a></h2>
 <p>The MP server reports anonymous usage statistics: a one-time
 environment/configuration snapshot at startup and interval counters
 (tokens retrieved/stored, bytes stored, uptime) every
@@ -1826,6 +1866,7 @@ never affect serving. Opt out with <code class="docutils literal notranslate"><s
 </li>
 <li><a :data-current="activeSection === '#environment-variables'" class="reference internal" href="#environment-variables">Environment Variables</a></li>
 <li><a :data-current="activeSection === '#full-example'" class="reference internal" href="#full-example">Full Example</a></li>
+<li><a :data-current="activeSection === '#kv-event-registration'" class="reference internal" href="#kv-event-registration">KV-event registration</a></li>
 <li><a :data-current="activeSection === '#anonymous-usage-statistics'" class="reference internal" href="#anonymous-usage-statistics">Anonymous Usage Statistics</a></li>
 </ul>
 </div>
