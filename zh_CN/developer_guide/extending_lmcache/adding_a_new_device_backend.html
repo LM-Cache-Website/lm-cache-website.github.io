@@ -793,6 +793,18 @@ callback when constructing such a context. <code class="docutils literal notrans
 the device override point. The callback defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code> for layout-only
 contexts; invoking the base transfer method without it raises <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code>.
 Transfer completion and storage commit remain the caller's responsibility.</p>
+<p>Storage registration is supplied separately by the server through
+<code class="docutils literal notranslate"><span class="pre">create_cache_context(...,</span> <span class="pre">buffer_registration=...)</span></code>. The factory builds
+the context with the existing <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code> arguments, then invokes
+<code class="docutils literal notranslate"><span class="pre">BaseCacheContext.register_staging_buffer</span></code>. A device with a registerable
+staging allocation overrides this hook, registers on its transfer stream,
+and retains the supplied <code class="docutils literal notranslate"><span class="pre">common.buffer_registration.BufferRegistration</span></code>
+implementation only after success. Its <code class="docutils literal notranslate"><span class="pre">close</span></code> drains the stream and
+deregisters before releasing the allocation. The default hook is a no-op.
+If registration fails, the factory closes the context before propagating
+the error. Direct CUDA/MUSA context construction does not implicitly
+register with GDS; custom server factories using GDS must supply the adapter
+or invoke the registration hook before submitting transfers.</p>
 <p>通过 <code class="docutils literal notranslate"><span class="pre">pin_memory_backend</span></code> 在主机端固定是 <em>可选</em> 的，仅影响暂存缓冲区的性能；启用 LMCache 驱动模式并不需要它。</p>
 <section id="event-ipc-capability">
 <h4>Event IPC capability<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#event-ipc-capability"><span>#</span></a></h4>
