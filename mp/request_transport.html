@@ -300,6 +300,15 @@
 This transport carries control and cache-operation requests; it is separate
 from <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span></code>, which controls how KV data moves between
 the engine worker and the LMCache server.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>gRPC is the default request transport. <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> serves gRPC unless
+told otherwise, and a client URL without a scheme is read as <code class="docutils literal notranslate"><span class="pre">grpc://</span></code>.
+ZMQ still works and still speaks the same protocol, but it is <strong>deprecated</strong>:
+the server and the client warn when it is selected, and the ZMQ client and
+server implementations will be removed in a future release. See
+<a class="reference internal" href="#mp-migrating-from-zmq"><span class="std std-ref">Migrating from ZMQ</span></a>.</p>
+</div>
 <section id="transport-schemes">
 <h2>Transport schemes<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#transport-schemes" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#transport-schemes'"><span>#</span></a></h2>
 <table class="docutils align-default">
@@ -315,18 +324,20 @@ the engine worker and the LMCache server.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">host:port</span></code> or <code class="docutils literal notranslate"><span class="pre">tcp://host:port</span></code></p></td>
-<td><p>ZMQ over TCP</p></td>
-<td><p>Supported. A URL without a scheme defaults to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code>.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ipc://path</span></code> or <code class="docutils literal notranslate"><span class="pre">inproc://name</span></code></p></td>
-<td><p>ZMQ IPC or in-process</p></td>
-<td><p>Recognized by the client factory; the standard LMCache server currently
-binds ZMQ over TCP.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">grpc://host:port</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc+unix:///path</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">host:port</span></code>, <code class="docutils literal notranslate"><span class="pre">grpc://host:port</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc+unix:///path</span></code></p></td>
 <td><p>gRPC</p></td>
-<td><p>Supported.</p></td>
+<td><p><strong>Default.</strong> A URL without a scheme is read as gRPC.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tcp://host:port</span></code></p></td>
+<td><p>ZMQ over TCP</p></td>
+<td><p>Deprecated. Accepted during the transition; the server and the client
+warn when it is selected.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ipc://path</span></code> or <code class="docutils literal notranslate"><span class="pre">inproc://name</span></code></p></td>
+<td><p>ZMQ IPC or in-process</p></td>
+<td><p>Deprecated together with ZMQ. Recognized by the client factory, but the
+standard LMCache server binds TCP only, so these have no gRPC
+counterpart; use <code class="docutils literal notranslate"><span class="pre">grpc://host:port</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -347,23 +358,24 @@ bindings under <code class="docutils literal notranslate"><span class="pre">lmca
 </span></code></pre></div>
 </div>
 <p>For a single vLLM connector, set the scheme in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> and keep the
-port in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code>. A ZMQ configuration is:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
-</span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tcp://localhost"</span><span class="p">,</span>
-</span><span id="line-3"><span class="w">  </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span>
-</span><span id="line-4"><span class="p">}</span>
-</span></code></pre></div>
-</div>
-<p>To select gRPC, use the same configuration shape with a <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> host:</p>
+port in <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code>. A gRPC configuration is:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
 </span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grpc://localhost"</span><span class="p">,</span>
 </span><span id="line-3"><span class="w">  </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span>
 </span><span id="line-4"><span class="p">}</span>
 </span></code></pre></div>
 </div>
+<p>The deprecated ZMQ transport uses the same configuration shape with a
+<code class="docutils literal notranslate"><span class="pre">tcp://</span></code> host:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tcp://localhost"</span><span class="p">,</span>
+</span><span id="line-3"><span class="w">  </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span>
+</span><span id="line-4"><span class="p">}</span>
+</span></code></pre></div>
+</div>
 <p>Start the server with the matching request transport:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>zmq<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
-</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>zmq<span class="w"> </span>--host<span class="w"> </span>localhost<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
 </span></code></pre></div>
 </div>
 </section>
@@ -408,8 +420,8 @@ transport-security adapter, and mutual TLS can add encryption and
 certificate-based peer identity to gRPC without replacing the API-key verifier.</p>
 <p>For multiple servers, specify the scheme on every entry in
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code>, for example
-<code class="docutils literal notranslate"><span class="pre">tcp://host1:5555,tcp://host2:5555</span></code> or
-<code class="docutils literal notranslate"><span class="pre">grpc://host1:5555,grpc://host2:5555</span></code>. All clients and servers in a
+<code class="docutils literal notranslate"><span class="pre">grpc://host1:5555,grpc://host2:5555</span></code> or
+<code class="docutils literal notranslate"><span class="pre">tcp://host1:5555,tcp://host2:5555</span></code>. All clients and servers in a
 deployment must use matching transports.</p>
 </section>
 <section id="ipc-descriptor-compatibility">
@@ -423,6 +435,72 @@ engine-driven tensor-data path uses a separate typed inline codec that shares
 the descriptor dtype allowlist. API-key authentication is optional and does
 not replace transport encryption; keep unauthenticated or insecure endpoints
 restricted to trusted networks.</p>
+</section>
+<section id="migrating-from-zmq">
+<span id="mp-migrating-from-zmq"></span><h2>Migrating from ZMQ<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#migrating-from-zmq" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#migrating-from-zmq'"><span>#</span></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">zmq</span></code> server keeps serving ZMQ, and a <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> client URL
+keeps reaching it. The default is what changes, so a deployment that relied on
+the default on one side and named the transport on the other ends up on two
+different transports.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Clients from LMCache 0.5.7 and earlier cannot tell that a server speaks gRPC.
+Pointed at a server that now defaults to gRPC, they wait for the full
+<code class="docutils literal notranslate"><span class="pre">lmcache.mp.mq_timeout</span></code> (300 seconds by default) and then report that the
+server is not running. When the server and the engines are upgraded
+separately, upgrade the engines first, or start the upgraded server with
+<code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">zmq</span></code> until they catch up. Clients from 0.5.8 on fail at the
+first request with a message that names the transport.</p>
+</div>
+<p>Migrate in this order:</p>
+<ol class="arabic">
+<li><p><strong>Pick the transport the server should serve</strong> and name it instead of relying
+on the default:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--transport<span class="w"> </span>grpc<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</span></code></pre></div>
+</div>
+<p>The same applies to every other path that starts a server: the vLLM
+autostart derives the transport from the connector URL, and the operator and
+the test harnesses name theirs explicitly. With the operator, restart the
+vLLM pods after upgrading it, since they keep the connector config they
+started with.</p>
+</li>
+<li><p><strong>Point clients at that transport.</strong> Set the scheme in the connector URL, or
+rely on the scheme-less default, which is now gRPC:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="p">{</span><span class="nt">"lmcache.mp.host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grpc://lmcache-server"</span><span class="p">,</span><span class="w"> </span><span class="nt">"lmcache.mp.port"</span><span class="p">:</span><span class="w"> </span><span class="mi">5555</span><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">bench</span> <span class="pre">server</span> <span class="pre">--rpc-url</span></code> and the SGLang <code class="docutils literal notranslate"><span class="pre">mp_host</span></code> setting take the same
+scheme. A <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> URL still selects ZMQ while ZMQ is supported.</p>
+</li>
+<li><p><strong>Watch the logs.</strong> Selecting ZMQ logs a deprecation warning on the server
+and in each client process. A deployment that logs no warning is already on
+gRPC.</p></li>
+<li><p><strong>Remove the ZMQ settings</strong> before the removal release, since
+<code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">zmq</span></code> goes away with it.</p></li>
+</ol>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%"/>
+<col style="width: 70.0%"/>
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Release</p></th>
+<th class="head"><p>Behaviour</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>The release with the switch</p></td>
+<td><p>gRPC is the default; ZMQ works and warns. Mixed fleets are fine as long
+as each client and its server agree.</p></td>
+</tr>
+<tr class="row-odd"><td><p>A later release</p></td>
+<td><p>ZMQ client and server request transports are removed. HTTP APIs, the
+coordinator, KV transfer modes and the NIXL/Mooncake handshakes are
+unaffected – those still use <code class="docutils literal notranslate"><span class="pre">pyzmq</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -449,6 +527,7 @@ restricted to trusted networks.</p>
 <li><a :data-current="activeSection === '#grpc-implementation-and-schema-development'" class="reference internal" href="#grpc-implementation-and-schema-development">gRPC implementation and schema development</a></li>
 <li><a :data-current="activeSection === '#request-api-key-authentication'" class="reference internal" href="#request-api-key-authentication">Request API-key authentication</a></li>
 <li><a :data-current="activeSection === '#ipc-descriptor-compatibility'" class="reference internal" href="#ipc-descriptor-compatibility">IPC descriptor compatibility</a></li>
+<li><a :data-current="activeSection === '#migrating-from-zmq'" class="reference internal" href="#migrating-from-zmq">Migrating from ZMQ</a></li>
 </ul>
 </div>
 </aside>

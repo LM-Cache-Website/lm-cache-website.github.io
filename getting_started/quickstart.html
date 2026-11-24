@@ -319,9 +319,9 @@ observability endpoints and lets multiple engine instances share a cache.</p>
 <label aria-controls="sd-tab-item-3-content" class="sd-tab-label" data-sync-group="vllm-mode" data-sync-id="mp" for="sd-tab-item-3">
 MP mode (recommended)</label><div class="sd-tab-content docutils" id="sd-tab-item-3-content">
 <p>Start the LMCache server. <code class="docutils literal notranslate"><span class="pre">--host</span></code> / <code class="docutils literal notranslate"><span class="pre">--port</span></code> set the request
-address vLLM connects to; <code class="docutils literal notranslate"><span class="pre">--transport</span></code> selects ZMQ (the default)
-or gRPC. The defaults are spelled out here so the two commands
-line up:</p>
+address vLLM connects to; <code class="docutils literal notranslate"><span class="pre">--transport</span></code> selects gRPC (the default)
+or the deprecated ZMQ. The defaults are spelled out here so the two
+commands line up:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># chunk-size 16 is an illustrative demo value so a short</span>
 </span><span id="line-2"><span class="c1"># prompt produces visible cache traffic; use the default</span>
 </span><span id="line-3"><span class="c1"># (256) in production.</span>
@@ -339,9 +339,9 @@ connector at the server above via <code class="docutils literal notranslate"><sp
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>. The host may
 include a transport prefix: <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for
 gRPC. A bare <code class="docutils literal notranslate"><span class="pre">host</span></code>/<code class="docutils literal notranslate"><span class="pre">host:port</span></code> is also accepted and is
-normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> automatically. See
-<a class="reference internal" href="../mp/request_transport.html"><span class="doc">Request Transport</span></a> for supported endpoint schemes and
-transport-selection behavior:</p>
+normalized to <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> automatically. ZMQ endpoints still work
+but are deprecated. See <a class="reference internal" href="../mp/request_transport.html"><span class="doc">Request Transport</span></a> for supported
+endpoint schemes and transport-selection behavior:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "localhost", "lmcache.mp.port": 5555}}'</span>
@@ -446,7 +446,7 @@ installed. The <code class="docutils literal notranslate"><span class="pre">sgla
 </span></code></pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">mp_host</span></code> and <code class="docutils literal notranslate"><span class="pre">mp_port</span></code> identify the standalone LMCache request
-server. A bare host uses the default ZMQ transport.</p>
+server. A bare host uses the default gRPC transport.</p>
 <p>Engine-driven transfer can be selected under <code class="docutils literal notranslate"><span class="pre">extra_config</span></code> with the
 same name as the vLLM connector:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">mp_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
@@ -472,8 +472,8 @@ can instead use <code class="docutils literal notranslate"><span class="pre">lmc
 shared-memory pool.  Without these flags the server falls back to the
 typed inline transport, which serialises every chunk through the request
 channel and is much slower; see <a class="reference internal" href="../mp/deployment.html#mp-transfer-mode"><span class="std std-ref">Transfer Mode (--supported-transfer-mode, --shm-name)</span></a>.</p>
-<p>To use gRPC instead of ZMQ, include the <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> scheme in the
-connector configuration:</p>
+<p>gRPC is the default; the <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> scheme is explicit for clarity and
+for the case where a deployment still names ZMQ elsewhere:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">cat<span class="w"> </span>&gt;<span class="w"> </span>lmcache_config.yaml<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
 </span><span id="line-2"><span class="s">mp_host: grpc://127.0.0.1</span>
 </span><span id="line-3"><span class="s">mp_port: 5555</span>
@@ -603,7 +603,7 @@ server and client must agree on the seed.</p>
 </span><span id="line-9">    <span class="n">kv_cache_config</span><span class="o">=</span><span class="n">KvCacheConfig</span><span class="p">(</span><span class="n">enable_block_reuse</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
 </span><span id="line-10">    <span class="n">kv_connector_config</span><span class="o">=</span><span class="n">KvCacheConnectorConfig</span><span class="p">(</span>
 </span><span id="line-11">        <span class="n">connector</span><span class="o">=</span><span class="s2">"lmcache-mp"</span><span class="p">,</span>
-</span><span id="line-12">        <span class="n">server_url</span><span class="o">=</span><span class="s2">"tcp://localhost:5555"</span><span class="p">,</span>
+</span><span id="line-12">        <span class="n">server_url</span><span class="o">=</span><span class="s2">"grpc://localhost:5555"</span><span class="p">,</span>
 </span><span id="line-13">    <span class="p">),</span>
 </span><span id="line-14"><span class="p">)</span>
 </span><span id="line-15">
@@ -620,16 +620,16 @@ server and client must agree on the seed.</p>
 <h2>More MP server options<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#more-mp-server-options" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#more-mp-server-options'"><span>#</span></a></h2>
 <p>The vLLM MP example above runs <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> locally on the default
 ports. Common variations:</p>
-<p><strong>Custom port, remote host, or gRPC</strong> – by default the connector talks to
-<code class="docutils literal notranslate"><span class="pre">localhost:5555</span></code> over ZMQ. To use a different port, a server on another
-host, or gRPC, pass <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in
-<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> and select the matching server transport:</p>
+<p><strong>Custom port or remote host</strong> – by default the connector talks to
+<code class="docutils literal notranslate"><span class="pre">localhost:5555</span></code> over gRPC. To use a different port or a server on another
+host, pass <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> / <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in
+<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-8B<span class="w"> </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">  </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "tcp://10.0.0.1", "lmcache.mp.port": 6555}}'</span>
+</span><span id="line-2"><span class="w">  </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "grpc://10.0.0.1", "lmcache.mp.port": 6555}}'</span>
 </span></code></pre></div>
 </div>
-<p>For gRPC, start the server with <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">grpc</span></code> and use a
-<code class="docutils literal notranslate"><span class="pre">grpc://10.0.0.1</span></code> connector host.</p>
+<p>A server started with the deprecated <code class="docutils literal notranslate"><span class="pre">--transport</span> <span class="pre">zmq</span></code> needs a
+<code class="docutils literal notranslate"><span class="pre">tcp://10.0.0.1</span></code> connector host instead.</p>
 <p><strong>CPU-only (no GPU)</strong> – the server runs with a <code class="docutils literal notranslate"><span class="pre">StubCPUDevice</span></code> and shares
 KV tensors with vLLM over POSIX shared memory. Start <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>
 normally, then set <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode=lmcache_driven</span></code> on the vLLM

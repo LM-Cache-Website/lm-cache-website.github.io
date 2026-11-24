@@ -314,7 +314,8 @@ layer of the stack:</p>
 <td><p>使用多种 KV Cache 重用模式的工作负载对推理引擎（例如 vLLM）进行基准测试。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
-<td><p>针对正在运行的 LMCache MP 缓存服务器（ZMQ + HTTP）的端到端健全性测试。需要完整安装 <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> 以及一块 GPU。</p></td>
+<td><p>End-to-end sanity test against a running LMCache MP cache server
+(gRPC + HTTP). Requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install and a GPU.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">l2</span></code></p></td>
 <td><p>针对 L2 缓存适配器的吞吐量／延迟基准测试（存储／查找／加载）。</p></td>
@@ -1295,14 +1296,14 @@ rather than averaging a parsing failure in as a wrong answer.</p>
 <span id="lmcache-bench-server"></span><h2>server<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#server'"><span>#</span></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> command is an end-to-end sanity test for the
 LMCache Multi-Process (MP) cache server. It connects to a running server
-over ZMQ and exercises the full KV-cache data path for a sequence of
+over gRPC and exercises the full KV-cache data path for a sequence of
 synthetic requests, then verifies per-chunk checksums in local worker buffers.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 </div>
 <p>Unlike <a class="reference internal" href="#lmcache-bench-engine"><span class="std std-ref">lmcache bench engine</span></a>, this command does
 <strong>not</strong> require an inference engine. It only needs a running LMCache MP
-server (ZMQ). GPU mode additionally requires a CUDA-capable device.
+server. GPU mode additionally requires a CUDA-capable device.
 It also requires the full <code class="docutils literal notranslate"><span class="pre">lmcache</span></code> install (not the lightweight
 <code class="docutils literal notranslate"><span class="pre">lmcache-cli</span></code> package).</p>
 <section id="what-it-does">
@@ -1344,7 +1345,7 @@ running transfers and may block if a native call hangs.</p>
 </div>
 <p>然后在另一个终端中：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:15556<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080
 </span></code></pre></div>
 </div>
@@ -1366,8 +1367,9 @@ running transfers and may block if a native call hangs.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--rpc-url</span> <span class="pre">URL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost:5555</span></code></p></td>
-<td><p>MP 模式缓存服务器的 ZMQ 端点。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc://localhost:5555</span></code></p></td>
+<td><p>Request endpoint of the MP cache server. A <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> URL selects the
+deprecated ZMQ transport.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--url</span> <span class="pre">URL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code></p></td>
@@ -1487,7 +1489,7 @@ it. To use the zero-copy SHM handle path instead, pass
 </span><span id="line-5">
 </span><span id="line-6"><span class="c1"># Terminal 2 -- run bench in CPU + lmcache_driven mode</span>
 </span><span id="line-7">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-8"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:5555<span class="w"> </span><span class="se">\</span>
 </span><span id="line-9"><span class="w">    </span>--url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
 </span><span id="line-10"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
 </span><span id="line-11"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">2</span>
@@ -1512,7 +1514,7 @@ it. To use the zero-copy SHM handle path instead, pass
 </ul>
 <p>多组规格支持对异构层建模（例如，同一模型中同时包含 MLA 层和经典注意力层）：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:15556<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):float16:4;(2,1024,16,8,128):float16:28"</span>
 </span></code></pre></div>
 </div>
@@ -1530,7 +1532,7 @@ recognises as MLA -- see <code class="docutils literal notranslate"><span class=
 <code class="docutils literal notranslate"><span class="pre">lmcache/v1/common/kv_format/detectors/vllm.py</span></code>.</p>
 <p>Pure MLA example (DeepSeek-V2-style, 61 layers, single latent head):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:15556<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):bfloat16:61"</span>
 </span></code></pre></div>
 </div>
@@ -1572,7 +1574,7 @@ bytes).</p></li>
 </ul>
 <p>Example: MLA + TP=2, exercising rank 0 STORE + both-rank RETRIEVE:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:15556<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:15556<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--transfer-mode<span class="w"> </span>lmcache_driven<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--kvcache-shape-spec<span class="w"> </span><span class="s2">"(1,1024,16,1,128):bfloat16:8"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--tp-size<span class="w"> </span><span class="m">2</span>
@@ -1594,7 +1596,7 @@ connection and KV tensors, and its Workers registered under their own
 <code class="docutils literal notranslate"><span class="pre">start</span> <span class="pre">+</span> <span class="pre">k</span></code>, <code class="docutils literal notranslate"><span class="pre">start</span> <span class="pre">+</span> <span class="pre">k</span> <span class="pre">+</span> <span class="pre">N</span></code>, ...), so no two clients touch the same
 keys and the cold/warm checks stay valid.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span>--mode<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:5555<span class="w"> </span>--mode<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">400</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">0</span><span class="w"> </span>--concurrency<span class="w"> </span><span class="m">8</span>
 </span></code></pre></div>
 </div>
@@ -1608,9 +1610,13 @@ affected warm lookups miss and fail their checks.</p>
 </section>
 <section id="profiling-the-server">
 <h3>对服务器进行性能分析<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#profiling-the-server" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#profiling-the-server'"><span>#</span></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> 是一个 ZMQ 客户端：它所使用的存储路径（哈希、分配、收集、D2H）在 <strong>server</strong> 进程内部运行，而不是在这个基准测试中。因此，<code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> 会将分析器附加到您提供的服务器进程 ID，记录负载持续时间，并渲染服务器的火焰图，而不是客户端的火焰图。</p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">bench</span> <span class="pre">server</span></code> is a request client: the store path it exercises
+(hashing, allocation, gather, D2H) runs inside the <strong>server</strong> process, not
+this benchmark. <code class="docutils literal notranslate"><span class="pre">--flamegraph</span> <span class="pre">on</span></code> therefore attaches the profiler to a
+server pid you supply, records for the duration of the load, and renders a
+flame graph of the server, not of the client.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>bench<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
-</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>tcp://localhost:5555<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--rpc-url<span class="w"> </span>grpc://localhost:5555<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--start<span class="w"> </span><span class="m">0</span><span class="w"> </span>--end<span class="w"> </span><span class="m">200</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">0</span>.02<span class="w"> </span><span class="se">\</span>
 </span><span id="line-4"><span class="w">    </span>--flamegraph<span class="w"> </span>on<span class="w"> </span>--flamegraph-mode<span class="w"> </span>gil<span class="w"> </span><span class="se">\</span>
 </span><span id="line-5"><span class="w">    </span>--profile-server-pid<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">'lmcache server'</span><span class="k">)</span><span class="s2">"</span>
@@ -1635,7 +1641,7 @@ elapsed time, requests per second.</p></li>
 <p>使用 <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> 获取机器可读的输出，或使用 <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">FILE</span></code> 将摘要保存到文件中。</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">================ Server Bench Result =================
 </span><span id="line-2">---------------------- Configuration -----------------
-</span><span id="line-3">RPC URL:                          tcp://localhost:15556
+</span><span id="line-3">RPC URL:                          grpc://localhost:15556
 </span><span id="line-4">Mode:                             gpu
 </span><span id="line-5">Transfer mode:                    auto
 </span><span id="line-6">Tokens / request:                 512
@@ -1680,7 +1686,7 @@ elapsed time, requests per second.</p></li>
 <section id="example-output-progress">
 <h3>示例输出（进度）<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#example-output-progress" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#example-output-progress'"><span>#</span></a></h3>
 <p>运行期间，进度消息会打印到 stdout（可通过 <code class="docutils literal notranslate"><span class="pre">-q</span></code> / <code class="docutils literal notranslate"><span class="pre">--quiet</span></code> 禁止）：</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at tcp://localhost:15556 (mode=gpu) ...
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">Connecting to LMCache MP Server at grpc://localhost:15556 (mode=gpu) ...
 </span><span id="line-2">Server chunk_size = 256
 </span><span id="line-3">Resolved KV shape spec: (2,1024,16,8,128):float16:32
 </span><span id="line-4">[seq=0] LOOKUP cold:  0/2 chunks hit (1.82 ms)

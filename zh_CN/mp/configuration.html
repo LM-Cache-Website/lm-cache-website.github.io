@@ -393,8 +393,10 @@ eager-prefetch lookups, which run before vLLM checks its prefix cache.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--transport</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">zmq</span></code></p></td>
-<td><p>Request transport exposed by the server. Choices: <code class="docutils literal notranslate"><span class="pre">zmq</span></code> or <code class="docutils literal notranslate"><span class="pre">grpc</span></code>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc</span></code></p></td>
+<td><p>Request transport exposed by the server. Choices: <code class="docutils literal notranslate"><span class="pre">grpc</span></code> or <code class="docutils literal notranslate"><span class="pre">zmq</span></code>.
+<code class="docutils literal notranslate"><span class="pre">zmq</span></code> is deprecated and will be removed in a future release; see
+<a class="reference internal" href="request_transport.html#mp-migrating-from-zmq"><span class="std std-ref">Migrating from ZMQ</span></a>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--instance-id</span></code></p></td>
 <td><p>(未设置，默认 UUID v4)</p></td>
@@ -1280,9 +1282,9 @@ logged at INFO.</p></td>
 <h2><a class="toc-backref" href="#id18" role="doc-backlink">vLLM 客户端配置</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#vllm-client-configuration" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#vllm-client-configuration'"><span>#</span></a></h2>
 <p>On the vLLM side, specify the LMCache server host and port via the
 <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code> parameter. The URL scheme selects the request
-transport: use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC, matching the
-server's <code class="docutils literal notranslate"><span class="pre">--transport</span></code> setting. A bare host is accepted and normalized to
-<code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for backward compatibility:</p>
+transport: use <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC (the default) or <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ,
+matching the server's <code class="docutils literal notranslate"><span class="pre">--transport</span></code> setting. A bare host is accepted and
+normalized to <code class="docutils literal notranslate"><span class="pre">grpc://</span></code>; <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> keeps working until ZMQ is removed:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.host": "127.0.0.1", "lmcache.mp.port": 6000}}'</span>
@@ -1292,7 +1294,7 @@ server's <code class="docutils literal notranslate"><span class="pre">--transpor
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>Qwen/Qwen3-14B<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--tensor-parallel-size<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="se">\</span>
-</span><span id="line-4"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.server_urls": "tcp://host1:6667,tcp://host2:6667"}}'</span>
+</span><span id="line-4"><span class="w">    </span><span class="s1">'{"kv_connector":"LMCacheMPConnector", "kv_role":"kv_both", "kv_connector_extra_config": {"lmcache.mp.server_urls": "grpc://host1:6667,grpc://host2:6667"}}'</span>
 </span></code></pre></div>
 </div>
 <section id="lora-adapters">
@@ -1445,19 +1447,19 @@ per-request ring (DeepSeek-V4.1, GLM-5.3, Qwen3.8-Flash-Next) yet.</p></td>
 <td><p><em>(未设置)</em></p></td>
 <td><p>Multi-server deployment: list (or comma-separated string) of
 <code class="docutils literal notranslate"><span class="pre">&lt;transport&gt;://&lt;host&gt;:&lt;port&gt;</span></code> URLs, e.g.
-<code class="docutils literal notranslate"><span class="pre">"tcp://host1:6667,tcp://host2:6667"</span></code>. The transport prefix
+<code class="docutils literal notranslate"><span class="pre">"grpc://host1:6667,grpc://host2:6667"</span></code>. The transport prefix
 may be omitted -- bare <code class="docutils literal notranslate"><span class="pre">host:port</span></code> entries such as
-<code class="docutils literal notranslate"><span class="pre">"host1:6667,host2:6667"</span></code> are normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the
+<code class="docutils literal notranslate"><span class="pre">"host1:6667,host2:6667"</span></code> are normalized to <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> by the
 connector. When set, takes precedence over <code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code> /
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code>; the vLLM world size must be divisible by the
 number of servers, and each worker connects to its
 locally-assigned server.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">tcp://localhost</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">grpc://localhost</span></code></p></td>
 <td><p>Single-server deployment: request transport and host of the LMCache MP
-server. Use <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ or <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC. A bare
-<code class="docutils literal notranslate"><span class="pre">localhost</span></code> / <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> is normalized to <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> by the
+server. Use <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC (default) or <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ. A
+bare <code class="docutils literal notranslate"><span class="pre">localhost</span></code> / <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> is normalized to <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> by the
 connector. Ignored when <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> is set.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
@@ -1501,10 +1503,11 @@ at enqueue time.</p></td>
 <td><p>Whether vLLM worker 0 should start a local <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> process
 before workers connect to it. Other local workers wait for the server to
 become reachable. Only <code class="docutils literal notranslate"><span class="pre">localhost</span></code> and <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> are supported.
-The URL scheme picks the server transport: <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> starts a ZMQ
-server and <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> starts a gRPC server.
+The URL scheme picks the server transport: <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> or a host
+without a scheme starts a gRPC server, and <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> starts a
+deprecated ZMQ server.
 IPv6 endpoints, including <code class="docutils literal notranslate"><span class="pre">::1</span></code>, raise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> before startup
-because the MP ZMQ transport does not enable IPv6 sockets.
+for either transport.
 Auto-start supports exactly one server endpoint; configuring
 multiple <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> during
 connector initialization.</p></td>
