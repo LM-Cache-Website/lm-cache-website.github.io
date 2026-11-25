@@ -510,6 +510,9 @@ use ordinary io_uring. When comparing performance, verify these fields and
 keep <code class="docutils literal notranslate"><span class="pre">enable_zero_copy</span></code> enabled in both cases to isolate registration from
 direct-buffer I/O.</p>
 <p><strong>Configuration examples:</strong></p>
+<p>Pass these L2 options to <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code>. For a server on
+<code class="docutils literal notranslate"><span class="pre">127.0.0.1:5555</span></code>, use the MP client endpoint <code class="docutils literal notranslate"><span class="pre">grpc://127.0.0.1:5555</span></code>.
+A bare <code class="docutils literal notranslate"><span class="pre">127.0.0.1:5555</span></code> also selects the default gRPC request transport.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="c1"># Basic raw_block with posix I/O</span>
 </span><span id="line-2">--l2-adapter<span class="w"> </span><span class="s1">'{"type": "raw_block", "device_path": "/dev/nvme0n1", "slot_bytes": 1048576, "block_align": 4096, "header_bytes": 4096, "meta_total_bytes": 268435456, "use_odirect": true, "num_store_workers": 2, "num_lookup_workers": 1, "num_load_workers": 4}'</span>
 </span><span id="line-3">
@@ -538,6 +541,29 @@ retry after completion progress or 1–100 ms exponential backoff. Permanent
 errors, or 30 seconds without submission or completion progress, mark the
 worker unhealthy and stop new native I/O. The core status exposes the failure
 reason as <code class="docutils literal notranslate"><span class="pre">worker_error</span></code>.</p>
+<p>On an initialized MP adapter with <code class="docutils literal notranslate"><span class="pre">io_engine="io_uring"</span></code> and
+<code class="docutils literal notranslate"><span class="pre">use_uring_cmd=true</span></code>, a read completion with NVMe SCT 2 / SC 0x81
+confirms an Unrecovered Read Error (UECC). The status mask ignores CRD,
+More and DNR. POSIX and ordinary <code class="docutils literal notranslate"><span class="pre">io_uring</span></code> surface Linux errors and
+retain per-request handling.</p>
+<p>Slot quarantine requires a matching raw-block wheel with typed completion
+errors. Older wheels report failed reads as per-request misses.</p>
+<p>On a confirmed UECC while loading a cached payload, the core quarantines
+the affected data slot until the handle closes. Lookup and load miss for
+the slot’s key. The worker keeps serving other slots, including successful
+keys in the same load. A later store can cache the recomputed key in a
+different slot. Each quarantined slot reduces usable capacity by one slot.</p>
+<p>For a full-attention prefix request for A, B and C, if B fails and no
+other tier supplies B, the serving caller gets only A. If A fails, the
+prefix is empty. The prefetch controller applies this rule after combining
+the available tiers. A separate request can still use healthy C.</p>
+<p>The core logs the failed byte range and raw NVMe status. The adapter’s core
+status exposes <code class="docutils literal notranslate"><span class="pre">quarantined_slot_count</span></code>, <code class="docutils literal notranslate"><span class="pre">last_payload_uecc</span></code> and the
+remaining <code class="docutils literal notranslate"><span class="pre">usable_capacity_bytes</span></code>. A payload UECC alone leaves the worker
+healthy. Checkpointing continues and records the remaining indexed keys.
+The quarantine set is local to the open handle. After restart the allocator
+can reuse the slot, and an unreadable range can trigger quarantine again.
+Checkpoint and slot-header recovery reads retain their per-request handling.</p>
 <p>After a known worker failure, new prefetch tasks report failure through their
 normal task results and new stores are skipped. The adapter still publishes
 completion results and notifications so controllers can release locks and
