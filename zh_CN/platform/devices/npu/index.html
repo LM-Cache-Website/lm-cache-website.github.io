@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>NPU | LMCache</title>
-<meta content="NPU | LMCache" property="og:title"/>
-<meta content="NPU | LMCache" name="twitter:title"/>
+<title>Ascend NPU | LMCache</title>
+<meta content="Ascend NPU | LMCache" property="og:title"/>
+<meta content="Ascend NPU | LMCache" name="twitter:title"/>
 <link href="../../../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../../../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../../../_static/sphinx-design.min.css?v=6a604523" rel="stylesheet" type="text/css"/>
@@ -21,7 +21,7 @@
 <link href="../../../_static/lmcache-logo.png" rel="icon"/>
 <link href="../../../search.html" rel="search" title="搜索"/>
 <link href="../../../genindex.html" rel="index" title="索引"/>
-<link href="../rbln/index.html" rel="next" title="Rebellions NPU"/>
+<link href="mp_mode.html" rel="next" title="MP Mode on Ascend NPU"/>
 <link href="../neuron/index.html" rel="prev" title="Neuron"/>
 <script>
     <!-- Prevent Flash of wrong theme -->
@@ -100,7 +100,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../mlu/index.html">Cambricon MLU Backend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../musa/index.html">musa-aiter with LMCache on MUSA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../neuron/index.html">Neuron</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">NPU</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Ascend NPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rbln/index.html">Rebellions NPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rocm/index.html">ROCm</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../supa/index.html">SUPA</a></li>
@@ -290,15 +290,183 @@
 </svg>
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../../index.html">Platform</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">NPU</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Ascend NPU</span>
 </nav>
 <div id="content" role="main">
-<section id="npu">
-<h1>NPU<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#npu"><span>#</span></a></h1>
+<section id="ascend-npu">
+<h1>Ascend NPU<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#ascend-npu"><span>#</span></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">npu</span></code> backend runs LMCache on Ascend NPUs with
+<a class="reference external" href="https://github.com/vllm-project/vllm-ascend">vLLM-Ascend</a> as the serving
+engine. The in-tree device package
+(<code class="docutils literal notranslate"><span class="pre">lmcache/v1/platform/devices/npu</span></code>) implements the community <code class="docutils literal notranslate"><span class="pre">DeviceSpec</span></code>
+and <code class="docutils literal notranslate"><span class="pre">DeviceOps</span></code> interfaces, the per-layer IPC wrapper, event IPC, cache
+context, and host-memory pinning. Compiled NPU kernels and transfer
+optimizations live in the external
+<a class="reference external" href="https://github.com/LMCache/LMCache-Ascend">LMCache-Ascend</a> plugin
+(<code class="docutils literal notranslate"><span class="pre">lmcache_ascend</span></code>); the in-tree backend binds them through
+<code class="docutils literal notranslate"><span class="pre">lmcache_ascend.ops</span></code>.</p>
+<p>NPU supports both multiprocess (MP) transfer modes and, unlike the
+engine-driven backends, defaults to <strong>LMCache-driven</strong> transfer. That default
+is required for multi-plane MLA/DSA models such as DeepSeek-V4.</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
-<p>Device-specific documentation will be added by the backend maintainers.</p>
+<p>This page and its subpages document MP mode only. The legacy in-process
+connector is out of scope.</p>
 </div>
+<section id="prerequisites">
+<h2>Prerequisites<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#prerequisites" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#prerequisites'"><span>#</span></a></h2>
+<p>Validated on Atlas A2/A3 (Ascend 910B). Atlas A5 is planned but not yet
+supported, and Atlas 300I Duo is not supported.</p>
+<ul class="simple">
+<li><p>CANN Toolkit &gt;= 8.5.0 and Ascend driver &gt;= 25.5.</p></li>
+<li><p>Python &gt;= 3.10 (LMCache-Ascend supports 3.10-3.12).</p></li>
+<li><p>PyTorch &gt;= 2.8.0 with the <code class="docutils literal notranslate"><span class="pre">torch_npu</span></code> package.</p></li>
+<li><p>vLLM and vLLM-Ascend &gt;= 0.23.0.</p></li>
+<li><p>Containers started with the Ascend driver and the <code class="docutils literal notranslate"><span class="pre">/dev/davinci*</span></code>
+devices passed through. Follow the official
+<a class="reference external" href="https://docs.vllm.com.cn/projects/ascend/en/latest/tutorials/models/index.html">vLLM-Ascend tutorials</a>
+for base environment preparation.</p></li>
+</ul>
+</section>
+<section id="installation">
+<h2>Installation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#installation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#installation'"><span>#</span></a></h2>
+<p>Install LMCache and LMCache-Ascend from source in the same Python
+environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
+</span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
+</span><span id="line-3">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span><span id="line-4"><span class="nb">cd</span><span class="w"> </span>..
+</span><span id="line-5">
+</span><span id="line-6">git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span><span class="se">\</span>
+</span><span id="line-7"><span class="w">    </span>https://github.com/LMCache/LMCache-Ascend.git
+</span><span id="line-8"><span class="nb">cd</span><span class="w"> </span>LMCache-Ascend
+</span><span id="line-9">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span></code></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">third_party/hcomm</span></code> submodule must match the container's CANN version.
+Check the installed CANN version, switch the submodule to the matching tag
+from <a class="reference external" href="https://gitcode.com/cann/hcomm">the hcomm repository</a>, then build:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">ls<span class="w"> </span>/usr/local/Ascend<span class="w">        </span><span class="c1"># e.g. 8.5.0 means CANN 8.5</span>
+</span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>third_party/hcomm
+</span><span id="line-3">git<span class="w"> </span>fetch<span class="w"> </span>--tags
+</span><span id="line-4">git<span class="w"> </span>checkout<span class="w"> </span>v8.5.0<span class="w">         </span><span class="c1"># tag matching the CANN version</span>
+</span><span id="line-5"><span class="nb">cd</span><span class="w"> </span>../..
+</span><span id="line-6">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span></code></pre></div>
+</div>
+<p>Use matching revisions of the two repositories: each published
+LMCache-Ascend release pairs with the LMCache release of the same version
+(<code class="docutils literal notranslate"><span class="pre">v0.5.6</span></code> with <code class="docutils literal notranslate"><span class="pre">v0.5.6</span></code>), and <code class="docutils literal notranslate"><span class="pre">main</span></code> tracks <code class="docutils literal notranslate"><span class="pre">dev</span></code>. MP mode replaces
+the in-process connector, so do not install the LMCache release used by
+<code class="docutils literal notranslate"><span class="pre">LMCacheAscendConnectorV1Dynamic</span></code> (LMCache 0.4.5) in the same environment.</p>
+<p>Verify the installation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import lmcache_ascend"</span>
+</span><span id="line-2">lmcache<span class="w"> </span>server<span class="w"> </span>--help<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>supported-transfer-mode
+</span></code></pre></div>
+</div>
+<p>LMCache selects <code class="docutils literal notranslate"><span class="pre">npu</span></code> automatically when <code class="docutils literal notranslate"><span class="pre">torch.npu</span></code> reports an
+available device. To pin the backend, set:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nb">export</span><span class="w"> </span><span class="nv">LMCACHE_DEVICE_BACKEND</span><span class="o">=</span>npu
+</span></code></pre></div>
+</div>
+<p>With the backend pinned, startup fails when the environment has no
+<code class="docutils literal notranslate"><span class="pre">torch.npu</span></code> module instead of falling back to the CPU stub.</p>
+</section>
+<section id="running-vllm-ascend-with-lmcache">
+<h2>Running vLLM-Ascend with LMCache<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#running-vllm-ascend-with-lmcache" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#running-vllm-ascend-with-lmcache'"><span>#</span></a></h2>
+<p>Start the LMCache server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">128</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--eviction-policy<span class="w"> </span>LRU
+</span></code></pre></div>
+</div>
+<p>The server defaults to <code class="docutils literal notranslate"><span class="pre">--supported-transfer-mode</span> <span class="pre">lmcache_driven</span></code>, which
+is also the NPU worker default, so no transfer-mode flag is needed.
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> is a minimum: the connector rounds it up to a multiple of
+the vLLM cache-group alignment. 128 matches the Ascend block size for
+single-KV-format models, while DeepSeek-V4 requires 4096 because its packed
+MLA/DSA layout is designed for 4096-token chunks. Size <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> so
+that the whole working set fits; otherwise LRU eviction turns hits back into
+misses.</p>
+<p>Start vLLM-Ascend with <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">vllm<span class="w"> </span>serve<span class="w"> </span>&lt;model&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>...<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--kv-transfer-config<span class="w"> </span><span class="s1">'{</span>
+</span><span id="line-4"><span class="s1">      "kv_connector": "LMCacheMPConnector",</span>
+</span><span id="line-5"><span class="s1">      "kv_role": "kv_both"</span>
+</span><span id="line-6"><span class="s1">    }'</span>
+</span></code></pre></div>
+</div>
+<p>Leave <code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code> unset (or set it to <code class="docutils literal notranslate"><span class="pre">auto</span></code>): on NPU
+it resolves to <code class="docutils literal notranslate"><span class="pre">lmcache_driven</span></code>. Each worker logs the resolved mode:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">LMCache INFO: Creating transfer context (device_type=npu, mode=lmcache_driven)
+</span></code></pre></div>
+</div>
+<p>For environment preparation, container setup, and a DeepSeek-V4 walkthrough,
+see the full guide in <a class="reference internal" href="lmcache_driven.html"><span class="doc">LMCache-Driven Mode</span></a>.</p>
+</section>
+<section id="engine-driven-mode">
+<h2>Engine-driven mode<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#engine-driven-mode" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#engine-driven-mode'"><span>#</span></a></h2>
+<p>To use engine-driven transfer instead, select it on both sides. On the
+server, also create a named shared-memory pool:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span>--chunk-size<span class="w"> </span><span class="m">128</span><span class="w"> </span>--l1-size-gb<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-2"><span class="w">    </span>--supported-transfer-mode<span class="w"> </span>engine_driven<span class="w"> </span><span class="se">\</span>
+</span><span id="line-3"><span class="w">    </span>--shm-name<span class="w"> </span>lmcache-mp-e2e<span class="w"> </span>--no-l1-use-lazy
+</span></code></pre></div>
+</div>
+<p>On the worker, override the transfer mode in the connector configuration:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nt">"kv_connector_extra_config"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="line-2"><span class="w">  </span><span class="nt">"lmcache.mp.mp_transfer_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"engine_driven"</span>
+</span><span id="line-3"><span class="p">}</span>
+</span></code></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--shm-name</span></code> and <code class="docutils literal notranslate"><span class="pre">--no-l1-use-lazy</span></code> must be passed together: with the
+default lazy L1 allocation the server ignores the name and logs a warning,
+and the workers fall back to the slow inline transport. The pool is created
+under <code class="docutils literal notranslate"><span class="pre">/dev/shm</span></code> as <code class="docutils literal notranslate"><span class="pre">lmcache_l1_pool_&lt;name&gt;</span></code>, so the container's
+<code class="docutils literal notranslate"><span class="pre">--shm-size</span></code> must be at least <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code>. Keep
+<code class="docutils literal notranslate"><span class="pre">--gpu-memory-utilization</span></code> at or below 0.8 because the retrieve path
+allocates transient device buffers on top of vLLM's profiled budget.</p>
+<p>This is the short version; see <a class="reference internal" href="engine_driven.html"><span class="doc">Engine-Driven Mode</span></a> for the full guide.</p>
+</section>
+<section id="supported-kv-cache-formats">
+<h2>Supported KV cache formats<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#supported-kv-cache-formats" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#supported-kv-cache-formats'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><strong>LMCache-driven:</strong> standard GQA/MHA layouts, MLA/DSA multi-plane layouts
+(for example DeepSeek-V4 <code class="docutils literal notranslate"><span class="pre">(latent,</span> <span class="pre">rope,</span> <span class="pre">...)</span></code>), and hybrid Mamba models
+(for example Qwen3.5) with <code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">align</span></code>. The IPC wrapper
+moves each per-layer K/V pair or multi-plane tuple through <code class="docutils literal notranslate"><span class="pre">torch_npu</span></code>
+storage IPC.</p></li>
+<li><p><strong>Engine-driven:</strong> single KV-cache format models with standard GQA/MHA
+layouts only.</p></li>
+</ul>
+<p>In MP mode, CacheBlend and CacheGen are not supported, and
+<code class="docutils literal notranslate"><span class="pre">--mamba-cache-mode</span> <span class="pre">all</span></code> is not supported. See <a class="reference internal" href="mp_mode.html"><span class="doc">MP Mode on Ascend NPU</span></a> for the full
+transfer-mode matrix, supported model families, and limitations.</p>
+</section>
+<section id="validation">
+<h2>Validation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#validation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#validation'"><span>#</span></a></h2>
+<p>Run the backend tests on a host with an Ascend NPU:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span>-rs<span class="w"> </span>tests/v1/platform/devices/npu
+</span></code></pre></div>
+</div>
+<p>Tests that need an NPU skip when no device can be opened; skipped cases are
+not hardware validation.</p>
+<p>For an end-to-end check, send the same long prompt twice with
+<code class="docutils literal notranslate"><span class="pre">temperature:</span> <span class="pre">0</span></code>. The first request stores KV chunks and the second
+retrieves them: the server log shows <code class="docutils literal notranslate"><span class="pre">Stored</span> <span class="pre">...</span> <span class="pre">tokens</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Retrieved</span> <span class="pre">...</span> <span class="pre">tokens</span></code>, and vLLM's <code class="docutils literal notranslate"><span class="pre">External</span> <span class="pre">prefix</span> <span class="pre">cache</span> <span class="pre">hit</span> <span class="pre">rate</span></code> rises
+above zero.</p>
+</section>
+<section id="mp-mode-documentation">
+<h2>MP mode documentation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#mp-mode-documentation" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#mp-mode-documentation'"><span>#</span></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="mp_mode.html"><span class="doc">MP Mode on Ascend NPU</span></a> -- transfer-mode matrix, supported models, and limitations.</p></li>
+<li><p><a class="reference internal" href="lmcache_driven.html"><span class="doc">LMCache-Driven Mode</span></a> -- full LMCache-driven deployment guide.</p></li>
+<li><p><a class="reference internal" href="engine_driven.html"><span class="doc">Engine-Driven Mode</span></a> -- full engine-driven deployment guide.</p></li>
+<li><p><a class="reference internal" href="hybrid_mamba.html"><span class="doc">Hybrid Mamba Models (Qwen3.5 / Qwen3.6 / Qwen3.8)</span></a> -- hybrid Mamba models (Qwen3.5 / Qwen3.6 / Qwen3.8).</p></li>
+</ul>
+
+</section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
@@ -310,14 +478,26 @@
       </a>
 </div>
 <div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../rbln/index.html">
-        Rebellions NPU
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="mp_mode.html">
+        MP Mode on Ascend NPU
         <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="9 18 15 12 9 6"></polyline>
 </svg>
 </a>
 </div>
-</div></div>
+</div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
+<div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
+<ul>
+<li><a :data-current="activeSection === '#prerequisites'" class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li><a :data-current="activeSection === '#installation'" class="reference internal" href="#installation">Installation</a></li>
+<li><a :data-current="activeSection === '#running-vllm-ascend-with-lmcache'" class="reference internal" href="#running-vllm-ascend-with-lmcache">Running vLLM-Ascend with LMCache</a></li>
+<li><a :data-current="activeSection === '#engine-driven-mode'" class="reference internal" href="#engine-driven-mode">Engine-driven mode</a></li>
+<li><a :data-current="activeSection === '#supported-kv-cache-formats'" class="reference internal" href="#supported-kv-cache-formats">Supported KV cache formats</a></li>
+<li><a :data-current="activeSection === '#validation'" class="reference internal" href="#validation">Validation</a></li>
+<li><a :data-current="activeSection === '#mp-mode-documentation'" class="reference internal" href="#mp-mode-documentation">MP mode documentation</a></li>
+</ul>
+</div>
+</aside>
 </main>
 </div>
 </div><footer class="py-6 border-t border-border md:py-0">
