@@ -1278,10 +1278,13 @@ inherit the wrapped adapter’s behavior.</p></li>
 the requests that will use them, so the first request hits L1 instead of
 paying the L2 fetch inline. Useful when a workload is about to be routed to a
 node (a traffic shift, a hot shared system prompt).</p>
-<p>The caller describes content by <strong>token ids</strong>, never by internal cache keys (a
-key is a content hash plus a per-rank layout bitmap, which callers cannot
-construct). The server hashes the tokens, expands each chunk across the node’s
-ranks, and submits a <em>warm</em> prefetch: loaded chunks are <strong>retained</strong>
+<p>The caller describes content by <strong>token ids</strong>, or by <strong>keys</strong> it already holds
+(for example from the coordinator’s directory). Supply exactly one. Token ids
+always cover every chunk from position 0, since chunk hashes are
+prefix-chained; keys reach a chunk in the middle of a prompt without its prefix
+chunks. A key names its chunk: whichever object group and rank it carries, the
+chunk is warmed in every group and rank. The server expands each chunk across
+the node’s object groups and ranks, and submits a <em>warm</em> prefetch: loaded chunks are <strong>retained</strong>
 (permanent) and left <strong>unlocked</strong> — there is no downstream reader to pin them
 for, so a later real lookup takes its own lock. The call returns immediately;
 the load runs in the storage manager’s own thread. It coalesces across all
@@ -1300,26 +1303,33 @@ configured L2 adapters, so there is no <code class="docutils literal notranslate
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">keys</span></code></p></td>
+<td><p>list[object]</p></td>
+<td><p>Keys form. Each <code class="docutils literal notranslate"><span class="pre">{"chunk_hash_hex",</span> <span class="pre">"model_name",</span> <span class="pre">"kv_rank",</span>
+<span class="pre">"object_group_id",</span> <span class="pre">"cache_salt",</span> <span class="pre">"tags"}</span></code>; they must agree on model,
+world size (packed in <code class="docutils literal notranslate"><span class="pre">kv_rank</span></code>), <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> and <code class="docutils literal notranslate"><span class="pre">tags</span></code>; at
+most 10,000 keys. The token-form fields below are then ignored.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
 <td><p>string</p></td>
-<td><p>The served model id, exactly as registered (e.g. <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-8B</span></code>).</p></td>
+<td><p>Tokens form, required. The served model id, exactly as registered
+(e.g. <code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-8B</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code></p></td>
 <td><p>int</p></td>
-<td><p>The value vLLM registered for the node’s KV layout and rank fan-out
-(<code class="docutils literal notranslate"><span class="pre">1</span></code> for a single-GPU, TP=1 deployment).</p></td>
+<td><p>Tokens form, required. The value vLLM registered for the node’s KV
+layout and rank fan-out (<code class="docutils literal notranslate"><span class="pre">1</span></code> for a single-GPU, TP=1 deployment).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">token_ids</span></code></p></td>
 <td><p>list[int]</p></td>
-<td><p>The prompt token ids. Must use the same tokenizer / special-token
-settings as the store, and contain at least one full <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> of
-tokens — only complete chunks are warmed.</p></td>
+<td><p>Tokens form. The prompt token ids. Must use the same tokenizer /
+special-token settings as the store; only complete chunks are warmed.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache_salt</span></code></p></td>
 <td><p>string</p></td>
 <td><p>Per-tenant key isolation; must match the store (default <code class="docutils literal notranslate"><span class="pre">""</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
 <td><p>map[string, string]</p></td>
 <td><p>Matching tags used when the content was stored, without the
 <code class="docutils literal notranslate"><span class="pre">lmcache.tag.</span></code> prefix (default <code class="docutils literal notranslate"><span class="pre">{}</span></code>). Empty tags select only
@@ -1339,13 +1349,25 @@ no <code class="docutils literal notranslate"><span class="pre">request_id</span
 <p><strong>HTTP status codes:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">202</span></code>: submitted (or a <code class="docutils literal notranslate"><span class="pre">noop</span></code> as above).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> exceeds the per-request cap, or <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>
-violates its invariants.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">409</span></code>: no layout registered for <code class="docutils literal notranslate"><span class="pre">(model_name,</span> <span class="pre">world_size)</span></code> — the model
-has not allocated KV cache on this node yet (start vLLM first).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code>: <code class="docutils literal notranslate"><span class="pre">token_ids</span></code> exceeds the per-request cap, <code class="docutils literal notranslate"><span class="pre">cache_salt</span></code>
+violates its invariants, or <code class="docutils literal notranslate"><span class="pre">keys</span></code> disagree on model, world size,
+<code class="docutils literal notranslate"><span class="pre">cache_salt</span></code> or <code class="docutils literal notranslate"><span class="pre">tags</span></code> or pack no world size in <code class="docutils literal notranslate"><span class="pre">kv_rank</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">422</span></code>: request body fails field-level validation, supplies both or
+neither of <code class="docutils literal notranslate"><span class="pre">keys</span></code> / <code class="docutils literal notranslate"><span class="pre">token_ids</span></code>, omits <code class="docutils literal notranslate"><span class="pre">model_name</span></code> or
+<code class="docutils literal notranslate"><span class="pre">world_size</span></code> in the tokens form, or carries more than 10,000 keys.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">503</span></code>: engine not initialized, or no layout registered for
+<code class="docutils literal notranslate"><span class="pre">(model_name,</span> <span class="pre">world_size)</span></code> — the model has not allocated KV cache on this
+node yet (start vLLM first).</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Sliding-window models:</strong> the two forms load different chunks. The tokens
+form keeps each object group’s attention window, and a warm prefetch plans
+nothing for a model with a sliding-window group. The keys form names chunks
+that need not be a contiguous prefix, so it has no window to keep: it loads
+every named chunk in every group and retains it in L1 until evicted. Serving
+is unaffected, since a lookup still applies each group’s window.</p>
+</div>
 <p><strong>Example:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/cache/prefetches<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
@@ -1353,6 +1375,14 @@ has not allocated KV cache on this node yet (start vLLM first).</p></li>
 </span><span id="line-4"><span class="s1">         "token_ids": [101, 102, 103], "cache_salt": "user-a",</span>
 </span><span id="line-5"><span class="s1">         "tags": {"adapter_revision": "abc123"}}'</span>
 </span><span id="line-6"><span class="c1"># -&gt; {"request_id": "abc123", "chunks": 1, "status": "submitted"}</span>
+</span><span id="line-7">
+</span><span id="line-8"><span class="c1"># Keys form: warm one mid-prompt chunk.</span>
+</span><span id="line-9">curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/cache/prefetches<span class="w"> </span><span class="se">\</span>
+</span><span id="line-10"><span class="w">    </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="line-11"><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"keys": [{"chunk_hash_hex": "aa12...", "model_name": "Qwen/Qwen3-8B",</span>
+</span><span id="line-12"><span class="s1">                   "kv_rank": 16777472, "object_group_id": 0,</span>
+</span><span id="line-13"><span class="s1">                   "cache_salt": "user-a", "tags": {}}]}'</span>
+</span><span id="line-14"><span class="c1"># -&gt; {"request_id": "def456", "chunks": 1, "status": "submitted"}</span>
 </span></code></pre></div>
 </div>
 </section>
