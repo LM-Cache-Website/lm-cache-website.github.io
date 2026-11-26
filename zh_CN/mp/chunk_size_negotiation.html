@@ -7,9 +7,9 @@
 <meta content="white" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="black" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Chunk-Size Negotiation | LMCache</title>
-<meta content="Chunk-Size Negotiation | LMCache" property="og:title"/>
-<meta content="Chunk-Size Negotiation | LMCache" name="twitter:title"/>
+<title>Chunk-Size Resolution | LMCache</title>
+<meta content="Chunk-Size Resolution | LMCache" property="og:title"/>
+<meta content="Chunk-Size Resolution | LMCache" name="twitter:title"/>
 <link href="../_static/pygments.css?v=935426dd" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=42baaae4" rel="stylesheet" type="text/css"/>
 <link href="../_static/sphinx-design.min.css?v=6a604523" rel="stylesheet" type="text/css"/>
@@ -291,78 +291,82 @@
 </a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="../getting_started/index.html">入门指南</a>
 <div class="mr-1">/</div><a class="hover:text-foreground overflow-hidden text-ellipsis whitespace-nowrap" href="index.html">概述</a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Chunk-Size Negotiation</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Chunk-Size Resolution</span>
 </nav>
 <div id="content" role="main">
-<section id="chunk-size-negotiation">
-<h1>Chunk-Size Negotiation<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#chunk-size-negotiation"><span>#</span></a></h1>
-<p>The vLLM multiprocess connector negotiates a concrete LMCache chunk size at
+<section id="chunk-size-resolution">
+<h1>Chunk-Size Resolution<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#chunk-size-resolution"><span>#</span></a></h1>
+<p>The vLLM multiprocess connector resolves an effective LMCache chunk size at
 startup. This keeps chunk boundaries aligned with every vLLM KV cache group,
 including hybrid-attention, recurrent-state, and decode-context-parallel
-(DCP) layouts.</p>
-<section id="final-chunk-size">
-<h2>Final chunk size<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#final-chunk-size" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#final-chunk-size'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--chunk-size</span></code> is the minimum, not necessarily the final
-value. The connector computes the effective token span of every cacheable KV
-group, excluding scratch groups, and sends their least common multiple as the
-required alignment:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">required_alignment</span> <span class="o">=</span> <span class="n">lcm</span><span class="p">(</span><span class="n">group_tokens_per_block</span><span class="o">...</span><span class="p">)</span>
-</span><span id="line-2"><span class="n">final_chunk_size</span> <span class="o">=</span> <span class="n">smallest</span> <span class="n">multiple</span> <span class="n">of</span> <span class="n">required_alignment</span>
-</span><span id="line-3">                   <span class="n">that</span> <span class="ow">is</span> <span class="o">&gt;=</span> <span class="o">--</span><span class="n">chunk</span><span class="o">-</span><span class="n">size</span>
+(DCP) layouts, without changing the MP server's configured chunk size.</p>
+<section id="effective-chunk-size">
+<h2>Effective chunk size<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#effective-chunk-size" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#effective-chunk-size'"><span>#</span></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--chunk-size</span></code> is the server minimum. The optional connector
+setting <code class="docutils literal notranslate"><span class="pre">lmcache.mp.chunk_size</span></code> supplies a client minimum. The connector
+computes the effective token span of every cacheable KV group, excluding
+scratch groups, and uses their least common multiple as the required
+alignment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">base</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">server_minimum</span><span class="p">,</span> <span class="n">client_minimum</span><span class="p">)</span>
+</span><span id="line-2"><span class="n">effective_chunk_size</span> <span class="o">=</span> <span class="n">smallest</span> <span class="n">multiple</span> <span class="n">of</span> <span class="n">required_alignment</span>
+</span><span id="line-3">                       <span class="n">that</span> <span class="ow">is</span> <span class="o">&gt;=</span> <span class="n">base</span>
 </span></code></pre></div>
 </div>
+<p>When the client minimum is omitted, <code class="docutils literal notranslate"><span class="pre">base</span></code> is the server minimum.</p>
 <p>For attention groups under DCP, the effective span is
 <code class="docutils literal notranslate"><span class="pre">block_size</span> <span class="pre">*</span> <span class="pre">decode_context_parallel_size</span></code>. Recurrent-state groups use
 their physical block size because their state is replicated rather than DCP
 sharded.</p>
-<p>For example, with <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">256</span></code>:</p>
+<p>For example, with a server minimum of <code class="docutils literal notranslate"><span class="pre">256</span></code>:</p>
 <ul class="simple">
-<li><p>an alignment of 256 resolves to a final chunk size of 256;</p></li>
+<li><p>an alignment of 256 resolves to an effective chunk size of 256;</p></li>
 <li><p>an alignment of 544 resolves to 544;</p></li>
-<li><p>an alignment of 544 with <code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">600</span></code> resolves to 1088; and</p></li>
-<li><p>group spans 32 and 48 have an alignment of 96, so the final size is 288.</p></li>
+<li><p>an alignment of 544 and a client minimum of 600 resolve to 1088; and</p></li>
+<li><p>group spans 32 and 48 have an alignment of 96, so the effective size is 288.</p></li>
 </ul>
-<p>One MP server has one immutable final chunk size. After the first client
-selects it, another model can share that server only when the selected size is
-also a multiple of the new model's required alignment. Use separate MP
-servers for incompatible models. When a vLLM deployment uses multiple MP
-servers, every server must return the same final size.</p>
+<p>The effective size is registered for <code class="docutils literal notranslate"><span class="pre">(model_name,</span> <span class="pre">world_size)</span></code> together
+with its KV layout. Deployments of the same pair must use the same effective
+size while that registration is active. When a vLLM deployment uses multiple
+MP servers, every server must resolve the same effective size.</p>
 </section>
 <section id="initialization-flow">
 <h2>Initialization flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#initialization-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#initialization-flow'"><span>#</span></a></h2>
 <ol class="arabic simple">
 <li><p>vLLM resolves its KV cache groups. <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> computes the
 required alignment from their effective token spans.</p></li>
-<li><p>The scheduler adapter and each worker adapter send
-<code class="docutils literal notranslate"><span class="pre">NEGOTIATE_CHUNK_SIZE</span></code> before issuing normal cache operations.</p></li>
-<li><p>The MP server rounds its configured minimum up, then binds the resolved
-size to the token hasher, session manager, optional CacheBlend matcher,
-telemetry, and coordinator membership.</p></li>
-<li><p>The server returns the final size. The connector verifies that it is
-compatible with every cache group; a multi-server scheduler also verifies
-that all servers agree.</p></li>
-<li><p>Workers register their KV caches using the negotiated size.</p></li>
+<li><p>The scheduler adapter and each worker adapter call <code class="docutils literal notranslate"><span class="pre">GET_CHUNK_SIZE</span></code> to
+read the MP server minimum.</p></li>
+<li><p>Each adapter combines the server minimum, optional client minimum, and
+model alignment locally to obtain the effective size.</p></li>
+<li><p>The connector verifies that the result is compatible with every cache
+group; a multi-server scheduler also verifies that all servers agree.</p></li>
+<li><p>Workers register their KV caches and the effective size. The server keeps
+its configured minimum unchanged and stores the size with the registered
+layout.</p></li>
 </ol>
-<p>The MP server rejects a resize after sessions have started. It also does not
-report negotiation success until every chunk-size binding callback succeeds;
-a retry resumes at the first callback that did not complete.</p>
+<p>CacheBlend and Coordinator currently require one global chunk size. When
+either is enabled, registrations whose effective size differs from the MP
+server's configured <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> are rejected. An MP server also includes
+its configured size in <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/instances</span></code> so Coordinator can reject a fleet
+configuration mismatch.</p>
 </section>
 <section id="restart-recovery">
 <h2>Restart recovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#restart-recovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#restart-recovery'"><span>#</span></a></h2>
-<p>The scheduler and worker adapters keep the negotiated size in memory. Their
+<p>The scheduler and worker adapters keep the effective size in memory. Their
 heartbeat threads detect an unhealthy-to-healthy transition after an MP
 server restart and perform recovery before marking that server healthy:</p>
 <ol class="arabic simple">
-<li><p>Re-negotiate using the original required alignment.</p></li>
-<li><p>Verify that the recovered size exactly matches the adapter's cached size.</p></li>
+<li><p>Read the recovered server minimum and resolve the size again from the
+original client minimum and model alignment.</p></li>
+<li><p>Verify that it exactly matches the adapter's cached effective size.</p></li>
 <li><p>On workers, re-register the KV cache handles and any experimental
 dispatcher state.</p></li>
 </ol>
 <p>If any step fails, the server remains unhealthy from that adapter's point of
 view and normal cache operations stay in degraded mode. Recovery is attempted
 again after the next successful heartbeat. The heartbeat interval defaults to
-10 seconds and can be changed with
-<code class="docutils literal notranslate"><span class="pre">lmcache.mp.heartbeat_interval</span></code> in <code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>.</p>
+10 seconds and can be changed with <code class="docutils literal notranslate"><span class="pre">lmcache.mp.heartbeat_interval</span></code> in
+<code class="docutils literal notranslate"><span class="pre">kv_connector_extra_config</span></code>.</p>
 </section>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
@@ -385,7 +389,7 @@ again after the next successful heartbeat. The heartbeat interval defaults to
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#final-chunk-size'" class="reference internal" href="#final-chunk-size">Final chunk size</a></li>
+<li><a :data-current="activeSection === '#effective-chunk-size'" class="reference internal" href="#effective-chunk-size">Effective chunk size</a></li>
 <li><a :data-current="activeSection === '#initialization-flow'" class="reference internal" href="#initialization-flow">Initialization flow</a></li>
 <li><a :data-current="activeSection === '#restart-recovery'" class="reference internal" href="#restart-recovery">Restart recovery</a></li>
 </ul>

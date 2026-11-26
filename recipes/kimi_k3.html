@@ -335,7 +335,7 @@ include K3 support starting from <strong>0.5.3</strong>.</p>
 <p>As a Mamba / linear-attention hybrid, Kimi K3 needs the same settings as
 the other KDA / GDN hybrids: the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix
 caching, and object-group separation on the LMCache server (enabled by
-default). The chunk size is negotiated from vLLM’s <em>unified block size</em>
+default). The chunk size is resolved from vLLM’s <em>unified block size</em>
 <code class="docutils literal notranslate"><span class="pre">N</span></code> (see
 <a class="reference internal" href="../mp/hybrid_models.html#mamba-block-size"><span class="std std-ref">Unified block size and chunk size</span></a>). For Kimi K3 at <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">8</span></code>
 the unified block size is <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>:</p>
@@ -363,7 +363,7 @@ across TP ranks while the MLA cache is not), so after changing
 <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from vLLM’s
 <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> startup log line.</p>
 <p>Start the LMCache MP server with an explicitly compatible minimum
-(a lower minimum would negotiate to <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>):</p>
+(a lower minimum would resolve to <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">768</span></code>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">lmcache<span class="w"> </span>server<span class="w"> </span><span class="se">\</span>
 </span><span id="line-2"><span class="w">    </span>--port<span class="w"> </span><span class="m">6555</span><span class="w"> </span><span class="se">\</span>
 </span><span id="line-3"><span class="w">    </span>--chunk-size<span class="w"> </span><span class="m">768</span><span class="w"> </span><span class="se">\</span>
@@ -406,9 +406,9 @@ the recurrent state.</p></li>
 <li><p>Object-group separation must remain enabled on the server for hybrid
 Mamba / linear-attention models: it gives the KDA layers their own cache
 objects.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector negotiates the
+<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector resolves the
 smallest multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code> that is at least that value. See
-<a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a>.</p></li>
+<a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Resolution</span></a>.</p></li>
 <li><p>The server’s <code class="docutils literal notranslate"><span class="pre">--port</span> <span class="pre">6555</span></code> must match <code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code> in the
 connector config.</p></li>
 </ul>
@@ -439,7 +439,7 @@ under a 70-concurrency agentic trace with a 1.8 TB L1:</p>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">+rocm7.2</span></code> LMCache wheel loads on ROCm 10 (its native extensions
 link <code class="docutils literal notranslate"><span class="pre">libamdhip64.so.7</span></code>, which ROCm 10 still ships).</p></li>
 <li><p>With DCP 8 and fp8 KV the MLA group registers 12288 tokens per block;
-<code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">12288</span></code> works, and a lower minimum negotiates to 12288.</p></li>
+<code class="docutils literal notranslate"><span class="pre">--chunk-size</span> <span class="pre">12288</span></code> works, and a lower minimum resolves to 12288.</p></li>
 <li><p>Set <code class="docutils literal notranslate"><span class="pre">--l1-init-size-gb</span></code> equal to <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> for a terabyte-scale
 L1. With the default lazy expansion the server keeps pinning host
 memory while vLLM registers its KV caches, and the GPU mappings can

@@ -321,7 +321,7 @@ vLLM</label><div class="sd-tab-content docutils" id="sd-tab-item-0-content">
 <p>As a Mamba / linear-attention hybrid, Kimi-Linear needs the same
 settings as the other GDN hybrids: the <code class="docutils literal notranslate"><span class="pre">align</span></code> Mamba cache mode, prefix
 caching, and object-group separation on the LMCache server (enabled by
-default). The chunk size is negotiated from vLLM's <em>unified block size</em>
+default). The chunk size is resolved from vLLM's <em>unified block size</em>
 <code class="docutils literal notranslate"><span class="pre">N</span></code>, which is
 model- and parallelism-specific — vLLM logs
 <code class="docutils literal notranslate"><span class="pre">Setting</span> <span class="pre">attention</span> <span class="pre">block</span> <span class="pre">size</span> <span class="pre">to</span> <span class="pre">N</span> <span class="pre">tokens</span></code> at startup. Because the KDA
@@ -350,14 +350,14 @@ for your own configuration:</p>
 <div class="admonition note">
 <p class="admonition-title">备注</p>
 <p><code class="docutils literal notranslate"><span class="pre">N</span></code> <strong>scales inversely with the tensor-parallel size</strong> for this
-model, so changing <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> changes the negotiated
+model, so changing <code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span></code> changes the effective
 chunk size. The MLA cache is <em>replicated</em> across TP ranks (its per-rank
 size is fixed), while the KDA state is <em>sharded</em> (its per-rank size is
 divided by the TP degree). vLLM picks <code class="docutils literal notranslate"><span class="pre">N</span></code> so an attention page is at
 least as large as a KDA state page, so a smaller per-rank KDA state
 yields a smaller <code class="docutils literal notranslate"><span class="pre">N</span></code> — and vice versa. Concretely, going from
 <strong>TP=2 → TP=1</strong> doubles the per-rank KDA state, so <code class="docutils literal notranslate"><span class="pre">N</span></code> doubles from
-<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code> and the server negotiates a compatible chunk size.
+<code class="docutils literal notranslate"><span class="pre">944</span></code> to <code class="docutils literal notranslate"><span class="pre">1888</span></code> and the connector resolves a compatible chunk size.
 Always re-read <code class="docutils literal notranslate"><span class="pre">N</span></code> from the startup log after changing the TP degree
 — do not scale it by hand.</p>
 </div>
@@ -392,9 +392,9 @@ the recurrent state.</p></li>
 Mamba / linear-attention models: it gives the KDA layers their own
 cache objects so their recurrent state is stored and loaded
 independently of the MLA layers.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector negotiates the
+<li><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> (server) is a minimum. The connector resolves the
 smallest multiple of <code class="docutils literal notranslate"><span class="pre">N</span></code> that is at least that value. See
-<a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Negotiation</span></a>.</p></li>
+<a class="reference internal" href="../mp/chunk_size_negotiation.html"><span class="doc">Chunk-Size Resolution</span></a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--trust-remote-code</span></code> loads Kimi-Linear's custom modeling code.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--tensor-parallel-size</span> <span class="pre">2</span></code> shards the weights across two GPUs. Adjust
 it to your hardware — but note it changes <code class="docutils literal notranslate"><span class="pre">N</span></code> (see the note above).</p></li>
