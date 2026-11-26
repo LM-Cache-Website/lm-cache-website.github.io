@@ -429,10 +429,18 @@ Each type of tensor (KV, query intermediate) has its own context.</p>
 </section>
 <section id="writing-a-custom-edit-function">
 <h2><a class="toc-backref" href="#id5" role="doc-backlink">编写自定义编辑函数</a><a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#writing-a-custom-edit-function" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#writing-a-custom-edit-function'"><span>#</span></a></h2>
-<p>An edit function takes the Mapping[kind, retrieved tensor] and its token ids and returns the
-edited <code class="docutils literal notranslate"><span class="pre">(kv,</span> <span class="pre">tokens)</span></code>. <code class="docutils literal notranslate"><span class="pre">batch.modify(fn)</span></code> applies it for every requests. The
-function should be implemented as if it's only for single request, and the SDK
-will call it in parallel for every requests in the batch.</p>
+<p>An edit function takes a <code class="docutils literal notranslate"><span class="pre">TensorDict</span></code> (a dict of the retrieved tensor per
+cache kind) and its token ids and returns the edited <code class="docutils literal notranslate"><span class="pre">(kv,</span> <span class="pre">tokens)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">batch.modify(fn)</span></code> applies it for every requests. The function should be
+implemented as if it's only for single request, and the SDK will call it in
+parallel for every requests in the batch.</p>
+<p>The KV covers every cached token <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">T)</span></code>. Query tensors exist only for the
+tokens the latest <code class="docutils literal notranslate"><span class="pre">prefill</span></code> or <code class="docutils literal notranslate"><span class="pre">decode</span></code> computed: tokens loaded from the
+cache (for example the prefix kept by an earlier <code class="docutils literal notranslate"><span class="pre">modify</span></code>) have no query
+rows. So the query tensor covers <code class="docutils literal notranslate"><span class="pre">[segment_start_token_id,</span> <span class="pre">T)</span></code>, where
+<code class="docutils literal notranslate"><span class="pre">tensors.segment_start_token_id</span></code> is the chunk-aligned first token that pass
+computed. Query rows are captured across forward steps, so they include
+chunked-prefill and decoded tokens.</p>
 <p><code class="docutils literal notranslate"><span class="pre">modify</span></code> 仅在 <strong>块对齐</strong> 前缀上操作。尾部的部分块由 SDK 跟踪，并在下一个 <code class="docutils literal notranslate"><span class="pre">解码</span></code> 时重新发送，因此 <code class="docutils literal notranslate"><span class="pre">tokens</span></code> 已经被截断到缓存的长度。</p>
 </section>
 <section id="api-reference">
@@ -523,14 +531,19 @@ keeps the latest one per request stream in <code class="docutils literal notrans
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">context.ModifyFnType</span></code></p></td>
 <td><p>Type alias for the edit function you pass to <code class="docutils literal notranslate"><span class="pre">modify</span></code> / <code class="docutils literal notranslate"><span class="pre">modify_kv</span></code>:
-<code class="docutils literal notranslate"><span class="pre">Callable[[Mapping[LMCacheSDKCacheKind,</span> <span class="pre">torch.Tensor],</span> <span class="pre">Sequence[int]],</span>
+<code class="docutils literal notranslate"><span class="pre">Callable[[TensorDict,</span> <span class="pre">Sequence[int]],</span>
 <span class="pre">tuple[torch.Tensor,</span> <span class="pre">Sequence[int]]]</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.v1.common.metrics.Metrics</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">context.TensorDict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[LMCacheSDKCacheKind,</span> <span class="pre">torch.Tensor]</span></code> handed to the edit
+function, plus <code class="docutils literal notranslate"><span class="pre">segment_start_token_id</span></code>: the first token the latest
+generate pass computed, where the query tensor begins.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.v1.common.metrics.Metrics</span></code></p></td>
 <td><p>Aggregated report returned by <code class="docutils literal notranslate"><span class="pre">batch.prefill</span></code> / <code class="docutils literal notranslate"><span class="pre">modify</span></code> / <code class="docutils literal notranslate"><span class="pre">decode</span></code>
 (not an <code class="docutils literal notranslate"><span class="pre">lmcache.sdk</span></code> type). Emit it or convert it to a dict.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">context.LMCacheSDKError</span></code> / <code class="docutils literal notranslate"><span class="pre">request.LMCacheRequestStreamError</span></code> /
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">context.LMCacheSDKError</span></code> / <code class="docutils literal notranslate"><span class="pre">request.LMCacheRequestStreamError</span></code> /
 <code class="docutils literal notranslate"><span class="pre">batch.LMCacheBatchedStreamError</span></code></p></td>
 <td><p>Error types raised by the SDK, streams, and batches respectively.</p></td>
 </tr>
