@@ -296,24 +296,25 @@
 <div id="content" role="main">
 <section id="chunk-size-resolution">
 <h1>Chunk-Size Resolution<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#chunk-size-resolution"><span>#</span></a></h1>
-<p>The vLLM multiprocess connector resolves an effective LMCache chunk size at
-startup. This keeps chunk boundaries aligned with every vLLM KV cache group,
-including hybrid-attention, recurrent-state, and decode-context-parallel
-(DCP) layouts, without changing the MP server’s configured chunk size.</p>
+<p>Multiprocess connectors resolve an effective LMCache chunk size at startup.
+This keeps chunk boundaries aligned with each engine’s KV cache geometry
+without changing the MP server’s configured chunk size. vLLM, SGLang, ATOM,
+and TensorRT-LLM support this resolution.</p>
 <section id="effective-chunk-size">
 <h2>Effective chunk size<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#effective-chunk-size" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#effective-chunk-size'"><span>#</span></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--chunk-size</span></code> is the server minimum. The optional connector
-setting <code class="docutils literal notranslate"><span class="pre">lmcache.mp.chunk_size</span></code> supplies a client minimum. The connector
-computes the effective token span of every cacheable KV group, excluding
-scratch groups, and uses their least common multiple as the required
-alignment:</p>
+<p><code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span> <span class="pre">--chunk-size</span></code> is the server minimum. vLLM and SGLang can
+optionally set a client minimum through <code class="docutils literal notranslate"><span class="pre">lmcache.mp.chunk_size</span></code>. Every
+connector reads the server minimum, applies any supported client minimum, and
+rounds the result up to the engine’s required alignment:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="n">base</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">server_minimum</span><span class="p">,</span> <span class="n">client_minimum</span><span class="p">)</span>
 </span><span id="line-2"><span class="n">effective_chunk_size</span> <span class="o">=</span> <span class="n">smallest</span> <span class="n">multiple</span> <span class="n">of</span> <span class="n">required_alignment</span>
 </span><span id="line-3">                       <span class="n">that</span> <span class="ow">is</span> <span class="o">&gt;=</span> <span class="n">base</span>
 </span></code></pre></div>
 </div>
-<p>When the client minimum is omitted, <code class="docutils literal notranslate"><span class="pre">base</span></code> is the server minimum.</p>
-<p>For attention groups under DCP, the effective span is
+<p>When the client minimum is omitted, <code class="docutils literal notranslate"><span class="pre">base</span></code> is the server minimum. vLLM and
+SGLang use the least common multiple of their cacheable KV group spans as the
+required alignment. ATOM and TensorRT-LLM use their paged KV block size.</p>
+<p>For vLLM attention groups under DCP, the effective span is
 <code class="docutils literal notranslate"><span class="pre">block_size</span> <span class="pre">*</span> <span class="pre">decode_context_parallel_size</span></code>. Recurrent-state groups use
 their physical block size because their state is replicated rather than DCP
 sharded.</p>
@@ -332,8 +333,7 @@ MP servers, every server must resolve the same effective size.</p>
 <section id="initialization-flow">
 <h2>Initialization flow<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#initialization-flow" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#initialization-flow'"><span>#</span></a></h2>
 <ol class="arabic simple">
-<li><p>vLLM resolves its KV cache groups. <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code> computes the
-required alignment from their effective token spans.</p></li>
+<li><p>The connector computes the engine’s required alignment.</p></li>
 <li><p>The scheduler adapter and each worker adapter call <code class="docutils literal notranslate"><span class="pre">GET_CHUNK_SIZE</span></code> to
 read the MP server minimum.</p></li>
 <li><p>Each adapter combines the server minimum, optional client minimum, and
@@ -352,8 +352,8 @@ configuration mismatch.</p>
 </section>
 <section id="restart-recovery">
 <h2>Restart recovery<a @click.prevent="window.navigator.clipboard.writeText($el.href); $el.setAttribute('data-tooltip', 'Copied!'); setTimeout(() =&gt; $el.setAttribute('data-tooltip', 'Copy link to this element'), 2000)" aria-label="Copy link to this element" class="headerlink" data-tooltip="Copy link to this element" href="#restart-recovery" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#restart-recovery'"><span>#</span></a></h2>
-<p>The scheduler and worker adapters keep the effective size in memory. Their
-heartbeat threads detect an unhealthy-to-healthy transition after an MP
+<p>The vLLM scheduler and worker adapters keep the effective size in memory.
+Their heartbeat threads detect an unhealthy-to-healthy transition after an MP
 server restart and perform recovery before marking that server healthy:</p>
 <ol class="arabic simple">
 <li><p>Read the recovered server minimum and resolve the size again from the
