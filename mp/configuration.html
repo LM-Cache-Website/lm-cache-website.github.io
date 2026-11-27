@@ -418,9 +418,9 @@ minted at startup.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
-<td><p>Minimum chunk size for KV cache operations (in tokens). MP engine
-connectors may resolve a larger model-specific effective size to satisfy
-the engine’s KV geometry; see <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Chunk-Size Resolution</span></a>.</p></td>
+<td><p>Server minimum chunk size in tokens. MP connectors can resolve a larger
+size per model and world size. CacheBlend and Coordinator require an
+exact match with the configured value. See <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Multiple Chunk Sizes in MP Mode</span></a>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--null-block-id</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
@@ -690,7 +690,10 @@ by chunk. A client may instead send the hashes itself
 chunk in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">end)</span></code>, computed with the server’s own <code class="docutils literal notranslate"><span class="pre">TokenHasher</span></code> so the
 keys are byte-identical. The server then neither decodes nor hashes tokens.
 The ATOM adapters send them when built with <code class="docutils literal notranslate"><span class="pre">client_chunk_hashes=True</span></code>;
-other clients keep sending tokens. This key form has these requirements:</p>
+other clients keep sending tokens. Use the adapter’s
+<code class="docutils literal notranslate"><span class="pre">lmcache_tokens_per_chunk</span></code> when computing hashes for ATOM. See
+<a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Multiple Chunk Sizes in MP Mode</span></a> for how the adapter resolves this value.
+This key form has these requirements:</p>
 <ul class="simple">
 <li><p><strong>blake3 only.</strong> Client hashes are blake3. A server started with another
 <code class="docutils literal notranslate"><span class="pre">--hash-algorithm</span></code> rejects such keys.</p></li>
@@ -1414,7 +1417,7 @@ single attention group, the required alignment is
 least common multiple of every attention group’s DCP-scaled block span and
 every recurrent-state group’s unscaled physical block span. The connector
 treats the server’s <code class="docutils literal notranslate"><span class="pre">--chunk-size</span></code> as a minimum and rounds it up locally to
-the smallest compatible multiple; see <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Chunk-Size Resolution</span></a>.</p>
+the smallest compatible multiple; see <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Multiple Chunk Sizes in MP Mode</span></a>.</p>
 <p>The example model also needs a vLLM build that can run it under DCP:
 Kimi-Linear DCP support landed after v0.27.1 (vLLM commit <code class="docutils literal notranslate"><span class="pre">63ac04a61e</span></code>,
 PR #50484). On stock v0.27.1 the command below fails at startup with
@@ -1497,11 +1500,17 @@ from the in-process connector’s <code class="docutils literal notranslate"><sp
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.save_decode_cache</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.chunk_size</span></code></p></td>
+<td><p><em>(unset)</em></p></td>
+<td><p>Optional positive client minimum in tokens. The connector takes the
+larger of this value and the server minimum, then rounds it up to the
+model’s alignment. See <a class="reference internal" href="chunk_size_negotiation.html"><span class="doc">Multiple Chunk Sizes in MP Mode</span></a> for an example.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.save_decode_cache</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Cache generated tokens in addition to prompt tokens.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.save_unfull_chunk</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.save_unfull_chunk</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Also cache the trailing partial chunk of each prompt, covering the
 prompt up to where vLLM’s prefix cache could resume (a token count on
@@ -1521,7 +1530,7 @@ transfer mode; not supported with speculative decoding,
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code>, or compressed-attention models with a
 per-request ring (DeepSeek-V4.1, GLM-5.3, Qwen3.8-Flash-Next) yet.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>Multi-server deployment: list (or comma-separated string) of
 <code class="docutils literal notranslate"><span class="pre">&lt;transport&gt;://&lt;host&gt;:&lt;port&gt;</span></code> URLs, e.g.
@@ -1533,20 +1542,20 @@ connector. When set, takes precedence over <code class="docutils literal notrans
 number of servers, and each worker connects to its
 locally-assigned server.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.host</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">grpc://localhost</span></code></p></td>
 <td><p>Single-server deployment: request transport and host of the LMCache MP
 server. Use <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> for gRPC (default) or <code class="docutils literal notranslate"><span class="pre">tcp://</span></code> for ZMQ. A
 bare <code class="docutils literal notranslate"><span class="pre">localhost</span></code> / <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> is normalized to <code class="docutils literal notranslate"><span class="pre">grpc://</span></code> by the
 connector. Ignored when <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> is set.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.port</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5555</span></code></p></td>
 <td><p>Single-server deployment: port of the LMCache MP server. Must
 match the server’s <code class="docutils literal notranslate"><span class="pre">--port</span></code>. Ignored when
 <code class="docutils literal notranslate"><span class="pre">lmcache.mp.server_urls</span></code> is set.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.api_key_file</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.api_key_file</span></code></p></td>
 <td><p><em>(unset)</em></p></td>
 <td><p>File holding the API key this engine sends to the LMCache server. Use it
 when the server requires a key and the engine should not hold the fleet
@@ -1555,19 +1564,19 @@ from the key a caller presents. The file must hold exactly one non-empty
 line. When unset, the request clients keep their <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY</span></code> /
 <code class="docutils literal notranslate"><span class="pre">LMCACHE_API_KEY_FILE</span></code> fallback.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mq_timeout</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mq_timeout</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">300.0</span></code></p></td>
 <td><p>Timeout (seconds) for blocking message-queue requests, including
 the initial chunk-size query and KV cache
 registration/unregistration. If the server does not respond within
 this window, the connector raises <code class="docutils literal notranslate"><span class="pre">ConnectionError</span></code> on startup.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.heartbeat_interval</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.heartbeat_interval</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10.0</span></code></p></td>
 <td><p>Interval (seconds) between periodic heartbeat pings sent from the
 connector to the server.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.nonblocking_lookup_status</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.nonblocking_lookup_status</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>Poll lookup-status replies without blocking the scheduler by default.
 Set to <code class="docutils literal notranslate"><span class="pre">false</span></code> to wait for each status RPC reply in the current
@@ -1575,14 +1584,14 @@ callback, for example when long prefill steps delay observation of an
 already-ready reply. LOOKUP acknowledgement polling
 remains asynchronous. Available with the current <code class="docutils literal notranslate"><span class="pre">LMCacheMPConnector</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.eager_prefetch</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.eager_prefetch</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Submit the LMCache lookup when a request enters vLLM’s waiting queue,
 allowing L2-to-L1 KV staging to overlap with scheduler queue wait.
 Resumable requests are skipped because their token IDs may be incomplete
 at enqueue time.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Whether vLLM worker 0 should start a local <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> process
 before workers connect to it. Other local workers wait for the server to
@@ -1600,12 +1609,12 @@ Starting a server needs the full <code class="docutils literal notranslate"><spa
 of starting one when no server answers at the endpoint; a server that
 is already running there is still used.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.wait_timeout</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.wait_timeout</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">90.0</span></code></p></td>
 <td><p>Timeout (seconds) to wait for the auto-started server to respond to
 <code class="docutils literal notranslate"><span class="pre">PING</span></code> requests. Must be positive and finite.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.server_args</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.autostart.server_args</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">""</span></code></p></td>
 <td><p>Extra command-line arguments passed to the auto-started MP HTTP server
 process. Required server settings such as <code class="docutils literal notranslate"><span class="pre">--l1-size-gb</span></code> and
@@ -1617,7 +1626,7 @@ to the local connector endpoint and its transport. If multiple auto-started MP s
 distinct <code class="docutils literal notranslate"><span class="pre">--http-port</span></code> values here to avoid HTTP frontend port
 conflicts.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.mp_transfer_mode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">auto</span></code></p></td>
 <td><p>Routing mode for the worker -&gt; server transfer context. One of
 <code class="docutils literal notranslate"><span class="pre">auto</span></code> (CUDA -&gt; lmcache_driven, others -&gt; engine_driven),
@@ -1627,7 +1636,7 @@ LMCache server pulls data via device handles), or
 path). Overrides the <code class="docutils literal notranslate"><span class="pre">LMCACHE_MP_TRANSFER_MODE</span></code> env var when
 set.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.isolated_ipc</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Assume the vLLM workers and the LMCache server run in containers
 that share no host IPC namespace (<code class="docutils literal notranslate"><span class="pre">hostIPC</span></code>) and no common
@@ -1638,7 +1647,7 @@ handles. Set it together with the
 server’s <code class="docutils literal notranslate"><span class="pre">--isolated-ipc</span></code> flag – a mismatch fails at event
 import on whichever side receives the foreign handle.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.use_vmm_api</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.use_vmm_api</span></code></p></td>
 <td><p>auto-detected</p></td>
 <td><p>Selects VMM IPC when the engine allocates its KV cache through the
 CUDA VMM API. LMCache detects vLLM’s <code class="docutils literal notranslate"><span class="pre">--enable-cumem-allocator</span></code> and
@@ -1663,32 +1672,32 @@ LMCache (<code class="docutils literal notranslate"><span class="pre">kv_connect
 mapping of the KV cache before vLLM releases the memory, and maps
 the new memory on wake-up.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Buffer stores on the scheduler and submit them according to the
 selected lazy-offload policy. Requires vLLM prefix caching. See
 <a class="reference internal" href="lazy_offload.html"><span class="doc">Lazy KV Cache Offload</span></a> for behavior, limitations, and tuning guidance.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_policy</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code></p></td>
 <td><p>Lazy drain policy. <code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> drains blocks near the GPU free
 queue’s eviction head. Set <code class="docutils literal notranslate"><span class="pre">FIFO</span></code> explicitly to keep the
 count-triggered behavior.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_horizon_steps</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_horizon_steps</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">2.5</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: estimated scheduler steps of block
 consumption treated as imminent eviction. Must be greater than zero.
 Larger values store earlier and reduce eviction losses, but may store
 GPU-resident hot content and increase lower-tier eviction pressure.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_drain_per_step</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_drain_per_step</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">64</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: maximum store operations emitted per
 scheduler step. A value below the concurrent prefill admission rate
 can lose buffered operations to eviction.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_deferral_seconds</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_max_deferral_seconds</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">EVICTION_AWARE</span></code> only: how long a buffered operation may wait before
 it is emitted regardless of eviction pressure. Not a hard bound: no
@@ -1698,12 +1707,12 @@ in <code class="docutils literal notranslate"><span class="pre">max_drain_per_st
 entirely to the danger window. Set it below the reuse interval the
 workload has to beat.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_threshold</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: number of finished buffered requests that triggers a
 drain.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lmcache.mp.lazy_offload_select_count</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">FIFO</span></code> only: maximum finished requests emitted by one drain.</p></td>
 </tr>
@@ -1830,7 +1839,7 @@ configuration knob for enabling a native profile in this PR.</p>
 nonempty opaque identity and a positive engine event block size. Before any
 context, layout or liveness state changes, the server validates:</p>
 <ul class="simple">
-<li><p>positive world size and a block size that divides the server chunk size;</p></li>
+<li><p>positive world size and a block size that divides the effective chunk size;</p></li>
 <li><p>one full-attention engine block address space with the declared block size;</p></li>
 <li><p>agreement across active registrations for the same model and world size,
 including whether a profile is present;</p></li>
