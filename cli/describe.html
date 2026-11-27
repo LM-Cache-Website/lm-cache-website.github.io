@@ -319,31 +319,38 @@ context window, health, in-flight requests).</p></li>
 </span><span id="line-8">Eviction policy:                               LRU
 </span><span id="line-9">Cached objects:                               1024
 </span><span id="line-10">Active sessions:                                 3
-</span><span id="line-11">---- Model: meta-llama/Llama-3.1-70B-Instruct ----
-</span><span id="line-12">Model:           meta-llama/Llama-3.1-70B-Instruct
-</span><span id="line-13">World size:                                      4
-</span><span id="line-14">GPU IDs:                                0, 1, 2, 3
-</span><span id="line-15">Num layers:                                     80
-</span><span id="line-16">Num blocks:                                   2048
-</span><span id="line-17">Cache size per token (bytes):               327680
-</span><span id="line-18">--- Kernel group 0 (meta-llama/Llama-3.1-70B-Instruct) ---
-</span><span id="line-19">Kernel group index:                              0
-</span><span id="line-20">Engine group index:                              0
-</span><span id="line-21">Object group index:                              0
+</span><span id="line-11">-------- Cache hits (since server start) ---------
+</span><span id="line-12">Lookup requested (tokens):                    1024
+</span><span id="line-13">Lookup hits (tokens):                          768
+</span><span id="line-14">Lookup hit rate (%):                         75.00
+</span><span id="line-15">L1 hits (tokens):                              512
+</span><span id="line-16">L2 hits (tokens):                              256
+</span><span id="line-17">Request hit rate (%):                        77.70
+</span><span id="line-18">---- Model: meta-llama/Llama-3.1-70B-Instruct ----
+</span><span id="line-19">Model:           meta-llama/Llama-3.1-70B-Instruct
+</span><span id="line-20">World size:                                      4
+</span><span id="line-21">GPU IDs:                                0, 1, 2, 3
 </span><span id="line-22">Num layers:                                     80
-</span><span id="line-23">Slots per block:                               128
-</span><span id="line-24">Dtype:                               torch.float16
-</span><span id="line-25">MLA:                                         False
-</span><span id="line-26">Attention backend:    vLLM non-MLA flash attention
-</span><span id="line-27">Engine KV shape:          NL x [2, NB, BS, NH, HS]
-</span><span id="line-28">Engine KV tensor shape: 80 x [2, 2048, 128, 8, 128]
-</span><span id="line-29">------------- L2: NixlStoreL2Adapter -------------
-</span><span id="line-30">Type:                           NixlStoreL2Adapter
-</span><span id="line-31">Health:                                         OK
-</span><span id="line-32">Backend:                                 nixl_rdma
-</span><span id="line-33">Stored objects:                                512
-</span><span id="line-34">Pool used:                       480 / 512 (93.8%)
-</span><span id="line-35">==================================================
+</span><span id="line-23">Num blocks:                                   2048
+</span><span id="line-24">Cache size per token (bytes):               327680
+</span><span id="line-25">--- Kernel group 0 (meta-llama/Llama-3.1-70B-Instruct) ---
+</span><span id="line-26">Kernel group index:                              0
+</span><span id="line-27">Engine group index:                              0
+</span><span id="line-28">Object group index:                              0
+</span><span id="line-29">Num layers:                                     80
+</span><span id="line-30">Slots per block:                               128
+</span><span id="line-31">Dtype:                               torch.float16
+</span><span id="line-32">MLA:                                         False
+</span><span id="line-33">Attention backend:    vLLM non-MLA flash attention
+</span><span id="line-34">Engine KV shape:          NL x [2, NB, BS, NH, HS]
+</span><span id="line-35">Engine KV tensor shape: 80 x [2, 2048, 128, 8, 128]
+</span><span id="line-36">------------- L2: NixlStoreL2Adapter -------------
+</span><span id="line-37">Type:                           NixlStoreL2Adapter
+</span><span id="line-38">Health:                                         OK
+</span><span id="line-39">Backend:                                 nixl_rdma
+</span><span id="line-40">Stored objects:                                512
+</span><span id="line-41">Pool used:                       480 / 512 (93.8%)
+</span><span id="line-42">==================================================
 </span></code></pre></div>
 </div>
 <p>The output shows:</p>
@@ -376,6 +383,13 @@ each L1 gets its own section:</p>
 </div>
 <p>In <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> output, these sections form the <code class="docutils literal notranslate"><span class="pre">l1_managers</span></code> list.</p>
 </li>
+<li><p><strong>Cache hits</strong> — lookup hit counts and rates since the server started, read
+from the server’s <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> and summed over all models and cache salts.
+<em>Lookup hit rate</em> counts the chunk-aligned tokens LMCache can serve, and
+<em>L1 hits</em> + <em>L2 hits</em> = <em>Lookup hits</em>. <em>Request hit rate</em> divides by the
+whole prompt and includes the engine’s own prefix-cache hits. Rows show
+<code class="docutils literal notranslate"><span class="pre">N/A</span></code> if <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> is unavailable, and a rate shows <code class="docutils literal notranslate"><span class="pre">N/A</span></code> before the
+first lookup. In <code class="docutils literal notranslate"><span class="pre">--format</span> <span class="pre">json</span></code> output, this is the <code class="docutils literal notranslate"><span class="pre">cache_hits</span></code> object.</p></li>
 <li><p><strong>Registered models</strong> — per-model KV cache layout: a context-wide summary
 followed by one kernel group section per kernel group, each with the engine
 KV tensor shape (symbolic and concrete), attention backend, and group geometry.</p></li>
@@ -475,42 +489,50 @@ L2 adapters are collected into lists for easy programmatic access:</p>
 </span><span id="line-10"><span class="w">    </span><span class="nt">"eviction_policy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LRU"</span><span class="p">,</span>
 </span><span id="line-11"><span class="w">    </span><span class="nt">"cached_objects"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
 </span><span id="line-12"><span class="w">    </span><span class="nt">"active_sessions"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-</span><span id="line-13"><span class="w">    </span><span class="nt">"models"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-14"><span class="w">      </span><span class="p">{</span>
-</span><span id="line-15"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
-</span><span id="line-16"><span class="w">        </span><span class="nt">"world_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-</span><span id="line-17"><span class="w">        </span><span class="nt">"gpu_ids"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0, 1, 2, 3"</span><span class="p">,</span>
-</span><span id="line-18"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
-</span><span id="line-19"><span class="w">        </span><span class="nt">"num_blocks"</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span>
-</span><span id="line-20"><span class="w">        </span><span class="nt">"cache_size_per_token"</span><span class="p">:</span><span class="w"> </span><span class="mi">327680</span>
-</span><span id="line-21"><span class="w">      </span><span class="p">}</span>
-</span><span id="line-22"><span class="w">    </span><span class="p">],</span>
-</span><span id="line-23"><span class="w">    </span><span class="nt">"kernel_groups"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-24"><span class="w">      </span><span class="p">{</span>
-</span><span id="line-25"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
-</span><span id="line-26"><span class="w">        </span><span class="nt">"kernel_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-</span><span id="line-27"><span class="w">        </span><span class="nt">"engine_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-</span><span id="line-28"><span class="w">        </span><span class="nt">"object_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-</span><span id="line-29"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
-</span><span id="line-30"><span class="w">        </span><span class="nt">"slots_per_block"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
-</span><span id="line-31"><span class="w">        </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"torch.float16"</span><span class="p">,</span>
-</span><span id="line-32"><span class="w">        </span><span class="nt">"is_mla"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span id="line-33"><span class="w">        </span><span class="nt">"attention_backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vLLM non-MLA flash attention"</span><span class="p">,</span>
-</span><span id="line-34"><span class="w">        </span><span class="nt">"engine_kv_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NL x [2, NB, BS, NH, HS]"</span><span class="p">,</span>
-</span><span id="line-35"><span class="w">        </span><span class="nt">"engine_kv_concrete_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"80 x [2, 2048, 128, 8, 128]"</span>
-</span><span id="line-36"><span class="w">      </span><span class="p">}</span>
-</span><span id="line-37"><span class="w">    </span><span class="p">],</span>
-</span><span id="line-38"><span class="w">    </span><span class="nt">"l2_adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="line-39"><span class="w">      </span><span class="p">{</span>
-</span><span id="line-40"><span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NixlStoreL2Adapter"</span><span class="p">,</span>
-</span><span id="line-41"><span class="w">        </span><span class="nt">"health"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OK"</span><span class="p">,</span>
-</span><span id="line-42"><span class="w">        </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nixl_rdma"</span><span class="p">,</span>
-</span><span id="line-43"><span class="w">        </span><span class="nt">"stored_object_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
-</span><span id="line-44"><span class="w">        </span><span class="nt">"pool_used"</span><span class="p">:</span><span class="w"> </span><span class="s2">"480 / 512 (93.8%)"</span>
-</span><span id="line-45"><span class="w">      </span><span class="p">}</span>
-</span><span id="line-46"><span class="w">    </span><span class="p">]</span>
-</span><span id="line-47"><span class="w">  </span><span class="p">}</span>
-</span><span id="line-48"><span class="p">}</span>
+</span><span id="line-13"><span class="w">    </span><span class="nt">"cache_hits"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="line-14"><span class="w">      </span><span class="nt">"lookup_requested_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+</span><span id="line-15"><span class="w">      </span><span class="nt">"lookup_hit_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">,</span>
+</span><span id="line-16"><span class="w">      </span><span class="nt">"lookup_hit_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">75.0</span><span class="p">,</span>
+</span><span id="line-17"><span class="w">      </span><span class="nt">"l1_hit_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
+</span><span id="line-18"><span class="w">      </span><span class="nt">"l2_hit_tokens"</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span>
+</span><span id="line-19"><span class="w">      </span><span class="nt">"request_hit_rate"</span><span class="p">:</span><span class="w"> </span><span class="mf">77.7</span>
+</span><span id="line-20"><span class="w">    </span><span class="p">},</span>
+</span><span id="line-21"><span class="w">    </span><span class="nt">"models"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-22"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-23"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
+</span><span id="line-24"><span class="w">        </span><span class="nt">"world_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span id="line-25"><span class="w">        </span><span class="nt">"gpu_ids"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0, 1, 2, 3"</span><span class="p">,</span>
+</span><span id="line-26"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
+</span><span id="line-27"><span class="w">        </span><span class="nt">"num_blocks"</span><span class="p">:</span><span class="w"> </span><span class="mi">2048</span><span class="p">,</span>
+</span><span id="line-28"><span class="w">        </span><span class="nt">"cache_size_per_token"</span><span class="p">:</span><span class="w"> </span><span class="mi">327680</span>
+</span><span id="line-29"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-30"><span class="w">    </span><span class="p">],</span>
+</span><span id="line-31"><span class="w">    </span><span class="nt">"kernel_groups"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-32"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-33"><span class="w">        </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"meta-llama/Llama-3.1-70B-Instruct"</span><span class="p">,</span>
+</span><span id="line-34"><span class="w">        </span><span class="nt">"kernel_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-35"><span class="w">        </span><span class="nt">"engine_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-36"><span class="w">        </span><span class="nt">"object_group_idx"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="line-37"><span class="w">        </span><span class="nt">"num_layers"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
+</span><span id="line-38"><span class="w">        </span><span class="nt">"slots_per_block"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+</span><span id="line-39"><span class="w">        </span><span class="nt">"dtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"torch.float16"</span><span class="p">,</span>
+</span><span id="line-40"><span class="w">        </span><span class="nt">"is_mla"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="line-41"><span class="w">        </span><span class="nt">"attention_backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vLLM non-MLA flash attention"</span><span class="p">,</span>
+</span><span id="line-42"><span class="w">        </span><span class="nt">"engine_kv_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NL x [2, NB, BS, NH, HS]"</span><span class="p">,</span>
+</span><span id="line-43"><span class="w">        </span><span class="nt">"engine_kv_concrete_shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"80 x [2, 2048, 128, 8, 128]"</span>
+</span><span id="line-44"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-45"><span class="w">    </span><span class="p">],</span>
+</span><span id="line-46"><span class="w">    </span><span class="nt">"l2_adapters"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="line-47"><span class="w">      </span><span class="p">{</span>
+</span><span id="line-48"><span class="w">        </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NixlStoreL2Adapter"</span><span class="p">,</span>
+</span><span id="line-49"><span class="w">        </span><span class="nt">"health"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OK"</span><span class="p">,</span>
+</span><span id="line-50"><span class="w">        </span><span class="nt">"backend"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nixl_rdma"</span><span class="p">,</span>
+</span><span id="line-51"><span class="w">        </span><span class="nt">"stored_object_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
+</span><span id="line-52"><span class="w">        </span><span class="nt">"pool_used"</span><span class="p">:</span><span class="w"> </span><span class="s2">"480 / 512 (93.8%)"</span>
+</span><span id="line-53"><span class="w">      </span><span class="p">}</span>
+</span><span id="line-54"><span class="w">    </span><span class="p">]</span>
+</span><span id="line-55"><span class="w">  </span><span class="p">}</span>
+</span><span id="line-56"><span class="p">}</span>
 </span></code></pre></div>
 </div>
 </section>
