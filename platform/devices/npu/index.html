@@ -100,7 +100,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../mlu/index.html">Cambricon MLU Backend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../musa/index.html">musa-aiter with LMCache on MUSA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../neuron/index.html">Neuron</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Ascend NPU</a></li>
+<li class="toctree-l2 current" x-data="{ expanded: $el.classList.contains('current') ? true : false }"><a :class="{ 'expanded' : expanded }" @click="expanded = !expanded" class="current reference internal expandable" href="#">Ascend NPU<button @click.prevent.stop="expanded = !expanded" type="button"><span class="sr-only"></span><svg fill="currentColor" height="18px" stroke="none" viewbox="0 0 24 24" width="18px" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button></a><ul x-show="expanded">
+<li class="toctree-l3"><a class="reference internal" href="mp_mode.html">MP Mode on Ascend NPU</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmcache_driven.html">LMCache-Driven Mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine_driven.html">Engine-Driven Mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hybrid_mamba.html">Hybrid Mamba Models (Qwen3.5 / Qwen3.6 / Qwen3.8)</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../rbln/index.html">Rebellions NPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rocm/index.html">ROCm</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../supa/index.html">SUPA</a></li>
@@ -334,15 +340,24 @@ for base environment preparation.</p></li>
 environment:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1">git<span class="w"> </span>clone<span class="w"> </span>https://github.com/LMCache/LMCache.git
 </span><span id="line-2"><span class="nb">cd</span><span class="w"> </span>LMCache
-</span><span id="line-3">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
-</span><span id="line-4"><span class="nb">cd</span><span class="w"> </span>..
-</span><span id="line-5">
-</span><span id="line-6">git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span><span class="se">\</span>
-</span><span id="line-7"><span class="w">    </span>https://github.com/LMCache/LMCache-Ascend.git
-</span><span id="line-8"><span class="nb">cd</span><span class="w"> </span>LMCache-Ascend
-</span><span id="line-9">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span><span id="line-3">pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements/build.txt
+</span><span id="line-4"><span class="nv">TORCH_DEVICE_BACKEND_AUTOLOAD</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</span><span id="line-5"><span class="nb">cd</span><span class="w"> </span>..
+</span><span id="line-6">
+</span><span id="line-7">git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span><span class="se">\</span>
+</span><span id="line-8"><span class="w">    </span>https://github.com/LMCache/LMCache-Ascend.git
+</span><span id="line-9"><span class="nb">cd</span><span class="w"> </span>LMCache-Ascend
+</span><span id="line-10">pip<span class="w"> </span>install<span class="w"> </span>-v<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">--no-build-isolation</span></code> builds inside the current environment, so the LMCache
+step needs <code class="docutils literal notranslate"><span class="pre">requirements/build.txt</span></code> installed first: its <code class="docutils literal notranslate"><span class="pre">grpcio-tools</span></code>
+generates the gRPC bindings that <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> needs, and an editable
+build only warns when it has to skip them, leaving <code class="docutils literal notranslate"><span class="pre">lmcache</span> <span class="pre">server</span></code> unable
+to load its runtime. <code class="docutils literal notranslate"><span class="pre">TORCH_DEVICE_BACKEND_AUTOLOAD=0</span></code> keeps <code class="docutils literal notranslate"><span class="pre">torch_npu</span></code>
+out of the build: <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> imports torch to detect the device, and with
+the CANN runtime loaded the protoc embedded in <code class="docutils literal notranslate"><span class="pre">grpcio-tools</span></code> crashes
+inside <code class="docutils literal notranslate"><span class="pre">build_py</span></code>.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">third_party/hcomm</span></code> submodule must match the container’s CANN version.
 Check the installed CANN version, switch the submodule to the matching tag
 from <a class="reference external" href="https://gitcode.com/cann/hcomm">the hcomm repository</a>, then build:</p>
